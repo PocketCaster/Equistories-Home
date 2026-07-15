@@ -14,7 +14,7 @@
   body{ margin:0; background:var(--bg); color:var(--text); font-family:Georgia,'Palatino Linotype',serif; line-height:1.6; }
   a{ color:var(--accent); }
   header{ border-bottom:1px solid var(--line); background:linear-gradient(180deg,#2c1f16,#1b1410); }
-  .wrap{ max-width:1100px; margin:0 auto; padding:0 16px; }
+  .wrap{ max-width:min(1700px, 94vw); margin:0 auto; padding:0 clamp(16px,2vw,32px); }
   h1{ margin:0; font-size:clamp(1.6rem,4vw,2.4rem); color:var(--accent); letter-spacing:.5px; }
   .tagline{ color:var(--dim); margin:4px 0 0; }
   nav{ display:flex; gap:4px; flex-wrap:wrap; margin-top:14px; }
@@ -214,27 +214,31 @@ async function renderHome(v){
 
   $("lbHorses").innerHTML = rankedHorses.length
     ? rankedHorses.slice(0,10).map((h,i)=>`
-        <div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid #2a2018;">
-          <span style="width:22px;text-align:right;color:${i<3?'var(--accent)':'var(--dim)'};font-weight:${i<3?'bold':'normal'};">${i+1}</span>
-          ${imgOk(h.profileImage)?`<img src="${__esc(h.profileImage)}" style="width:40px;height:40px;border-radius:5px;object-fit:cover;" />`:''}
+        <div style="display:flex;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid #2a2018;">
+          <span style="width:28px;text-align:right;font-size:1.15em;color:${i<3?'var(--accent)':'var(--dim)'};font-weight:${i<3?'bold':'normal'};">${i+1}</span>
+          ${imgOk(h.profileImage)
+            ? `<img src="${__esc(h.profileImage)}" referrerpolicy="no-referrer" style="width:68px;height:68px;border-radius:6px;object-fit:cover;border:1px solid var(--line);" />`
+            : `<div style="width:68px;height:68px;border-radius:6px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;background:var(--deep);">&#128014;</div>`}
           <span style="flex:1;min-width:0;">
             <a href="${__APPS.stable}?horse=${encodeURIComponent(h.id)}"><b>${__esc(h.name||'Unnamed')}</b></a>
             <span class="small muted"> · ${__esc(h.breed||'')} · Lvl ${h.level||1} · ${__esc(h.__owner||'')}</span>
           </span>
-          <b style="color:var(--accent);">${h.total}</b>
+          <b style="color:var(--accent);font-size:1.15em;white-space:nowrap;">${h.total}</b>
         </div>`).join("")
     : '<span class="muted">No horses have trained stats yet.</span>';
 
   $("lbRiders").innerHTML = rankedRiders.length
     ? rankedRiders.slice(0,10).map((r,i)=>`
-        <div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid #2a2018;">
-          <span style="width:22px;text-align:right;color:${i<3?'var(--accent2)':'var(--dim)'};font-weight:${i<3?'bold':'normal'};">${i+1}</span>
-          ${imgOk(r.image)?`<img src="${__esc(r.image)}" style="width:40px;height:40px;border-radius:5px;object-fit:cover;" />`:''}
+        <div style="display:flex;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid #2a2018;">
+          <span style="width:28px;text-align:right;font-size:1.15em;color:${i<3?'var(--accent2)':'var(--dim)'};font-weight:${i<3?'bold':'normal'};">${i+1}</span>
+          ${imgOk(r.image)
+            ? `<img src="${__esc(r.image)}" referrerpolicy="no-referrer" style="width:68px;height:68px;border-radius:6px;object-fit:cover;border:1px solid #6a4a8a;" />`
+            : `<div style="width:68px;height:68px;border-radius:6px;border:1px solid #6a4a8a;display:flex;align-items:center;justify-content:center;background:var(--deep);">&#129485;</div>`}
           <span style="flex:1;min-width:0;">
             <a href="${__APPS.stable}?rider=${encodeURIComponent(r.id)}"><b>${__esc(r.name||'Unnamed')}</b></a>
             <span class="small muted"> · ${__esc(r.__owner||'')}</span>
           </span>
-          <b style="color:var(--accent2);">${r.pp} PP</b>
+          <b style="color:var(--accent2);font-size:1.15em;white-space:nowrap;">${r.pp} PP</b>
         </div>`).join("")
     : '<span class="muted">No rider Prestige logged yet.</span>';
 
@@ -281,8 +285,9 @@ function renderSpotlight(h, profiles){
           ${h.barnName?`<div class="small muted">"${__esc(h.barnName)}"</div>`:''}
           <div class="small">${__esc(h.breed||'')}${h.height?` · ${__esc(h.height)}`:''} · Level ${h.level||1}${h.discipline?` · ${__esc(h.discipline)}`:''}</div>
           <div style="margin:8px 0;"><span class="tag" style="background:#3a2a10;color:#e8c86a;border-color:var(--accent);font-size:1rem;">${h.total} total stats</span></div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:3px;">
-            ${STATS.map(k=>`<span class="small">${STAT_LABELS[k]} <b style="color:var(--accent);">${(h.stats&&h.stats[k])||0}</b></span>`).join("")}
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 14px;margin-top:6px;">
+            ${STATS.map(k=>`<span class="small" style="display:flex;justify-content:space-between;gap:8px;white-space:nowrap;padding:2px 8px;background:var(--deep);border-radius:5px;">
+               <span>${STAT_LABELS[k]}</span><b style="color:var(--accent);">${(h.stats&&h.stats[k])||0}</b></span>`).join("")}
           </div>
           <div class="small" style="margin-top:8px;">Owned &amp; drawn by
             <a href="${__APPS.stable}?player=${encodeURIComponent(owner)}"><b>${__esc(ownerName)}</b></a></div>
