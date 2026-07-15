@@ -217,8 +217,8 @@ async function renderHome(v){
         <div style="display:flex;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid #2a2018;">
           <span style="width:28px;text-align:right;font-size:1.15em;color:${i<3?'var(--accent)':'var(--dim)'};font-weight:${i<3?'bold':'normal'};">${i+1}</span>
           ${imgOk(h.profileImage)
-            ? `<img src="${__esc(h.profileImage)}" referrerpolicy="no-referrer" style="width:68px;height:68px;border-radius:6px;object-fit:cover;border:1px solid var(--line);" />`
-            : `<div style="width:68px;height:68px;border-radius:6px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;background:var(--deep);">&#128014;</div>`}
+            ? `<img src="${__esc(h.profileImage)}" referrerpolicy="no-referrer" style="width:84px;height:84px;border-radius:6px;object-fit:cover;border:1px solid var(--line);" />`
+            : `<div style="width:84px;height:84px;border-radius:6px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;background:var(--deep);">&#128014;</div>`}
           <span style="flex:1;min-width:0;">
             <a href="${__APPS.stable}?horse=${encodeURIComponent(h.id)}"><b>${__esc(h.name||'Unnamed')}</b></a>
             <span class="small muted"> · ${__esc(h.breed||'')} · Lvl ${h.level||1} · ${__esc(h.__owner||'')}</span>
@@ -232,8 +232,8 @@ async function renderHome(v){
         <div style="display:flex;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid #2a2018;">
           <span style="width:28px;text-align:right;font-size:1.15em;color:${i<3?'var(--accent2)':'var(--dim)'};font-weight:${i<3?'bold':'normal'};">${i+1}</span>
           ${imgOk(r.image)
-            ? `<img src="${__esc(r.image)}" referrerpolicy="no-referrer" style="width:68px;height:68px;border-radius:6px;object-fit:cover;border:1px solid #6a4a8a;" />`
-            : `<div style="width:68px;height:68px;border-radius:6px;border:1px solid #6a4a8a;display:flex;align-items:center;justify-content:center;background:var(--deep);">&#129485;</div>`}
+            ? `<img src="${__esc(r.image)}" referrerpolicy="no-referrer" style="width:84px;height:84px;border-radius:6px;object-fit:cover;border:1px solid #6a4a8a;" />`
+            : `<div style="width:84px;height:84px;border-radius:6px;border:1px solid #6a4a8a;display:flex;align-items:center;justify-content:center;background:var(--deep);">&#129485;</div>`}
           <span style="flex:1;min-width:0;">
             <a href="${__APPS.stable}?rider=${encodeURIComponent(r.id)}"><b>${__esc(r.name||'Unnamed')}</b></a>
             <span class="small muted"> · ${__esc(r.__owner||'')}</span>
