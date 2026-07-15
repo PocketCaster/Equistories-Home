@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EquiStories — Community Hub</title>
+<style>
+  :root{ --bg:#1b1410; --panel:#241a14; --line:#4a392a; --text:#f1e6d8; --dim:#b5a392;
+         --accent:#c98a3a; --accent2:#c9a8e8; --good:#7a9b6e; --bad:#c96a3a; --deep:#15100c; }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--bg); color:var(--text); font-family:Georgia,'Palatino Linotype',serif; line-height:1.6; }
+  a{ color:var(--accent); }
+  header{ border-bottom:1px solid var(--line); background:linear-gradient(180deg,#2c1f16,#1b1410); }
+  .wrap{ max-width:1100px; margin:0 auto; padding:0 16px; }
+  h1{ margin:0; font-size:clamp(1.6rem,4vw,2.4rem); color:var(--accent); letter-spacing:.5px; }
+  .tagline{ color:var(--dim); margin:4px 0 0; }
+  nav{ display:flex; gap:4px; flex-wrap:wrap; margin-top:14px; }
+  .tab{ padding:8px 16px; border:1px solid var(--line); border-bottom:none;
+        border-radius:8px 8px 0 0; cursor:pointer; background:#1e1610; color:var(--dim); }
+  .tab.active{ background:var(--panel); color:var(--accent); font-weight:bold; }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px; margin:16px 0; }
+  .card h2{ margin:0 0 10px; color:var(--accent); font-size:1.3rem; }
+  .card h3{ margin:0 0 8px; color:var(--accent); font-size:1.1rem; }
+  .grid{ display:grid; gap:12px; }
+  .small{ font-size:.92rem; color:var(--dim); }
+  .tag{ display:inline-block; font-size:.85rem; padding:3px 9px; border-radius:10px;
+        background:var(--deep); color:var(--dim); border:1px solid var(--line); }
+  button{ background:var(--accent); color:#241a14; border:none; padding:8px 16px; border-radius:6px;
+          font-weight:bold; cursor:pointer; font-family:inherit; font-size:.98rem; }
+  button.ghost{ background:#2c2118; color:var(--text); border:1px solid var(--line); }
+  input, textarea, select{ width:100%; padding:8px; background:var(--deep); border:1px solid var(--line);
+          color:var(--text); border-radius:5px; font-family:inherit; }
+  label{ font-size:.85rem; color:var(--dim); text-transform:uppercase; display:block; margin-top:8px; }
+  .muted{ opacity:.7; }
+  .hide{ display:none !important; }
+  .linkbox{ display:block; background:var(--deep); border:1px solid var(--line); border-radius:8px;
+            padding:14px; text-decoration:none; color:var(--text); transition:border-color .15s; }
+  .linkbox:hover{ border-color:var(--accent); }
+  .linkbox b{ color:var(--accent); display:block; font-size:1.05rem; }
+</style>
+</head>
+<body>
+
+<script>
+window.__equiDBReady = new Promise(r => { window.__equiDBResolve = r; });
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, orderBy, limit }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAJfBnY0sDc6W_yzzrpm8NKkNZv1cu7jMU",
+  authDomain: "equistories-rpg.firebaseapp.com",
+  projectId: "equistories-rpg",
+  storageBucket: "equistories-rpg.firebasestorage.app",
+  messagingSenderId: "801283742596",
+  appId: "1:801283742596:web:370951947bf862efcfdbd1"
+};
+
+let db=null, authOk=false;
+const ready = (async()=>{
+  try{
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    try { await signInAnonymously(getAuth(app)); authOk=true; }
+    catch(e){ console.warn('[EquiDB] anon auth unavailable:', e.code||e); }
+    return true;
+  }catch(e){ console.error('[EquiDB] init failed:', e); db=null; return false; }
+})();
+
+window.EquiDB = {
+  ready,
+  get available(){ return !!db; },
+  get authed(){ return authOk; },
+  async put(col,id,owner,obj){
+    if(!db) return false;
+    await setDoc(doc(db,col,String(id)), { owner:String(owner), id:String(id),
+      json:JSON.stringify(obj), updatedAt:new Date().toISOString() });
+    return true;
+  },
+  async get(col,id){
+    if(!db) return null;
+    const s=await getDoc(doc(db,col,String(id)));
+    if(!s.exists()) return null;
+    try{ return JSON.parse(s.data().json); }catch(e){ return null; }
+  },
+  async remove(col,id){ if(!db) return false; await deleteDoc(doc(db,col,String(id))); return true; },
+  async listByOwner(col,owner){
+    if(!db) return [];
+    const snap=await getDocs(query(collection(db,col), where('owner','==',String(owner))));
+    const out=[]; snap.forEach(d=>{ try{ out.push(JSON.parse(d.data().json)); }catch(e){} });
+    return out;
+  },
+  // The hub needs whole-collection reads (every member, every show) — the player
+  // apps never do, which is why this only lives here.
+  async listAll(col){
+    if(!db) return [];
+    const snap=await getDocs(collection(db,col));
+    const out=[];
+    snap.forEach(d=>{ try{ const v=JSON.parse(d.data().json); v.__owner=d.data().owner; v.__id=d.id; out.push(v); }catch(e){} });
+    return out;
+  },
+};
+ready.then(v=>{ try{ window.__equiDBResolve(v); }catch(e){} })
+     .catch(()=>{ try{ window.__equiDBResolve(false); }catch(e){} });
+</script>
+
+<header>
+  <div class="wrap" style="padding-top:20px;">
+    <h1>EquiStories</h1>
+    <p class="tagline">An art-driven horse roleplay community — draw, train, compete, breed.</p>
+    <nav id="nav"></nav>
+  </div>
+</header>
+
+<main class="wrap" id="view" style="padding-bottom:60px;"></main>
+
+<script>
+(function(){
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// The three apps that make up EquiStories.
+const APPS = {
+  stable: "https://pocketcaster.github.io/Equistories-stable-manager/",
+  shows:  "https://pocketcaster.github.io/equistories-shows/",
+};
+
+const DEFAULT_DISCORD = "https://discord.gg/54nC2p2qp9";
+const STATS = ["stamina","strength","scope","speed","handiness","boldness","balance","gaits","harmony"];
+const STAT_LABELS = {stamina:"Stamina",strength:"Strength",scope:"Scope",speed:"Speed",
+  handiness:"Handiness",boldness:"Boldness",balance:"Balance",gaits:"Gaits",harmony:"Harmony"};
+const statTotal = h => STATS.reduce((n,k)=>n+(Number(h.stats&&h.stats[k])||0), 0);
+const imgOk = u => typeof u==='string' && u && !u.startsWith('data:');
+const TABS = ["Home","Members","Community","Notice Board"];
+let tab = "Home";
+
+async function waitForDB(ms=8000){
+  try{ await Promise.race([window.__equiDBReady||Promise.resolve(false),
+                           new Promise(r=>setTimeout(()=>r(false),ms))]); }catch(e){}
+  return (window.EquiDB && window.EquiDB.available) ? window.EquiDB : null;
+}
+function me(){
+  try{ const b=JSON.parse(localStorage.getItem("equi-lite-bank")||"null");
+       return (b && b.linked && b.userId) ? b : null; }catch(e){ return null; }
+}
+
+
+// ============================================================
+//  HOME
+// ============================================================
+async function renderHome(v){
+  v.innerHTML = `
+    <div class="card">
+      <h2>Welcome to EquiStories</h2>
+      <p>EquiStories is an art-driven horse roleplay game. You earn everything by drawing and
+      writing: training art levels your horses, shows award ribbons and prizes, and your rider
+      earns Prestige for the art and stories they appear in. Nothing here is bought — it's made.</p>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin-top:14px;">
+        <a class="linkbox" href="${__APPS.stable}"><b>Stable Manager →</b>
+          <span class="small">Your horses, riders, training, shows and inventory.</span></a>
+        <a class="linkbox" href="${__APPS.shows}"><b>Shows →</b>
+          <span class="small">Host a show, judge entries, or enter one.</span></a>
+        <a class="linkbox" href="#" data-go="Community"><b>Getting Started →</b>
+          <span class="small">New here? Read this first.</span></a>
+      </div>
+    </div>
+    <div class="card"><h3>Community at a glance</h3><div id="stats" class="small">Counting…</div></div>
+    <div id="spotlight"></div>
+    <div class="card"><h3>Leaderboards</h3>
+      <p class="small">Highest total stats across the community, and the riders with the most Prestige.
+      Stats come from training art only — every point on this board was drawn.</p>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));">
+        <div><h4 style="color:var(--accent);margin:0 0 6px;">Top horses</h4><div id="lbHorses" class="small">Loading…</div></div>
+        <div><h4 style="color:var(--accent2);margin:0 0 6px;">Top riders</h4><div id="lbRiders" class="small">Loading…</div></div>
+      </div>
+    </div>
+    <div class="card"><h3>Open shows</h3><div id="homeShows" class="small">Loading…</div></div>`;
+
+  v.querySelectorAll('[data-go]').forEach(a=>a.onclick=e=>{
+    e.preventDefault(); tabJump(a.dataset.go);
+  });
+
+  const DB = await __waitForDB();
+  if(!DB){ $("stats").textContent = "Can't reach the database right now."; return; }
+  const [profiles, horses, riders, shows] = await Promise.all([
+    DB.listAll('profiles'), DB.listAll('horses'), DB.listAll('riders'), DB.listAll('shows')
+  ]);
+  const open = shows.filter(s=>s.show && s.show.status!=='closed');
+  $("stats").innerHTML = `
+    <span class="tag">${profiles.length} members</span>
+    <span class="tag">${horses.length} horses</span>
+    <span class="tag">${riders.length} riders</span>
+    <span class="tag">${shows.length} shows hosted</span>`;
+  $("homeShows").innerHTML = open.length
+    ? open.slice(0,5).map(showRow).join("")
+    : `<span class="muted">No shows are open right now. Host one!</span>`;
+
+  // ---- leaderboards ----
+  const rankedHorses = horses
+    .map(h=>({...h, total:statTotal(h)}))
+    .filter(h=>h.total>0)
+    .sort((a,b)=> b.total-a.total || (b.level||0)-(a.level||0));
+  const rankedRiders = riders
+    .map(r=>({...r, pp:(r.artLog||[]).reduce((n,e)=>n+(Number(e.pp)||0),0)}))
+    .filter(r=>r.pp>0)
+    .sort((a,b)=> b.pp-a.pp);
+
+  $("lbHorses").innerHTML = rankedHorses.length
+    ? rankedHorses.slice(0,10).map((h,i)=>`
+        <div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid #2a2018;">
+          <span style="width:22px;text-align:right;color:${i<3?'var(--accent)':'var(--dim)'};font-weight:${i<3?'bold':'normal'};">${i+1}</span>
+          ${imgOk(h.profileImage)?`<img src="${__esc(h.profileImage)}" style="width:32px;height:32px;border-radius:5px;object-fit:cover;" />`:''}
+          <span style="flex:1;min-width:0;">
+            <a href="${__APPS.stable}?horse=${encodeURIComponent(h.id)}"><b>${__esc(h.name||'Unnamed')}</b></a>
+            <span class="small muted"> · ${__esc(h.breed||'')} · Lvl ${h.level||1} · ${__esc(h.__owner||'')}</span>
+          </span>
+          <b style="color:var(--accent);">${h.total}</b>
+        </div>`).join("")
+    : '<span class="muted">No horses have trained stats yet.</span>';
+
+  $("lbRiders").innerHTML = rankedRiders.length
+    ? rankedRiders.slice(0,10).map((r,i)=>`
+        <div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid #2a2018;">
+          <span style="width:22px;text-align:right;color:${i<3?'var(--accent2)':'var(--dim)'};font-weight:${i<3?'bold':'normal'};">${i+1}</span>
+          ${imgOk(r.image)?`<img src="${__esc(r.image)}" style="width:32px;height:32px;border-radius:5px;object-fit:cover;" />`:''}
+          <span style="flex:1;min-width:0;">
+            <a href="${__APPS.stable}?rider=${encodeURIComponent(r.id)}"><b>${__esc(r.name||'Unnamed')}</b></a>
+            <span class="small muted"> · ${__esc(r.__owner||'')}</span>
+          </span>
+          <b style="color:var(--accent2);">${r.pp} PP</b>
+        </div>`).join("")
+    : '<span class="muted">No rider Prestige logged yet.</span>';
+
+  renderSpotlight(rankedHorses[0], profiles);
+}
+
+// The top horse gets a full showcase: both its images, its stat spread, its art
+// log, and the player who drew it all.
+function renderSpotlight(h, profiles){
+  const wrap = $("spotlight");
+  if(!h){ wrap.innerHTML=''; return; }
+  const owner = h.__owner || '';
+  const prof = (profiles||[]).find(p=>(p.__owner||p.__id)===owner);
+  const ownerName = (prof && (prof.displayName||'').trim()) || owner;
+
+  const art = (h.artLog||[]).filter(e=>imgOk(e.image));
+  const gallery = art.length
+    ? `<div style="display:flex;gap:8px;overflow-x:auto;padding:4px 0;">`
+      + art.slice(0,10).map(e=>`
+          <a href="${__esc(e.link||e.image)}" target="_blank" rel="noopener" title="${__esc(e.label||'')}"
+             style="flex:0 0 auto;text-align:center;width:110px;">
+            <img src="${__esc(e.image)}" referrerpolicy="no-referrer"
+                 style="width:110px;height:110px;object-fit:cover;border-radius:6px;border:1px solid var(--line);" />
+            <span class="small" style="display:block;">${__esc((e.label||'').slice(0,22))}</span>
+          </a>`).join("")
+      + `</div>`
+    : `<span class="muted small">No art logged with images yet.</span>`;
+
+  wrap.innerHTML = `
+    <div class="card" style="border-color:var(--accent);">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
+        <h3 style="margin:0;">&#127942; Horse of the moment</h3>
+        <span class="tag" style="background:#3a2a10;color:#e8c86a;border-color:var(--accent);">Highest total stats</span>
+      </div>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-top:12px;">
+        <div>
+          ${imgOk(h.profileImage)
+            ? `<img src="${__esc(h.profileImage)}" referrerpolicy="no-referrer" style="width:100%;border-radius:8px;border:2px solid var(--accent);" />`
+            : `<div style="height:180px;border:2px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:3rem;background:var(--deep);">&#128014;</div>`}
+          <div class="small" style="text-align:center;margin-top:4px;">Profile image</div>
+        </div>
+        <div>
+          ${imgOk(h.referenceImage)
+            ? `<img src="${__esc(h.referenceImage)}" referrerpolicy="no-referrer" style="width:100%;border-radius:8px;border:1px solid var(--line);" />`
+            : `<div style="height:180px;border:1px dashed var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;" class="small muted">No registration image</div>`}
+          <div class="small" style="text-align:center;margin-top:4px;">Registration / reference sheet</div>
+        </div>
+        <div>
+          <h4 style="margin:0 0 4px;color:var(--accent);">
+            <a href="${__APPS.stable}?horse=${encodeURIComponent(h.id)}">${__esc(h.name||'Unnamed')}</a></h4>
+          ${h.barnName?`<div class="small muted">"${__esc(h.barnName)}"</div>`:''}
+          <div class="small">${__esc(h.breed||'')}${h.height?` · ${__esc(h.height)}`:''} · Level ${h.level||1}${h.discipline?` · ${__esc(h.discipline)}`:''}</div>
+          <div style="margin:8px 0;"><span class="tag" style="background:#3a2a10;color:#e8c86a;border-color:var(--accent);font-size:1rem;">${h.total} total stats</span></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:3px;">
+            ${STATS.map(k=>`<span class="small">${STAT_LABELS[k]} <b style="color:var(--accent);">${(h.stats&&h.stats[k])||0}</b></span>`).join("")}
+          </div>
+          <div class="small" style="margin-top:8px;">Owned &amp; drawn by
+            <a href="${__APPS.stable}?player=${encodeURIComponent(owner)}"><b>${__esc(ownerName)}</b></a></div>
+        </div>
+      </div>
+      <h4 style="margin:14px 0 4px;color:var(--accent);">Art log <span class="small muted">(${(h.artLog||[]).length} entries — every stat point came from these)</span></h4>
+      ${gallery}
+    </div>`;
+}
+function tabJump(t){ const el=document.querySelector(`[data-tab="${t}"]`); if(el) el.click(); }
+
+function showRow(rec){
+  const s=rec.show||{};
+  const entries=(rec.entries||[]).length;
+  const closed=s.status==='closed';
+  return `<div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--deep);">
+    <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;">
+      <b style="color:var(--accent);">${__esc(s.title||'Untitled show')}</b>
+      <span class="tag">${closed?'Closed':'Open'}</span>
+    </div>
+    <div class="small">${__esc(s.discipline||'')} · closes ${__esc(s.closesAt||'—')} · ${entries} ${entries===1?'entry':'entries'}${s.hostId?` · hosted by ${__esc(s.hostId)}`:''}</div>
+    <div style="margin-top:6px;"><a href="${__APPS.shows}?show=${encodeURIComponent(rec.__id||s.id||'')}">Open show →</a></div>
+  </div>`;
+}
+
+// ============================================================
+//  MEMBERS
+// ============================================================
+async function renderMembers(v){
+  v.innerHTML = `<div class="card"><h2>Members</h2>
+    <p class="small">Everyone in the community. Click a name to see their stable, riders and links.</p>
+    <div id="mList">Loading…</div></div>`;
+  const DB = await __waitForDB();
+  if(!DB){ $("mList").innerHTML='<span class="muted">Database unavailable.</span>'; return; }
+  const [profiles, horses, riders] = await Promise.all([
+    DB.listAll('profiles'), DB.listAll('horses'), DB.listAll('riders')
+  ]);
+  if(!profiles.length){ $("mList").innerHTML='<span class="muted">No member profiles yet. Make yours in the Stable Manager → My Profile.</span>'; return; }
+
+  const countBy = (arr,owner)=>arr.filter(x=>x.__owner===owner).length;
+  $("mList").innerHTML = `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">`
+    + profiles.map(p=>{
+        const uid=p.__owner||p.__id;
+        const name=(p.displayName||'').trim()||uid;
+        const av=p.avatar
+          ? `<img src="${__esc(p.avatar)}" style="width:56px;height:56px;border-radius:8px;object-fit:cover;border:1px solid var(--accent);" />`
+          : `<div style="width:56px;height:56px;border-radius:8px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:1.6rem;background:var(--deep);">&#128100;</div>`;
+        return `<a class="linkbox" href="${__APPS.stable}?player=${encodeURIComponent(uid)}" style="display:flex;gap:10px;align-items:center;">
+          ${av}
+          <span style="min-width:0;">
+            <b>${__esc(name)}</b>
+            <span class="small">${countBy(horses,uid)} horses · ${countBy(riders,uid)} riders</span>
+            ${p.discord?`<span class="small muted">Discord: ${__esc(p.discord)}</span>`:''}
+          </span></a>`;
+      }).join("") + `</div>`;
+}
+
+// ============================================================
+//  COMMUNITY
+// ============================================================
+const BASE_BREEDS = ["Thoroughbred","Quarter Horse","Paint","Appaloosa","Knabstrupper","Arabian",
+  "Friesian","Haflinger","Andalusian","PRE","Lipizzaner","Clydesdale","Percheron","Shetland Pony",
+  "Welsh Pony","Mustang","Akhal-Teke","Icelandic","Gypsy Vanner","Dutch Warmblood","Hanoverian","Warmblood"];
+
+async function renderCommunity(v){
+  v.innerHTML = `
+    <div class="card">
+      <h2>Community</h2>
+      <div id="cDiscord"></div>
+    </div>
+    <div class="card" id="cChatCard">
+      <h3>Community chat</h3>
+      <div id="cChat"></div>
+    </div>
+    <div class="card"><h3>How to get started</h3><div id="cStart"></div></div>
+    <div class="card"><h3>Shows &amp; events</h3><div id="cShows" class="small">Loading…</div></div>
+    <div class="card"><h3>Breed directory</h3>
+      <p class="small">Every breed you can register a horse as. Affiliated breeds are community-made
+      and come with their own genetics.</p>
+      <div id="cBreeds" class="small">Loading…</div></div>
+    <div class="card"><h3>How to affiliate your breed</h3><div id="cAffil"></div></div>
+    <div id="cEditWrap"></div>`;
+
+  const DB = await __waitForDB();
+  const cfg = DB ? (await DB.get('config','hub')) : null;
+  const H = Object.assign({
+    discord:DEFAULT_DISCORD, start:"", affiliate:"", events:[], wbServer:"", wbChannel:""
+  }, cfg||{});
+  if(!H.discord) H.discord = DEFAULT_DISCORD;
+
+  $("cDiscord").innerHTML = H.discord
+    ? `<p>Most of the day-to-day chatter happens on Discord — art help, plotting, show announcements.</p>
+       <a class="linkbox" href="${__esc(H.discord)}" target="_blank" rel="noopener"><b>Join the Discord →</b>
+       <span class="small">You don't need Discord to play, but it's where the community lives.</span></a>`
+    : `<p class="muted small">No Discord link set yet. ${__me()?'Use "Edit community content" below to add one.':''}</p>`;
+
+  // WidgetBot mirrors a Discord channel two ways: people on the site can read and
+  // post without a Discord account, and it lands in Discord like any other message.
+  if(H.wbServer && H.wbChannel){
+    $("cChat").innerHTML = `
+      <p class="small">This is the same room as our Discord — post here or there, it's the same conversation.
+      No Discord account needed to join in from this page.</p>
+      <widgetbot server="${__esc(H.wbServer)}" channel="${__esc(H.wbChannel)}"
+                 width="100%" height="560" style="border:1px solid var(--line);border-radius:8px;overflow:hidden;"></widgetbot>`;
+    if(!document.getElementById('wb-script')){
+      const sc=document.createElement('script');
+      sc.id='wb-script'; sc.src='https://cdn.jsdelivr.net/npm/@widgetbot/html-embed';
+      sc.async=true; document.body.appendChild(sc);
+    }
+  } else {
+    $("cChat").innerHTML = `<p class="small muted">Live chat isn't set up yet.
+      ${__me()?'Add your WidgetBot server and channel IDs below to embed the Discord here — see the note in that panel.':'Ask an admin to set it up, or use the Discord link above.'}</p>`;
+  }
+
+  $("cStart").innerHTML = H.start
+    ? mdish(H.start)
+    : mdish(DEFAULT_START);
+
+  $("cAffil").innerHTML = H.affiliate
+    ? mdish(H.affiliate)
+    : mdish(DEFAULT_AFFILIATE);
+
+  // Shows + events
+  if(DB){
+    const shows = await DB.listAll('shows');
+    const open = shows.filter(s=>s.show && s.show.status!=='closed');
+    const closed = shows.filter(s=>s.show && s.show.status==='closed');
+    const evHtml = (H.events||[]).length
+      ? `<h4 style="color:var(--accent2);margin:14px 0 6px;">Community events</h4>`
+        + H.events.map(e=>`<div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--deep);">
+             <b style="color:var(--accent2);">${__esc(e.title||'Event')}</b>
+             ${e.when?`<span class="tag">${__esc(e.when)}</span>`:''}
+             <div class="small">${__esc(e.desc||'')}</div>
+             ${e.link?`<div style="margin-top:4px;"><a href="${__esc(e.link)}" target="_blank" rel="noopener">Details →</a></div>`:''}
+           </div>`).join("")
+      : "";
+    $("cShows").innerHTML =
+      `<h4 style="color:var(--accent);margin:0 0 6px;">Open shows (${open.length})</h4>`
+      + (open.length ? open.map(showRow).join("") : `<span class="muted">Nothing open right now.</span>`)
+      + (closed.length ? `<h4 style="color:var(--dim);margin:14px 0 6px;">Recently closed (${closed.length})</h4>`
+          + closed.slice(0,5).map(showRow).join("") : "")
+      + evHtml;
+
+    // Breed directory
+    const gcfg = await DB.get('config','global');
+    const custom = (gcfg && gcfg.customBreeds) || [];
+    $("cBreeds").innerHTML =
+      `<h4 style="color:var(--accent);margin:0 0 6px;">Affiliated breeds (${custom.length})</h4>`
+      + (custom.length
+          ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">`
+            + custom.map(b=>`<span class="tag" style="background:#2a1a3a;color:var(--accent2);border-color:#6a4a8a;" title="${(b.loci||[]).length} genetic loci">${__esc(b.name)}</span>`).join("")
+            + `</div>`
+          : `<span class="muted">No affiliated breeds yet — yours could be the first.</span>`)
+      + `<h4 style="color:var(--accent);margin:14px 0 6px;">Standard breeds (${BASE_BREEDS.length})</h4>
+         <div style="display:flex;flex-wrap:wrap;gap:6px;">`
+      + BASE_BREEDS.map(b=>`<span class="tag">${__esc(b)}</span>`).join("") + `</div>`;
+  }
+
+  // Signed-in members can edit the hub copy — no code editing required.
+  if(__me()){
+    $("cEditWrap").innerHTML = `<div class="card"><h3>Edit community content</h3>
+      <p class="small">Signed in as <b>${__esc(__me().userId)}</b>. These fields are shared by everyone.</p>
+      <label>Discord invite link</label><input id="e_discord" value="${__esc(H.discord||'')}" placeholder="https://discord.gg/…" />
+      <label>How to get started</label><textarea id="e_start" rows="8" placeholder="Leave blank to use the default guide.">${__esc(H.start||'')}</textarea>
+      <label>How to affiliate a breed</label><textarea id="e_affil" rows="6" placeholder="Leave blank to use the default text.">${__esc(H.affiliate||'')}</textarea>
+      <label>WidgetBot server ID <span class="muted">(embeds Discord chat on this page)</span></label>
+      <input id="e_wbs" value="${__esc(H.wbServer||'')}" placeholder="e.g. 299881420891881473" />
+      <label>WidgetBot channel ID</label>
+      <input id="e_wbc" value="${__esc(H.wbChannel||'')}" placeholder="e.g. 355719584830980096" />
+      <p class="small muted" style="margin:6px 0 0;">To get these: invite the WidgetBot bot to your server at
+        <a href="https://widgetbot.io" target="_blank" rel="noopener">widgetbot.io</a>, then in Discord turn on
+        Developer Mode (Settings → Advanced), right-click your server → Copy Server ID, and right-click the
+        channel you want embedded → Copy Channel ID. Leave blank to hide the chat.</p>
+      <label>Community events (one per line: Title | When | Description | Link)</label>
+      <textarea id="e_events" rows="4" placeholder="Spring Art Jam | March 2026 | A month-long prompt series | https://…">${
+        __esc((H.events||[]).map(e=>[e.title,e.when,e.desc,e.link].filter(Boolean).join(' | ')).join('\n'))}</textarea>
+      <button id="e_save" style="margin-top:12px;">Save community content</button>
+      <span id="e_status" class="small" style="margin-left:8px;"></span></div>`;
+    $("e_save").onclick=async()=>{
+      const DB2=await __waitForDB(); if(!DB2){ $("e_status").textContent='No database.'; return; }
+      $("e_status").textContent='Saving…';
+      const events=$("e_events").value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+        const [title,when,desc,link]=l.split('|').map(x=>(x||'').trim());
+        return {title,when,desc,link};
+      });
+      try{
+        await DB2.put('config','hub','global',{ id:'hub',
+          discord:$("e_discord").value.trim(), start:$("e_start").value.trim(),
+          affiliate:$("e_affil").value.trim(), events,
+          wbServer:$("e_wbs").value.trim(), wbChannel:$("e_wbc").value.trim() });
+        $("e_status").textContent='Saved.'; __render();
+      }catch(err){ $("e_status").textContent='Failed: '+(err.message||err); }
+    };
+  }
+}
+
+// Very small markdown-ish renderer: blank lines split paragraphs, "- " makes
+// bullets, "## " makes a subheading. Keeps the editor friendly without a library.
+function mdish(t){
+  if(!t) return "";
+  return t.split(/\n{2,}/).map(block=>{
+    const lines=block.split('\n');
+    if(lines.every(l=>l.trim().startsWith('- ')))
+      return `<ul>${lines.map(l=>`<li>${__esc(l.trim().slice(2))}</li>`).join('')}</ul>`;
+    if(lines[0].startsWith('## '))
+      return `<h4 style="color:var(--accent2);margin:12px 0 4px;">${__esc(lines[0].slice(3))}</h4>`
+        + (lines.slice(1).length?`<p>${__esc(lines.slice(1).join(' '))}</p>`:'');
+    return `<p>${__esc(block)}</p>`;
+  }).join('');
+}
+
+const DEFAULT_START = `New here? This is the short version.
+
+## 1. Get an account
+You need one Bank account — it's your identity everywhere in EquiStories. One account per person.
+
+## 2. Make your first horse
+Open the Stable Manager and add a horse. Starter/import horses begin with base 10 stats. Bred foals inherit better base stats from their parents, which is why breeding matters.
+
+## 3. Draw it
+Training art is how horses grow. Pick a training type, draw your horse doing it, and log the image. Colour, backgrounds, shading and full bodies all earn more EXP. Level 10 is the cap.
+
+## 4. Make a rider
+Riders are your characters. They earn Prestige Points from art and stories they appear in, and their title gives bonuses to the horses they're assigned to.
+
+## 5. Compete
+Enter shows for ribbons, Buxx and Prestige. Shows are judged on a rubric that rewards following the brief over raw drawing skill — a simple, accurate piece can beat a beautiful one that ignores the brief.
+
+## A note on art
+Every piece of art here is made by a player. There's no way to buy your way up. If you're new to drawing horses, that's fine — the rubric is built so effort and accuracy beat polish.`;
+
+const DEFAULT_AFFILIATE = `Affiliated breeds are player-made breeds with their own genetics, available to everyone.
+
+## What you need
+- A name for the breed
+- Which genetic loci it can carry (colours, patterns, dilutions)
+- A reference or write-up describing the breed
+
+## How to submit
+Bring your proposal to the Discord, or contact the admin team. Once approved, the breed is added to the shared breed list and anyone can register a horse as that breed.
+
+## What gets checked
+Breeds should be internally consistent and not simply a re-skin of an existing one. Rare or striking genetics are welcome, but a breed that can carry everything makes the genetics system meaningless — expect to be asked to narrow it.`;
+
+// ============================================================
+//  NOTICE BOARD  (classifieds)
+// ============================================================
+const BOARD_CATS = ["Looking for a horse","Horse for sale","Art for Buxx","Art trade","Stud service",
+  "Looking for art","Roleplay partner","Collab wanted","Other"];
+
+async function renderBoard(v){
+  const who=__me();
+  v.innerHTML = `
+    <div class="card">
+      <h2>Notice Board</h2>
+      <p class="small">Buy, sell, trade and find collaborators. Posts are public and stay until removed.</p>
+      ${who ? `
+        <label>What is this?</label>
+        <select id="b_cat">${BOARD_CATS.map(c=>`<option>${c}</option>`).join("")}</select>
+        <label>Title</label><input id="b_title" placeholder="e.g. Selling a 2yo Lightblood filly" />
+        <label>Details</label><textarea id="b_body" rows="4" placeholder="Price, what you're after, links…"></textarea>
+        <label>Link (optional)</label><input id="b_link" placeholder="https://…" />
+        <button id="b_post" style="margin-top:12px;">Post to the board</button>
+        <span id="b_status" class="small" style="margin-left:8px;"></span>`
+      : `<p class="small muted">Sign in on the <a href="${__APPS.stable}">Stable Manager</a> first — the board uses the same account, and this page will pick it up automatically.</p>`}
+    </div>
+    <div class="card">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <h3 style="margin:0;">Posts</h3>
+        <select id="b_filter" style="width:auto;"><option value="">All categories</option>
+          ${BOARD_CATS.map(c=>`<option>${c}</option>`).join("")}</select>
+      </div>
+      <div id="b_list" style="margin-top:12px;">Loading…</div>
+    </div>`;
+
+  if(who){
+    $("b_post").onclick=async()=>{
+      const t=$("b_title").value.trim();
+      if(!t){ $("b_status").textContent='Give it a title.'; return; }
+      const DB=await __waitForDB(); if(!DB){ $("b_status").textContent='No database.'; return; }
+      $("b_status").textContent='Posting…';
+      const id='post_'+Math.random().toString(36).slice(2,10);
+      try{
+        await DB.put('listings', id, who.userId, { id, poster:who.userId,
+          category:$("b_cat").value, title:t, body:$("b_body").value.trim(),
+          link:$("b_link").value.trim(), createdAt:new Date().toISOString(), status:'open' });
+        $("b_title").value=''; $("b_body").value=''; $("b_link").value='';
+        $("b_status").textContent='Posted.'; loadPosts();
+      }catch(err){ $("b_status").textContent='Failed: '+(err.message||err); }
+    };
+  }
+  $("b_filter").onchange=loadPosts;
+  loadPosts();
+
+  async function loadPosts(){
+    const DB=await __waitForDB();
+    if(!DB){ $("b_list").innerHTML='<span class="muted">Database unavailable.</span>'; return; }
+    let posts=await DB.listAll('listings');
+    const f=$("b_filter").value;
+    if(f) posts=posts.filter(p=>p.category===f);
+    posts.sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+    if(!posts.length){ $("b_list").innerHTML='<span class="muted">Nothing posted yet.</span>'; return; }
+    $("b_list").innerHTML=posts.map(p=>{
+      const mine=who && p.poster===who.userId;
+      const filled=p.status==='filled';
+      return `<div style="border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--deep);${filled?'opacity:.55;':''}">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;">
+          <b style="color:var(--accent);">${__esc(p.title)}</b>
+          <span class="tag">${__esc(p.category||'Other')}</span>
+        </div>
+        <div class="small">by <a href="${__APPS.stable}?player=${encodeURIComponent(p.poster)}">${__esc(p.poster)}</a>
+          · ${__esc((p.createdAt||'').slice(0,10))}${filled?' · <b>CLOSED</b>':''}</div>
+        ${p.body?`<div style="margin-top:6px;white-space:pre-wrap;">${__esc(p.body)}</div>`:''}
+        ${p.link?`<div style="margin-top:6px;"><a href="${__esc(p.link)}" target="_blank" rel="noopener">Link →</a></div>`:''}
+        ${mine?`<div style="margin-top:8px;display:flex;gap:6px;">
+            <button class="ghost" data-fill="${p.id}" style="padding:3px 10px;font-size:.85rem;">${filled?'Re-open':'Mark closed'}</button>
+            <button class="ghost" data-del="${p.id}" style="padding:3px 10px;font-size:.85rem;color:var(--bad);">Delete</button>
+          </div>`:''}
+      </div>`;
+    }).join("");
+
+    $("b_list").querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
+      if(!confirm('Delete this post?')) return;
+      const DB2=await __waitForDB(); await DB2.remove('listings', b.dataset.del); loadPosts();
+    });
+    $("b_list").querySelectorAll('[data-fill]').forEach(b=>b.onclick=async()=>{
+      const DB2=await __waitForDB();
+      const p=posts.find(x=>x.id===b.dataset.fill); if(!p) return;
+      p.status = p.status==='filled' ? 'open' : 'filled';
+      await DB2.put('listings', p.id, p.poster, p); loadPosts();
+    });
+  }
+}
+
+function renderNav(){
+  $("nav").innerHTML = TABS.map(t=>`<div class="tab ${t===tab?'active':''}" data-tab="${t}">${t}</div>`).join("");
+  $("nav").querySelectorAll("[data-tab]").forEach(el=>el.onclick=()=>{ tab=el.dataset.tab; render(); });
+}
+function render(){
+  renderNav();
+  const v=$("view");
+  v.innerHTML = `<div class="card"><div class="small">Loading…</div></div>`;
+  if(tab==="Home") renderHome(v);
+  else if(tab==="Members") renderMembers(v);
+  else if(tab==="Community") renderCommunity(v);
+  else renderBoard(v);
+}
+window.__render = render;
+window.__waitForDB = waitForDB;
+window.__me = me;
+window.__esc = esc;
+window.__APPS = APPS;
+render();
+})();
+</script>
+</body>
+</html>
