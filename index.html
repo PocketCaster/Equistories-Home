@@ -52,7 +52,9 @@ window.__equiDBReady = new Promise(r => { window.__equiDBResolve = r; });
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, orderBy, limit }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, signInAnonymously, signInWithEmailAndPassword, sendPasswordResetEmail,
+         signOut as fbSignOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAJfBnY0sDc6W_yzzrpm8NKkNZv1cu7jMU",
@@ -63,16 +65,47 @@ const firebaseConfig = {
   appId: "1:801283742596:web:370951947bf862efcfdbd1"
 };
 
-let db=null, authOk=false;
+let db=null, authOk=false, auth=null;
 const ready = (async()=>{
   try{
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
-    try { await signInAnonymously(getAuth(app)); authOk=true; }
-    catch(e){ console.warn('[EquiDB] anon auth unavailable:', e.code||e); }
+    auth = getAuth(app);
+    await new Promise(res=>{ const un=onAuthStateChanged(auth, ()=>{ un(); res(); }); });
+    if(!auth.currentUser){
+      try { await signInAnonymously(auth); } catch(e){ console.warn('[EquiDB] anon auth off:', e.code||e); }
+    }
+    authOk = !!auth.currentUser;
     return true;
   }catch(e){ console.error('[EquiDB] init failed:', e); db=null; return false; }
 })();
+
+const friendlyAuth = e => ({
+  'auth/invalid-email':"That email address doesn't look right.",
+  'auth/user-not-found':'No account found with that email.',
+  'auth/wrong-password':'Incorrect password.',
+  'auth/invalid-credential':'Incorrect email or password.',
+  'auth/too-many-requests':'Too many attempts. Wait a minute and try again.',
+}[e && e.code] || (e && e.message) || 'Something went wrong.');
+
+window.EquiAuth = {
+  ready,
+  get user(){ return auth && auth.currentUser && !auth.currentUser.isAnonymous ? auth.currentUser : null; },
+  get email(){ const u=this.user; return u ? u.email : ''; },
+  async token(){ const u=this.user; if(!u) return null; try{ return await u.getIdToken(); }catch(e){ return null; } },
+  async signIn(email,password){
+    try{ const c=await signInWithEmailAndPassword(auth,email,password); return {success:true,user:c.user}; }
+    catch(e){ return {success:false,error:friendlyAuth(e)}; }
+  },
+  async resetPassword(email){
+    try{ await sendPasswordResetEmail(auth,email); return {success:true}; }
+    catch(e){ return {success:false,error:friendlyAuth(e)}; }
+  },
+  async signOut(){
+    try{ await fbSignOut(auth); }catch(e){}
+    try{ await signInAnonymously(auth); }catch(e){}
+  },
+};
 
 window.EquiDB = {
   ready,
@@ -650,7 +683,11 @@ function renderNav(){
        </span>`;
   $("nav").querySelectorAll("[data-tab]").forEach(el=>el.onclick=()=>{ tab=el.dataset.tab; render(); });
   const out=$("navOut");
-  if(out) out.onclick=()=>{ try{ localStorage.removeItem("equi-lite-bank"); }catch(e){} render(); };
+  if(out) out.onclick=async()=>{
+    try{ localStorage.removeItem("equi-lite-bank"); }catch(e){}
+    if(window.EquiAuth) await window.EquiAuth.signOut();
+    render();
+  };
 }
 function renderGate(){
   $("nav").innerHTML="";
@@ -659,27 +696,43 @@ function renderGate(){
       <h2>Members only</h2>
       <p>The Community Hub is for EquiStories members. Sign in with your Bank account —
       the same one you use in the Stable Manager and Shows.</p>
-      <label>Bank User ID</label><input id="g_user" autocomplete="username" placeholder="e.g. PocketCaster" />
+      <label>Email</label><input id="g_user" type="email" autocomplete="username" placeholder="you@example.com" />
       <label>Password</label><input id="g_pass" type="password" autocomplete="current-password" />
       <button id="g_go" style="margin-top:14px;width:100%;">Sign in</button>
       <div id="g_msg" class="small" style="margin-top:8px;min-height:1.2em;"></div>
+      <div style="margin-top:8px;"><span id="g_forgot" class="small" style="color:var(--accent);cursor:pointer;">Forgot password?</span></div>
       <p class="small muted" style="margin-top:14px;">Don't have an account yet? Ask in the
         <a href="${DEFAULT_DISCORD}" target="_blank" rel="noopener">Discord</a> and we'll get you set up.</p>
     </div>`;
+  const fail=m=>{ $("g_go").disabled=false; $("g_msg").innerHTML=`<span style="color:var(--bad);">${esc(m)}</span>`; };
   const go=async()=>{
     const u=$("g_user").value.trim(), p=$("g_pass").value;
-    if(!u||!p){ $("g_msg").textContent="Enter your user ID and password."; return; }
+    if(!u||!p){ $("g_msg").textContent="Enter your email and password."; return; }
     $("g_msg").textContent="Signing in…"; $("g_go").disabled=true;
-    const res=await bankCall({action:"loginPlayer", userId:u, password:p});
-    if(res && res.success){
-      localStorage.setItem("equi-lite-bank", JSON.stringify({userId:u, password:p, linked:true}));
-      render();
-    } else {
-      $("g_go").disabled=false;
-      $("g_msg").innerHTML=`<span style="color:var(--bad);">${esc(res && res.error ? res.error : "Sign-in failed.")}</span>`;
+    if(!window.EquiAuth){ fail("Auth is still loading — try again."); return; }
+    const a=await window.EquiAuth.signIn(u,p);
+    if(!a.success){ fail(a.error); return; }
+    const token=await window.EquiAuth.token();
+    const who=await bankCall({action:"getMyAccount", idToken:token});
+    if(!who?.success){ fail(who?.error||"Could not reach the bank."); return; }
+    if(!who.data?.linked){
+      await window.EquiAuth.signOut();
+      fail("That login isn't connected to a stable yet. Open the Stable Manager and link it first.");
+      return;
     }
+    localStorage.setItem("equi-lite-bank", JSON.stringify({userId:who.data.userId, password:"", linked:true}));
+    render();
   };
   $("g_go").onclick=go;
+  $("g_forgot").onclick=async()=>{
+    const u=$("g_user").value.trim();
+    if(!u){ $("g_msg").textContent="Enter your email first, then click again."; return; }
+    $("g_msg").textContent="Sending…";
+    const r=await window.EquiAuth.resetPassword(u);
+    $("g_msg").innerHTML = r.success
+      ? '<span style="color:var(--good);">Check your email for a reset link.</span>'
+      : `<span style="color:var(--bad);">${esc(r.error)}</span>`;
+  };
   $("g_pass").onkeydown=e=>{ if(e.key==="Enter") go(); };
 }
 
