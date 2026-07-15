@@ -273,7 +273,7 @@ function renderSpotlight(h, profiles){
         <h3 style="margin:0;">&#127942; Horse of the moment</h3>
         <span class="tag" style="background:#3a2a10;color:#e8c86a;border-color:var(--accent);">Highest total stats</span>
       </div>
-      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-top:12px;">
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-top:12px;align-items:center;">
         <div>
           ${imgOk(h.profileImage)
             ? `<img src="${__esc(h.profileImage)}" referrerpolicy="no-referrer" style="width:100%;max-width:480px;border-radius:8px;border:2px solid var(--accent);" />`
@@ -328,14 +328,14 @@ async function renderMembers(v){
   if(!profiles.length){ $("mList").innerHTML='<span class="muted">No member profiles yet. Make yours in the Stable Manager → My Profile.</span>'; return; }
 
   const countBy = (arr,owner)=>arr.filter(x=>x.__owner===owner).length;
-  $("mList").innerHTML = `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">`
+  $("mList").innerHTML = `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));">`
     + profiles.map(p=>{
         const uid=p.__owner||p.__id;
         const name=(p.displayName||'').trim()||uid;
         const av=p.avatar
-          ? `<img src="${__esc(p.avatar)}" style="width:64px;height:64px;border-radius:8px;object-fit:cover;border:1px solid var(--accent);" />`
-          : `<div style="width:64px;height:64px;border-radius:8px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:1.8em;background:var(--deep);">&#128100;</div>`;
-        return `<a class="linkbox" href="${__APPS.stable}?player=${encodeURIComponent(uid)}" style="display:flex;gap:10px;align-items:center;">
+          ? `<img src="${__esc(p.avatar)}" referrerpolicy="no-referrer" style="width:130px;height:130px;border-radius:8px;object-fit:cover;border:1px solid var(--accent);flex:0 0 auto;" />`
+          : `<div style="width:130px;height:130px;border-radius:8px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:3em;background:var(--deep);flex:0 0 auto;">&#128100;</div>`;
+        return `<a class="linkbox" href="${__APPS.stable}?player=${encodeURIComponent(uid)}" style="display:flex;gap:14px;align-items:center;">
           ${av}
           <span style="min-width:0;">
             <b>${__esc(name)}</b>
