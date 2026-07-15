@@ -127,6 +127,25 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 // The three apps that make up EquiStories.
+const BANK_URL = "https://script.google.com/macros/s/AKfycby9WLxUPDAPg9EH5aTPATzTkHd8XeSKXuQ0WYqyQoHusEbws85qxwaML6cSovDod80/exec";
+
+// The hub uses the same Bank account as the other apps, and the same
+// localStorage session — sign in on any of the three and you're signed in on all
+// of them (they share an origin).
+function bankCall(payload){
+  return new Promise(resolve=>{
+    const cb="hbCb_"+Date.now()+"_"+Math.random().toString(36).slice(2,6);
+    const sc=document.createElement("script");
+    let done=false;
+    const finish=d=>{ if(!done){ done=true; delete window[cb]; sc.remove(); resolve(d); } };
+    window[cb]=finish;
+    sc.onerror=()=>finish({success:false,error:"Couldn't reach the bank."});
+    setTimeout(()=>finish({success:false,error:"The bank didn't answer in time."}),15000);
+    sc.src=BANK_URL+"?callback="+cb+"&data="+encodeURIComponent(JSON.stringify(payload));
+    document.head.appendChild(sc);
+  });
+}
+
 const APPS = {
   stable: "https://pocketcaster.github.io/Equistories-stable-manager/",
   shows:  "https://pocketcaster.github.io/equistories-shows/",
@@ -273,13 +292,13 @@ function renderSpotlight(h, profiles){
         <h3 style="margin:0;">&#127942; Horse of the moment</h3>
         <span class="tag" style="background:#3a2a10;color:#e8c86a;border-color:var(--accent);">Highest total stats</span>
       </div>
-      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-top:12px;align-items:center;">
-        <div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;margin-top:12px;">
+        <div style="flex:0 0 auto;">
           ${imgOk(h.profileImage)
-            ? `<img src="${__esc(h.profileImage)}" referrerpolicy="no-referrer" style="width:100%;max-width:480px;border-radius:8px;border:2px solid var(--accent);" />`
-            : `<div style="width:100%;max-width:480px;height:320px;border:2px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:3em;background:var(--deep);">&#128014;</div>`}
+            ? `<img src="${__esc(h.profileImage)}" referrerpolicy="no-referrer" style="display:block;width:min(440px,90vw);border-radius:8px;border:2px solid var(--accent);" />`
+            : `<div style="width:min(440px,90vw);height:300px;border:2px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:3em;background:var(--deep);">&#128014;</div>`}
         </div>
-        <div>
+        <div style="flex:1 1 320px;min-width:280px;">
           <h4 style="margin:0 0 4px;color:var(--accent);">
             <a href="${__APPS.stable}?horse=${encodeURIComponent(h.id)}">${__esc(h.name||'Unnamed')}</a></h4>
           ${h.barnName?`<div class="small muted">"${__esc(h.barnName)}"</div>`:''}
@@ -623,10 +642,49 @@ async function renderBoard(v){
 }
 
 function renderNav(){
-  $("nav").innerHTML = TABS.map(t=>`<div class="tab ${t===tab?'active':''}" data-tab="${t}">${t}</div>`).join("");
+  const who=me();
+  $("nav").innerHTML = TABS.map(t=>`<div class="tab ${t===tab?'active':''}" data-tab="${t}">${t}</div>`).join("")
+    + `<span style="margin-left:auto;display:flex;align-items:center;gap:10px;padding:0 4px;">
+         <span class="small">${esc(who?who.userId:'')}</span>
+         <button class="ghost" id="navOut" style="padding:4px 12px;font-size:.9em;">Sign out</button>
+       </span>`;
   $("nav").querySelectorAll("[data-tab]").forEach(el=>el.onclick=()=>{ tab=el.dataset.tab; render(); });
+  const out=$("navOut");
+  if(out) out.onclick=()=>{ try{ localStorage.removeItem("equi-lite-bank"); }catch(e){} render(); };
 }
+function renderGate(){
+  $("nav").innerHTML="";
+  $("view").innerHTML=`
+    <div class="card" style="max-width:520px;margin:40px auto;">
+      <h2>Members only</h2>
+      <p>The Community Hub is for EquiStories members. Sign in with your Bank account —
+      the same one you use in the Stable Manager and Shows.</p>
+      <label>Bank User ID</label><input id="g_user" autocomplete="username" placeholder="e.g. PocketCaster" />
+      <label>Password</label><input id="g_pass" type="password" autocomplete="current-password" />
+      <button id="g_go" style="margin-top:14px;width:100%;">Sign in</button>
+      <div id="g_msg" class="small" style="margin-top:8px;min-height:1.2em;"></div>
+      <p class="small muted" style="margin-top:14px;">Don't have an account yet? Ask in the
+        <a href="${DEFAULT_DISCORD}" target="_blank" rel="noopener">Discord</a> and we'll get you set up.</p>
+    </div>`;
+  const go=async()=>{
+    const u=$("g_user").value.trim(), p=$("g_pass").value;
+    if(!u||!p){ $("g_msg").textContent="Enter your user ID and password."; return; }
+    $("g_msg").textContent="Signing in…"; $("g_go").disabled=true;
+    const res=await bankCall({action:"loginPlayer", userId:u, password:p});
+    if(res && res.success){
+      localStorage.setItem("equi-lite-bank", JSON.stringify({userId:u, password:p, linked:true}));
+      render();
+    } else {
+      $("g_go").disabled=false;
+      $("g_msg").innerHTML=`<span style="color:var(--bad);">${esc(res && res.error ? res.error : "Sign-in failed.")}</span>`;
+    }
+  };
+  $("g_go").onclick=go;
+  $("g_pass").onkeydown=e=>{ if(e.key==="Enter") go(); };
+}
+
 function render(){
+  if(!me()){ renderGate(); return; }
   renderNav();
   const v=$("view");
   v.innerHTML = `<div class="card"><div class="small">Loading…</div></div>`;
