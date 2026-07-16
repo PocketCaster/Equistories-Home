@@ -742,8 +742,29 @@ function renderGate(){
   $("g_pass").onkeydown=e=>{ if(e.key==="Enter") go(); };
 }
 
+// Same origin as the tracker and shows, so Firebase already knows us — adopt that
+// session instead of demanding a second sign-in.
+let __adopting=false;
+async function adoptSharedSession(){
+  if(__adopting) return; __adopting=true;
+  try{
+    if(!window.EquiAuth) return;
+    await window.EquiAuth.ready;
+    if(me() || !window.EquiAuth.user) return;
+    const token=await window.EquiAuth.token(); if(!token) return;
+    const who=await bankCall({action:"getMyAccount", idToken:token});
+    if(who?.success && who.data?.linked){
+      localStorage.setItem("equi-lite-bank", JSON.stringify({
+        userId:who.data.userId, password:"", linked:true }));
+      console.log('[Hub] adopted shared session:', who.data.userId);
+      render();
+    }
+  }catch(e){ console.warn('[Hub] session adopt failed:', e); }
+  finally{ __adopting=false; }
+}
+
 function render(){
-  if(!me()){ renderGate(); return; }
+  if(!me()){ renderGate(); adoptSharedSession(); return; }
   renderNav();
   const v=$("view");
   v.innerHTML = `<div class="card"><div class="small">Loading…</div></div>`;
