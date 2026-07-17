@@ -52,7 +52,8 @@ window.__equiDBReady = new Promise(r => { window.__equiDBResolve = r; });
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, orderBy, limit }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword, sendPasswordResetEmail,
+import { getAuth, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword,
+         createUserWithEmailAndPassword, sendPasswordResetEmail,
          signOut as fbSignOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
@@ -85,7 +86,10 @@ const friendlyAuth = e => ({
   'auth/user-not-found':'No account found with that email.',
   'auth/wrong-password':'Incorrect password.',
   'auth/invalid-credential':'Incorrect email or password.',
+  'auth/email-already-in-use':'That email already has an account — sign in instead.',
+  'auth/weak-password':'Password must be at least 6 characters.',
   'auth/too-many-requests':'Too many attempts. Wait a minute and try again.',
+  'auth/network-request-failed':'Network problem — check your connection.',
 }[e && e.code] || (e && e.message) || 'Something went wrong.');
 
 window.EquiAuth = {
@@ -95,6 +99,10 @@ window.EquiAuth = {
   async token(){ const u=this.user; if(!u) return null; try{ return await u.getIdToken(); }catch(e){ return null; } },
   async signIn(email,password){
     try{ const c=await signInWithEmailAndPassword(auth,email,password); return {success:true,user:c.user}; }
+    catch(e){ return {success:false,error:friendlyAuth(e)}; }
+  },
+  async signUp(email,password){
+    try{ const c=await createUserWithEmailAndPassword(auth,email,password); return {success:true,user:c.user}; }
     catch(e){ return {success:false,error:friendlyAuth(e)}; }
   },
   async resetPassword(email){
@@ -207,6 +215,43 @@ async function waitForDB(ms=8000){
 function me(){
   try{ const b=JSON.parse(localStorage.getItem("equi-lite-bank")||"null");
        return (b && b.linked && b.userId) ? b : null; }catch(e){ return null; }
+}
+
+// Ask the bank for a token whose uid IS our bank userId, then adopt it. Without
+// this, Firestore rules can't tell who owns what, and writes from a login made
+// directly on the Hub (rather than adopted from Stable Manager) will fail.
+async function upgradeToOwnerSession(){
+  try{
+    if(!window.EquiAuth || !window.EquiAuth.user) return false;
+    const idToken = await window.EquiAuth.token();
+    if(!idToken) return false;
+    const r = await bankCall({ action:'getFirestoreToken', idToken });
+    if(r?.success && r.data?.token){
+      const ok = await window.EquiAuth.upgradeToOwner(r.data.token);
+      if(ok) console.log('[Hub] signed in to Firestore as owner:', r.data.userId);
+      return ok;
+    }
+    console.warn('[Hub] owner token unavailable:', r?.error||'unknown');
+  }catch(e){ console.error('[Hub] upgrade error:', e); }
+  return false;
+}
+
+// So people show up on the Members list the moment they sign in, even if they've
+// never opened the Stable Manager to fill out a profile. Only creates a stub —
+// never overwrites a profile that already exists. Shape matches Stable Manager's
+// newPlayerProfile() so it merges cleanly if they later edit it there.
+async function ensureProfile(userId){
+  try{
+    const DB = await waitForDB();
+    if(!DB) return;
+    const existing = await DB.get('profiles', userId);
+    if(existing) return;
+    await DB.put('profiles', userId, userId, {
+      displayName: userId, pronouns:"", avatar: "", bio:"", discord: "", links: [],
+      joinedAt: new Date().toISOString()
+    });
+    console.log('[Hub] auto-created blank profile for', userId);
+  }catch(e){ console.warn('[Hub] ensureProfile failed:', e); }
 }
 
 
@@ -830,49 +875,162 @@ function renderNav(){
 }
 function renderGate(){
   $("nav").innerHTML="";
-  $("view").innerHTML=`
-    <div class="card" style="max-width:520px;margin:40px auto;">
+  if(!window.__gateMode) window.__gateMode = "signin";
+  const mode = window.__gateMode;
+
+  const field=(id,label,type,ph,ac)=>`<label>${label}</label>
+    <input id="${id}" type="${type}" autocomplete="${ac||(type==='password'?'current-password':'email')}" placeholder="${ph}" />`;
+
+  let body="";
+  if(mode==="signin"){
+    body=`
       <h2>Members only</h2>
       <p>The Community Hub is for EquiStories members. Sign in with your Bank account —
       the same one you use in the Stable Manager and Shows.</p>
-      <label>Email</label><input id="g_user" type="email" autocomplete="username" placeholder="you@example.com" />
-      <label>Password</label><input id="g_pass" type="password" autocomplete="current-password" />
-      <button id="g_go" style="margin-top:14px;width:100%;">Sign in</button>
+      ${field('g_email','Email','email','you@example.com')}
+      ${field('g_pass','Password','password','Your password')}
+      <button id="g_go" style="margin-top:14px;width:100%;">Sign In</button>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;">
+        <span data-mode="forgot" class="small" style="color:var(--accent);cursor:pointer;">Forgot password?</span>
+        <span data-mode="signup" class="small" style="color:var(--accent);cursor:pointer;">Create an account</span>
+      </div>`;
+  } else if(mode==="signup"){
+    body=`
+      <h2>Create an account</h2>
+      <p>Already play EquiStories? Create your login here, then link it to your existing
+      stable on the next screen — nothing is lost.</p>
+      ${field('g_email','Email','email','you@example.com')}
+      ${field('g_pass','Password','password','At least 6 characters','new-password')}
+      <button id="g_go" style="margin-top:14px;width:100%;">Create Account</button>
+      <div style="margin-top:8px;text-align:center;">
+        <span data-mode="signin" class="small" style="color:var(--accent);cursor:pointer;">← Back to sign in</span>
+      </div>`;
+  } else if(mode==="forgot"){
+    body=`
+      <h2>Reset your password</h2>
+      <p>We'll email you a link to set a new password. No admin needed.</p>
+      ${field('g_email','Email','email','you@example.com')}
+      <button id="g_go" style="margin-top:14px;width:100%;">Send Reset Email</button>
+      <div style="margin-top:8px;text-align:center;">
+        <span data-mode="signin" class="small" style="color:var(--accent);cursor:pointer;">← Back to sign in</span>
+      </div>`;
+  } else { // link
+    body=`
+      <h2>Connect your stable</h2>
+      <p>Signed in as <b>${esc((window.EquiAuth&&window.EquiAuth.email)||"")}</b>.
+      Enter your <b>old</b> Bank User ID and password once, and this login takes over from here.
+      Your Buxx and horses stay exactly as they are.</p>
+      ${field('g_user','Bank User ID','text','e.g. PocketCaster','username')}
+      ${field('g_oldpass','Old bank password','password','Your old password','current-password')}
+      <button id="g_link" style="margin-top:14px;width:100%;">Link My Stable</button>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #4a392a;">
+        <p class="small" style="margin:0 0 6px;">Brand new to EquiStories? Pick a User ID instead — this is permanent
+        and stamps everything you own.</p>
+        ${field('g_newid','New User ID','text','3-24 letters, numbers, _ or -','username')}
+        <button id="g_new" style="width:100%;">Create a new stable</button>
+      </div>
+      <div style="margin-top:8px;text-align:center;">
+        <span data-mode="signout" class="small muted" style="cursor:pointer;">Sign out</span>
+      </div>`;
+  }
+
+  $("view").innerHTML=`
+    <div class="card" style="max-width:520px;margin:40px auto;">
+      ${body}
       <div id="g_msg" class="small" style="margin-top:8px;min-height:1.2em;"></div>
-      <div style="margin-top:8px;"><span id="g_forgot" class="small" style="color:var(--accent);cursor:pointer;">Forgot password?</span></div>
-      <p class="small muted" style="margin-top:14px;">Don't have an account yet? Ask in the
-        <a href="${DEFAULT_DISCORD}" target="_blank" rel="noopener">Discord</a> and we'll get you set up.</p>
+      ${mode==="signin"?`<p class="small muted" style="margin-top:14px;">Need help? Ask in the
+        <a href="${DEFAULT_DISCORD}" target="_blank" rel="noopener">Discord</a>.</p>`:""}
     </div>`;
-  const fail=m=>{ $("g_go").disabled=false; $("g_msg").innerHTML=`<span style="color:var(--bad);">${esc(m)}</span>`; };
-  const go=async()=>{
-    const u=$("g_user").value.trim(), p=$("g_pass").value;
-    if(!u||!p){ $("g_msg").textContent="Enter your email and password."; return; }
-    $("g_msg").textContent="Signing in…"; $("g_go").disabled=true;
-    if(!window.EquiAuth){ fail("Auth is still loading — try again."); return; }
-    const a=await window.EquiAuth.signIn(u,p);
-    if(!a.success){ fail(a.error); return; }
-    const token=await window.EquiAuth.token();
-    const who=await bankCall({action:"getMyAccount", idToken:token});
-    if(!who?.success){ fail(who?.error||"Could not reach the bank."); return; }
-    if(!who.data?.linked){
-      await window.EquiAuth.signOut();
-      fail("That login isn't connected to a stable yet. Open the Stable Manager and link it first.");
-      return;
+
+  const msg = $("g_msg");
+  const say=(m,kind)=>{
+    const color = kind==="good" ? "var(--good)" : kind==="bad" ? "var(--bad)" : "";
+    msg.innerHTML = color ? `<span style="color:${color};">${esc(m)}</span>` : `<span class="muted">${esc(m)}</span>`;
+  };
+
+  document.querySelectorAll("[data-mode]").forEach(el=>el.onclick=async()=>{
+    if(el.dataset.mode==="signout"){ await window.EquiAuth.signOut(); window.__gateMode="signin"; renderGate(); return; }
+    window.__gateMode = el.dataset.mode; renderGate();
+  });
+
+  // After a Firebase sign-in, ask the bank which stable this login owns.
+  async function afterAuth(){
+    say("Checking your stable…","muted");
+    const token = await window.EquiAuth.token();
+    const who = await bankCall({action:"getMyAccount", idToken:token});
+    if(who?.success && who.data?.linked){
+      localStorage.setItem("equi-lite-bank", JSON.stringify({userId:who.data.userId, password:"", linked:true}));
+      await upgradeToOwnerSession();
+      await ensureProfile(who.data.userId);
+      render();
+    } else {
+      window.__gateMode = "link";
+      renderGate();
     }
-    localStorage.setItem("equi-lite-bank", JSON.stringify({userId:who.data.userId, password:"", linked:true}));
-    render();
-  };
-  $("g_go").onclick=go;
-  $("g_forgot").onclick=async()=>{
-    const u=$("g_user").value.trim();
-    if(!u){ $("g_msg").textContent="Enter your email first, then click again."; return; }
-    $("g_msg").textContent="Sending…";
-    const r=await window.EquiAuth.resetPassword(u);
-    $("g_msg").innerHTML = r.success
-      ? '<span style="color:var(--good);">Check your email for a reset link.</span>'
-      : `<span style="color:var(--bad);">${esc(r.error)}</span>`;
-  };
-  $("g_pass").onkeydown=e=>{ if(e.key==="Enter") go(); };
+  }
+
+  if(mode==="signin" || mode==="signup" || mode==="forgot"){
+    const go=$("g_go");
+    go.onclick=async()=>{
+      go.disabled=true;
+      if(!window.EquiAuth){ say("Auth is still loading — try again.","bad"); go.disabled=false; return; }
+
+      if(mode==="forgot"){
+        const email=$("g_email").value.trim();
+        if(!email){ say("Enter your email.","bad"); go.disabled=false; return; }
+        say("Sending…","muted");
+        const r=await window.EquiAuth.resetPassword(email);
+        go.disabled=false;
+        say(r.success ? "Check your email for a reset link." : r.error, r.success?"good":"bad");
+        return;
+      }
+
+      const email=$("g_email").value.trim(), pass=$("g_pass").value;
+      if(!email||!pass){ say("Enter your email and password.","bad"); go.disabled=false; return; }
+      say(mode==="signup"?"Creating your account…":"Signing in…","muted");
+      const r = mode==="signup" ? await window.EquiAuth.signUp(email,pass) : await window.EquiAuth.signIn(email,pass);
+      go.disabled=false;
+      if(!r.success){ say(r.error,"bad"); return; }
+      await afterAuth();
+    };
+    $("g_pass") && ($("g_pass").onkeydown=e=>{ if(e.key==="Enter") go.onclick(); });
+  }
+
+  if(mode==="link"){
+    const linkBtn=$("g_link");
+    linkBtn.onclick=async()=>{
+      const userId=$("g_user").value.trim(), oldPass=$("g_oldpass").value;
+      if(!userId||!oldPass){ say("Enter your old User ID and password.","bad"); return; }
+      linkBtn.disabled=true; say("Linking…","muted");
+      const token=await window.EquiAuth.token();
+      const r=await bankCall({action:"linkFirebaseAccount", idToken:token, userId, password:oldPass});
+      linkBtn.disabled=false;
+      if(r?.success){
+        localStorage.setItem("equi-lite-bank", JSON.stringify({userId:r.data.userId, password:"", linked:true}));
+        await upgradeToOwnerSession();
+        await ensureProfile(r.data.userId);
+        say(`Linked! Welcome back, ${r.data.displayName}.`,"good");
+        render();
+      } else say(r?.error||"Could not link that account.","bad");
+    };
+
+    const newBtn=$("g_new");
+    newBtn.onclick=async()=>{
+      const userId=$("g_newid").value.trim();
+      if(!userId){ say("Pick a User ID.","bad"); return; }
+      newBtn.disabled=true; say("Creating your stable…","muted");
+      const token=await window.EquiAuth.token();
+      const r=await bankCall({action:"registerFirebaseAccount", idToken:token, userId, displayName:userId});
+      newBtn.disabled=false;
+      if(r?.success){
+        localStorage.setItem("equi-lite-bank", JSON.stringify({userId:r.data.userId, password:"", linked:true}));
+        await upgradeToOwnerSession();
+        await ensureProfile(r.data.userId);
+        say(`Welcome to EquiStories, ${r.data.displayName}!`,"good");
+        render();
+      } else say(r?.error||"Could not create that account.","bad");
+    };
+  }
 }
 
 // Same origin as the tracker and shows, so Firebase already knows us — adopt that
@@ -890,6 +1048,8 @@ async function adoptSharedSession(){
       localStorage.setItem("equi-lite-bank", JSON.stringify({
         userId:who.data.userId, password:"", linked:true }));
       console.log('[Hub] adopted shared session:', who.data.userId);
+      await upgradeToOwnerSession();
+      await ensureProfile(who.data.userId);
       render();
     }
   }catch(e){ console.warn('[Hub] session adopt failed:', e); }
