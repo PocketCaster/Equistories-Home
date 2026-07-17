@@ -196,7 +196,7 @@ const STAT_LABELS = {stamina:"Stamina",strength:"Strength",scope:"Scope",speed:"
   handiness:"Handiness",boldness:"Boldness",balance:"Balance",gaits:"Gaits",harmony:"Harmony"};
 const statTotal = h => STATS.reduce((n,k)=>n+(Number(h.stats&&h.stats[k])||0), 0);
 const imgOk = u => typeof u==='string' && u && !u.startsWith('data:');
-const TABS = ["Home","Members","Community","Notice Board"];
+const TABS = ["Home","Members","Community","Show Board","Notice Board"];
 let tab = "Home";
 
 async function waitForDB(ms=8000){
@@ -680,6 +680,139 @@ async function renderBoard(v){
   }
 }
 
+// ============================================================
+//  SHOW BOARD — long-form show guides & flavor text
+//  Hosts post the write-up for their show (lore, rules, schedule,
+//  prizes) the way they used to pass around a Google Doc. Public to
+//  read; posting and editing need the shared sign-in.
+// ============================================================
+async function renderShowBoard(v){
+  const who = me();
+  let editingId = null;
+
+  v.innerHTML = `
+    <div class="card">
+      <h2>Show Board</h2>
+      <p class="small">The flavor and the fine print. Post your show's guide here — lore, classes, rules,
+        schedule, prizes — and drop the invite link so entrants can go straight from reading to entering.</p>
+      ${who ? `
+        <label>Show title</label><input id="sg_title" placeholder="e.g. 2026 Jacaranda Jamboree" />
+        <label>Banner image link (optional)</label><input id="sg_banner" placeholder="https://…/banner.png" />
+        <label>Invite link (optional — the show's ?show= link from the Shows app)</label>
+        <input id="sg_link" placeholder="https://pocketcaster.github.io/equistories-shows/?show=…" />
+        <label>Show guide</label>
+        <textarea id="sg_body" rows="12" placeholder="All the flavor text you want — lore, judging notes, class list, schedule, prizes. Blank lines and paragraphs are kept exactly as you type them."></textarea>
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button id="sg_post">Post the guide</button>
+          <button class="ghost hide" id="sg_cancel">Cancel edit</button>
+          <span id="sg_status" class="small"></span>
+        </div>`
+      : `<p class="small muted">Sign in on the <a href="${APPS.stable}">Stable Manager</a> first — the board uses the same account, and this page will pick it up automatically.</p>`}
+    </div>
+    <div class="card">
+      <h3 style="margin:0;">Posted shows</h3>
+      <div id="sg_list" style="margin-top:12px;">Loading…</div>
+    </div>`;
+
+  function resetForm(){
+    editingId = null;
+    ["sg_title","sg_banner","sg_link","sg_body"].forEach(id=>{ const el=$(id); if(el) el.value=""; });
+    if($("sg_post")) $("sg_post").textContent = "Post the guide";
+    if($("sg_cancel")) $("sg_cancel").classList.add("hide");
+    if($("sg_status")) $("sg_status").textContent = "";
+  }
+
+  if(who){
+    $("sg_post").onclick = async ()=>{
+      const title=$("sg_title").value.trim();
+      const body =$("sg_body").value.trim();
+      if(!title){ $("sg_status").textContent="Give the show a title."; return; }
+      if(!body){ $("sg_status").textContent="The guide is the whole point — write something."; return; }
+      if(body.length>20000){ $("sg_status").textContent="That's over 20,000 characters — trim it a little."; return; }
+      const DB=await waitForDB(); if(!DB){ $("sg_status").textContent="No database."; return; }
+      $("sg_status").textContent = editingId ? "Saving…" : "Posting…";
+      const wasEdit = !!editingId;
+      const id = editingId || ("guide_"+Math.random().toString(36).slice(2,10));
+      try{
+        const existing = wasEdit ? await DB.get('showGuides', id) : null;
+        await DB.put('showGuides', id, who.userId, {
+          id, poster: who.userId,
+          title, banner: $("sg_banner").value.trim(), link: $("sg_link").value.trim(),
+          body,
+          createdAt: (existing && existing.createdAt) || new Date().toISOString(),
+          updatedAt: wasEdit ? new Date().toISOString() : undefined,
+          status: (existing && existing.status) || 'open',
+        });
+        resetForm();
+        $("sg_status").textContent = wasEdit ? "Saved." : "Posted.";
+        loadGuides();
+      }catch(err){ $("sg_status").textContent = "Failed: "+(err.message||err); }
+    };
+    $("sg_cancel").onclick = resetForm;
+  }
+  loadGuides();
+
+  async function loadGuides(){
+    const DB=await waitForDB();
+    if(!DB){ $("sg_list").innerHTML='<span class="muted">Database unavailable.</span>'; return; }
+    let guides=[];
+    try{ guides = await DB.listAll('showGuides'); }
+    catch(e){ $("sg_list").innerHTML='<span class="muted">Could not load the board.</span>'; return; }
+    guides.sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+    if(!guides.length){ $("sg_list").innerHTML='<span class="muted">No show guides yet. Hosting something? Yours could be first.</span>'; return; }
+
+    $("sg_list").innerHTML = guides.map(g=>{
+      const mine = who && g.poster===who.userId;
+      const closed = g.status==='closed';
+      const body = String(g.body||'');
+      const long = body.length>380;
+      const teaser = long ? body.slice(0, 340).replace(/\s+\S*$/,'')+" …" : body;
+      return `<div style="border:1px solid var(--line);border-radius:8px;margin-bottom:14px;background:var(--deep);overflow:hidden;${closed?'opacity:.6;':''}">
+        ${imgOk(g.banner)?`<img src="${esc(g.banner)}" alt="${esc(g.title)} banner" loading="lazy" referrerpolicy="no-referrer" style="display:block;width:100%;max-height:220px;object-fit:cover;">`:''}
+        <div style="padding:14px;">
+          <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;">
+            <b style="color:var(--accent);font-size:1.15em;">${esc(g.title)}</b>
+            ${closed?`<span class="tag">CLOSED</span>`:''}
+          </div>
+          <div class="small">hosted by <a href="${APPS.stable}?player=${encodeURIComponent(g.poster)}">${esc(g.poster)}</a>
+            · ${esc((g.createdAt||'').slice(0,10))}${g.updatedAt?` · edited ${esc(String(g.updatedAt).slice(0,10))}`:''}</div>
+          <div style="margin-top:8px;white-space:pre-wrap;">${esc(teaser)}</div>
+          ${long?`<details style="margin-top:6px;"><summary style="cursor:pointer;color:var(--accent);">Read the full guide</summary>
+            <div style="margin-top:8px;white-space:pre-wrap;">${esc(body)}</div></details>`:''}
+          ${g.link?`<div style="margin-top:10px;"><a href="${esc(g.link)}" target="_blank" rel="noopener"
+            style="display:inline-block;background:var(--accent);color:#241a14;font-weight:bold;padding:8px 16px;border-radius:6px;text-decoration:none;">Enter this show →</a></div>`:''}
+          ${mine?`<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="ghost" data-sgedit="${g.id}" style="padding:3px 10px;font-size:.85rem;">Edit</button>
+              <button class="ghost" data-sgclose="${g.id}" style="padding:3px 10px;font-size:.85rem;">${closed?'Re-open':'Mark closed'}</button>
+              <button class="ghost" data-sgdel="${g.id}" style="padding:3px 10px;font-size:.85rem;color:var(--bad);">Delete</button>
+            </div>`:''}
+        </div>
+      </div>`;
+    }).join("");
+
+    $("sg_list").querySelectorAll('[data-sgedit]').forEach(b=>b.onclick=()=>{
+      const g=guides.find(x=>x.id===b.dataset.sgedit); if(!g) return;
+      editingId=g.id;
+      $("sg_title").value=g.title||""; $("sg_banner").value=g.banner||"";
+      $("sg_link").value=g.link||""; $("sg_body").value=g.body||"";
+      $("sg_post").textContent="Save changes";
+      $("sg_cancel").classList.remove("hide");
+      $("sg_status").textContent="Editing “"+(g.title||"")+"”";
+      v.scrollIntoView({behavior:"smooth", block:"start"});
+    });
+    $("sg_list").querySelectorAll('[data-sgdel]').forEach(b=>b.onclick=async()=>{
+      if(!confirm('Delete this show guide?')) return;
+      const DB2=await waitForDB(); await DB2.remove('showGuides', b.dataset.sgdel); loadGuides();
+    });
+    $("sg_list").querySelectorAll('[data-sgclose]').forEach(b=>b.onclick=async()=>{
+      const DB2=await waitForDB();
+      const g=guides.find(x=>x.id===b.dataset.sgclose); if(!g) return;
+      g.status = g.status==='closed' ? 'open' : 'closed';
+      await DB2.put('showGuides', g.id, g.poster, g); loadGuides();
+    });
+  }
+}
+
 function renderNav(){
   const who=me();
   $("nav").innerHTML = TABS.map(t=>`<div class="tab ${t===tab?'active':''}" data-tab="${t}">${t}</div>`).join("")
@@ -771,6 +904,7 @@ function render(){
   if(tab==="Home") renderHome(v);
   else if(tab==="Members") renderMembers(v);
   else if(tab==="Community") renderCommunity(v);
+  else if(tab==="Show Board") renderShowBoard(v);
   else renderBoard(v);
 }
 window.__render = render;
