@@ -66,6 +66,44 @@
   .linkbox:hover{ border-color:var(--accent); }
   .linkbox b{ color:var(--accent); display:block; font-size:1.1em; }
 
+  /* ── SHOPS TAB ────────────────────────────────────────────── */
+  .shop-tiles{ display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
+  .shop-tile{ border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--deep);
+    cursor:pointer; transition:border-color .15s, transform .15s; display:flex; flex-direction:column; }
+  .shop-tile:hover{ border-color:var(--accent); transform:translateY(-2px); }
+  .shop-tile .banner{ height:120px; background-size:cover; background-position:center;
+    background-color:var(--panel2); border-bottom:1px solid var(--line); }
+  .shop-tile .banner.noimg{ display:flex; align-items:center; justify-content:center; font-size:2.4em; color:var(--line); }
+  .shop-tile .body{ padding:12px 14px; flex:1; display:flex; flex-direction:column; gap:5px; }
+  .shop-tile .body b{ font-family:'Playfair Display',serif; color:var(--accent); font-size:1.1em; }
+
+  /* A storefront restyles itself with these locals, so each shop feels custom
+     while still living inside the hub. Defaults inherit the hub's palette. */
+  .storefront{ --sf-accent:var(--accent); --sf-bg:var(--panel); --sf-panel:var(--deep);
+    --sf-text:var(--text); --sf-head:var(--brass-mid); }
+  .sf-hero{ border-radius:12px; overflow:hidden; border:1px solid var(--line); margin-bottom:16px;
+    background:var(--sf-panel); }
+  .sf-hero .banner{ height:180px; background-size:cover; background-position:center; background-color:var(--sf-panel); }
+  .sf-hero .banner.noimg{ display:flex; align-items:center; justify-content:center; font-size:3em; color:var(--sf-accent); opacity:.5; }
+  .sf-hero .meta{ padding:16px 18px; }
+  .sf-hero .meta h2{ margin:0; font-family:'Playfair Display',serif; color:var(--sf-head); }
+  .sf-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; }
+  .sf-item{ border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--sf-panel);
+    display:flex; flex-direction:column; }
+  .sf-item .img{ height:150px; background-size:cover; background-position:center; background-color:var(--panel2); }
+  .sf-item .img.noimg{ display:flex; align-items:center; justify-content:center; font-size:2em; color:var(--line); }
+  .sf-item .pad{ padding:12px; flex:1; display:flex; flex-direction:column; gap:6px; }
+  .sf-item .pad .nm{ font-family:'Playfair Display',serif; color:var(--sf-head); font-weight:700; }
+  .sf-price{ color:var(--sf-accent); font-family:'Caveat',cursive; font-weight:700; font-size:1.5rem; margin-top:auto; }
+  .sf-buy{ background:var(--sf-accent); color:#1a130c; border:none; padding:7px 14px; border-radius:6px;
+    font-family:'Playfair Display',serif; font-weight:700; cursor:pointer; }
+  .sf-buy:disabled{ opacity:.5; cursor:not-allowed; }
+  .swatch-row{ display:flex; gap:12px; flex-wrap:wrap; }
+  .swatch{ display:flex; flex-direction:column; gap:4px; align-items:flex-start; }
+  .swatch input[type=color]{ width:52px; height:36px; padding:2px; border:1px solid var(--line);
+    border-radius:6px; background:var(--deep); cursor:pointer; }
+  .shop-crumb{ display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+
   /* ── BANK TAB ─────────────────────────────────────────────── */
   .eyebrow{ font-family:'Caveat',cursive; font-size:1.05rem; letter-spacing:.12em; text-transform:uppercase; color:var(--brass-mid); }
   .bank-hero{ border:1px solid var(--brass-mid);
@@ -96,6 +134,17 @@
   .bk-notif{ padding:10px 12px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px; background:var(--deep); }
   .bk-notif.unread{ border-color:var(--brass-mid); background:rgba(200,132,42,.09); }
   .bk-notif b{ color:var(--accent); text-transform:capitalize; }
+  /* Even action cards: flex column so every button sits on the bottom edge,
+     no matter how many fields the card has. */
+  .bank-act{ display:flex; flex-direction:column; }
+  .bank-act > button{ margin-top:auto; }
+  /* Business section */
+  .bk-subnav{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+  .bk-idbox{ background:var(--gold-shine); border:1px solid var(--brass-dark); border-radius:10px;
+    padding:14px 16px; text-align:center; margin:12px 0; box-shadow:0 2px 0 var(--brass-dark); }
+  .bk-idbox .lab{ font-family:'Caveat',cursive; font-size:1rem; text-transform:uppercase; letter-spacing:.1em; color:#3e2b15; opacity:.85; }
+  .bk-idbox .val{ font-family:'Caveat',cursive; font-size:1.7rem; font-weight:700; color:#241a14; word-break:break-all; line-height:1.15; }
+  .bk-idbox .hint{ font-size:.78rem; color:#3e2b15; font-style:italic; opacity:.85; margin-top:4px; }
 </style>
 </head>
 <body>
@@ -260,7 +309,7 @@ const STAT_LABELS = {stamina:"Stamina",strength:"Strength",scope:"Scope",speed:"
   handiness:"Handiness",boldness:"Boldness",balance:"Balance",gaits:"Gaits",harmony:"Harmony"};
 const statTotal = h => STATS.reduce((n,k)=>n+(Number(h.stats&&h.stats[k])||0), 0);
 const imgOk = u => typeof u==='string' && u && !u.startsWith('data:');
-const TABS = ["Home","Bank","Members","Community","Show Board","Notice Board"];
+const TABS = ["Home","Bank","Shops","Members","Community","Show Board","Notice Board"];
 let tab = "Home";
 
 async function waitForDB(ms=8000){
@@ -510,32 +559,89 @@ async function renderBank(v){
     </div>
 
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));">
-      <div class="card">
+      <div class="card bank-act">
         <h3>Send Buxx to a player</h3>
         <label>Their User ID</label><input id="bkToUser" placeholder="Recipient's User ID" />
         <label>Amount</label><input id="bkToAmt" type="number" min="0.01" step="0.01" placeholder="0" />
         <label>Note (optional)</label><input id="bkToNote" placeholder="What's it for?" />
-        <button id="bkSend" style="margin-top:12px;width:100%;">Send Buxx</button>
+        <button id="bkSend" style="width:100%;">Send Buxx</button>
         <div id="bkSendMsg" class="small" style="margin-top:8px;min-height:1.1em;"></div>
       </div>
 
-      <div class="card">
+      <div class="card bank-act">
         <h3>Pay a business</h3>
         <label>Business name</label><input id="bkBizName" placeholder="Exact business name" />
         <label>Amount</label><input id="bkBizAmt" type="number" min="0.01" step="0.01" placeholder="0" />
         <label>Note (optional)</label><input id="bkBizNote" placeholder="What's it for?" />
-        <button id="bkPay" style="margin-top:12px;width:100%;">Pay business</button>
+        <button id="bkPay" style="width:100%;">Pay business</button>
         <div id="bkPayMsg" class="small" style="margin-top:8px;min-height:1.1em;"></div>
       </div>
 
-      <div class="card">
+      <div class="card bank-act">
         <h3>Deposit</h3>
         <p class="small muted" style="margin:0 0 2px;">Submit proof of earnings to add Buxx.</p>
         <label>Amount</label><input id="bkDepAmt" type="number" min="0.01" step="0.01" placeholder="0" />
         <label>Proof link</label><input id="bkDepProof" placeholder="https://… proof of earnings" />
         <label>Description (optional)</label><input id="bkDepDesc" placeholder="What's this for?" />
-        <button id="bkDep" style="margin-top:12px;width:100%;">Submit deposit</button>
+        <button id="bkDep" style="width:100%;">Submit deposit</button>
         <div id="bkDepMsg" class="small" style="margin-top:8px;min-height:1.1em;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Business accounts</h3>
+      <div class="bk-subnav" id="bkBizNav">
+        <span class="bk-pill active" data-b="create">Create</span>
+        <span class="bk-pill" data-b="balance">Balance &amp; ID</span>
+        <span class="bk-pill" data-b="refund">Refund a player</span>
+      </div>
+
+      <!-- Create business -->
+      <div id="bkBizCreate" class="bk-bizpanel">
+        <p class="small muted" style="margin:0 0 6px;">Create a business players can pay by name. You'll get a Business ID — save it; you need it to check the balance and issue refunds.</p>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+          <div><label>Business name</label><input id="bkNewBizName" placeholder="Must be unique" /></div>
+          <div><label>Passcode</label><input id="bkNewBizPass" type="password" placeholder="At least 4 characters" /></div>
+          <div><label>Confirm passcode</label><input id="bkNewBizPass2" type="password" placeholder="Re-enter passcode" /></div>
+        </div>
+        <button id="bkNewBiz" style="margin-top:12px;">Create business</button>
+        <div id="bkNewBizMsg" class="small" style="margin-top:8px;min-height:1.1em;"></div>
+        <div id="bkNewBizOut"></div>
+      </div>
+
+      <!-- Balance & ID lookup -->
+      <div id="bkBizBalance" class="bk-bizpanel hide">
+        <label>Business ID</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;">
+          <input id="bkBizId" placeholder="BIZ-…" style="flex:1;min-width:200px;" />
+          <button id="bkBizBal" class="ghost">Check balance</button>
+        </div>
+        <div id="bkBizBalMsg" class="small" style="margin-top:8px;min-height:1.1em;"></div>
+        <div id="bkBizBalOut"></div>
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);">
+          <p class="small muted" style="margin:0 0 6px;">Forgot your Business ID? Look it up with the name and passcode.</p>
+          <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
+            <div><label>Business name</label><input id="bkLookupName" placeholder="Exact business name" /></div>
+            <div><label>Passcode</label><input id="bkLookupPass" type="password" placeholder="Business passcode" /></div>
+          </div>
+          <button id="bkLookup" class="ghost" style="margin-top:10px;">Look up my ID</button>
+          <div id="bkLookupMsg" class="small" style="margin-top:8px;min-height:1.1em;"></div>
+          <div id="bkLookupOut"></div>
+        </div>
+      </div>
+
+      <!-- Refund a player -->
+      <div id="bkBizRefund" class="bk-bizpanel hide">
+        <p class="small muted" style="margin:0 0 6px;">Send Buxx from your business back to a player. Needs your Business ID and passcode to authorize.</p>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+          <div><label>Business ID</label><input id="bkRefBizId" placeholder="BIZ-…" /></div>
+          <div><label>Business passcode</label><input id="bkRefPass" type="password" placeholder="Passcode" /></div>
+          <div><label>Player User ID</label><input id="bkRefUser" placeholder="Who to refund" /></div>
+          <div><label>Amount</label><input id="bkRefAmt" type="number" min="0.01" step="0.01" placeholder="0" /></div>
+          <div><label>Note (optional)</label><input id="bkRefNote" placeholder="Reason for refund" /></div>
+        </div>
+        <button id="bkRefund" style="margin-top:12px;">Issue refund</button>
+        <div id="bkRefundMsg" class="small" style="margin-top:8px;min-height:1.1em;"></div>
       </div>
     </div>
 
@@ -654,6 +760,68 @@ async function renderBank(v){
     if(r&&r.success){ say('bkDepMsg',`Deposit of ${fmtBuxx(amount)} submitted.`,'good');
       $("bkDepAmt").value='';$("bkDepProof").value='';$("bkDepDesc").value=''; loadBalance(); loadHist(); }
     else say('bkDepMsg',(r&&r.error)||'Could not submit.','bad');
+  };
+
+  // --- business accounts ---
+  const idBox = (lab,val,hint)=>`<div class="bk-idbox"><div class="lab">${esc(lab)}</div><div class="val">${esc(val)}</div>${hint?`<div class="hint">✦ ${esc(hint)} ✦</div>`:''}</div>`;
+
+  $("bkBizNav").onclick = e=>{
+    const p=e.target.closest('.bk-pill'); if(!p) return;
+    document.querySelectorAll('#bkBizNav .bk-pill').forEach(x=>x.classList.remove('active'));
+    p.classList.add('active');
+    const map={create:'bkBizCreate', balance:'bkBizBalance', refund:'bkBizRefund'};
+    Object.values(map).forEach(id=>$(id).classList.add('hide'));
+    $(map[p.dataset.b]).classList.remove('hide');
+  };
+
+  $("bkNewBiz").onclick = async ()=>{
+    const businessName=$("bkNewBizName").value.trim();
+    const passcode=$("bkNewBizPass").value, confirm=$("bkNewBizPass2").value;
+    if(!businessName){ say('bkNewBizMsg','Name your business.','bad'); return; }
+    if(!passcode||passcode.length<4){ say('bkNewBizMsg','Passcode must be at least 4 characters.','bad'); return; }
+    if(passcode!==confirm){ say('bkNewBizMsg','Passcodes do not match.','bad'); return; }
+    const btn=$("bkNewBiz"); btn.disabled=true; say('bkNewBizMsg','Creating…');
+    const token=await idToken();
+    if(!token){ say('bkNewBizMsg','Session expired — sign out and back in.','bad'); btn.disabled=false; return; }
+    const r=await bankCall({action:'createBusinessAccount', ownerId:who.userId, idToken:token, businessName, passcode});
+    btn.disabled=false;
+    if(r&&r.success){
+      say('bkNewBizMsg','Business created — save your ID below.','good');
+      $("bkNewBizName").value='';$("bkNewBizPass").value='';$("bkNewBizPass2").value='';
+      $("bkNewBizOut").innerHTML = idBox('Your Business ID', r.data.businessId, 'Write this down — you need it for balance checks & refunds');
+    } else say('bkNewBizMsg',(r&&r.error)||'Could not create.','bad');
+  };
+
+  $("bkBizBal").onclick = async ()=>{
+    const businessId=$("bkBizId").value.trim();
+    if(!businessId){ say('bkBizBalMsg','Enter a Business ID.','bad'); return; }
+    say('bkBizBalMsg','Checking…'); $("bkBizBalOut").innerHTML='';
+    const r=await bankCall({action:'getBusinessBalance', businessId});
+    if(r&&r.success){ say('bkBizBalMsg','');
+      $("bkBizBalOut").innerHTML = `<div class="bk-idbox"><div class="lab">${esc(r.data.businessName)}</div><div class="val">${fmtBuxx(r.data.balance)}</div></div>`;
+    } else say('bkBizBalMsg',(r&&r.error)||'Not found.','bad');
+  };
+
+  $("bkLookup").onclick = async ()=>{
+    const businessName=$("bkLookupName").value.trim(), passcode=$("bkLookupPass").value;
+    if(!businessName||!passcode){ say('bkLookupMsg','Enter the name and passcode.','bad'); return; }
+    say('bkLookupMsg','Looking up…'); $("bkLookupOut").innerHTML='';
+    const r=await bankCall({action:'lookupBusinessId', businessName, passcode});
+    if(r&&r.success){ say('bkLookupMsg','');
+      $("bkLookupOut").innerHTML = idBox(r.data.businessName, r.data.businessId, 'Your Business ID'); }
+    else say('bkLookupMsg',(r&&r.error)||'No match.','bad');
+  };
+
+  $("bkRefund").onclick = async ()=>{
+    const businessId=$("bkRefBizId").value.trim(), passcode=$("bkRefPass").value;
+    const toUserId=$("bkRefUser").value.trim(), amount=parseFloat($("bkRefAmt").value), note=$("bkRefNote").value.trim();
+    if(!businessId||!passcode||!toUserId||!amount){ say('bkRefundMsg','Fill in Business ID, passcode, player and amount.','bad'); return; }
+    const btn=$("bkRefund"); btn.disabled=true; say('bkRefundMsg','Refunding…');
+    const r=await bankCall({action:'businessTransfer', businessId, passcode, toUserId, amount, note:note||'Refund from business'});
+    btn.disabled=false;
+    if(r&&r.success){ say('bkRefundMsg',`Refunded ${fmtBuxx(amount)} to ${toUserId}.`,'good');
+      $("bkRefAmt").value='';$("bkRefNote").value=''; loadHist(); }
+    else say('bkRefundMsg',(r&&r.error)||'Could not refund.','bad');
   };
 
   loadBalance(); loadHist(); loadNotifs();
@@ -1108,7 +1276,7 @@ function renderNav(){
          <span class="small">${esc(who?who.userId:'')}</span>
          <button class="ghost" id="navOut" style="padding:4px 12px;font-size:.9em;">Sign out</button>
        </span>`;
-  $("nav").querySelectorAll("[data-tab]").forEach(el=>el.onclick=()=>{ tab=el.dataset.tab; render(); });
+  $("nav").querySelectorAll("[data-tab]").forEach(el=>el.onclick=()=>{ tab=el.dataset.tab; if(tab==="Shops"){ __shopView={mode:"browse",shopId:null}; } render(); });
   const out=$("navOut");
   if(out) out.onclick=async()=>{
     try{ localStorage.removeItem("equi-lite-bank"); }catch(e){}
@@ -1308,9 +1476,614 @@ function render(){
   else if(tab==="Bank") renderBank(v);
   else if(tab==="Members") renderMembers(v);
   else if(tab==="Community") renderCommunity(v);
+  else if(tab==="Shops") renderShops(v);
   else if(tab==="Show Board") renderShowBoard(v);
   else renderBoard(v);
 }
+// ============================================================
+//  SHOPS — player-run stores, listed and managed inside the hub
+//  Collections (same {owner,id,json} shape as everything else):
+//    shops      : one per shopkeeper {id, owner, name, banner, blurb,
+//                 businessName, theme:{accent,bg,panel,head}, createdAt}
+//    shopItems  : owner-scoped goods {id, owner, shopId, name, desc,
+//                 image, price, stock, uses, category, active}
+//  Checkout pays the shopkeeper's bank business (buyer's idToken) then
+//  writes the item into the buyer's own inventory/{userId} doc — the same
+//  document the tracker and Emporium share.
+// ============================================================
+const SHOP_THEME_DEFAULTS = { accent:"#d29a3e", panel:"#140e07", head:"#c9a84c" };
+
+function shopThemeVars(t){
+  t = t || {};
+  const a = t.accent || SHOP_THEME_DEFAULTS.accent;
+  const p = t.panel  || SHOP_THEME_DEFAULTS.panel;
+  const h = t.head   || SHOP_THEME_DEFAULTS.head;
+  return `--sf-accent:${a}; --sf-panel:${p}; --sf-head:${h};`;
+}
+// canonical inventory entry — matches the Emporium / tracker shape exactly
+function shopInvEntry(shop, item, qty){
+  const uses = Number(item.uses)||0;
+  const disc = Number(item.discountValue)||0;
+  const consumable = uses>0 || disc>0;
+  // A "single-use" token (uses<=1) stacks by quantity — each copy = one use.
+  // A "multi-use" token (uses>1) pools its uses into usesLeft.
+  const multiUse = uses > 1;
+  return {
+    id:        shop.id + "_" + item.id,
+    itemId:    item.id,
+    name:      item.name,
+    type:      consumable ? "consumable" : "shopgood",
+    category:  item.category || "",
+    desc:      item.desc || "",
+    price:     Number(item.price)||0,
+    qty:       qty,
+    usesLeft:  multiUse ? uses*qty : undefined,
+    discountValue: disc>0 ? disc : undefined,
+    singleUse: (consumable && !multiUse) ? true : undefined,
+    shopName:  shop.name,
+    source:    shop.id
+  };
+}
+
+let __shopView = { mode:"browse", shopId:null };
+
+// How an item behaves. Anything with uses>0 is consumable; a discountValue
+// makes it a coupon spent at checkout, otherwise it's a token used in
+// breeding/customs (Twin, Reroll, Stat Reset, Treats, trait tokens…).
+function itemKind(item){
+  if(Number(item.discountValue) > 0) return "discount";
+  if(Number(item.uses) > 0 || item.kind === "token") return "token";
+  return "good";
+}
+function invEntryKind(e){
+  if(Number(e.discountValue) > 0) return "discount";
+  if(Number(e.usesLeft) > 0 || e.singleUse === true || e.type === "consumable") return "token";
+  return "good";
+}
+
+// Append-only redemption ledger. Each use writes its OWN document (unique id),
+// so there's no read-modify-write race and Firestore rules can forbid editing
+// or deleting a record after the fact — that's what makes it cheat-proof.
+async function logRedemption(DB, userId, entry, detail){
+  const rec = {
+    id: "rdm_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2,7),
+    userId, itemId: entry.itemId, name: entry.name,
+    source: entry.source || "", shopName: entry.shopName || "",
+    kind: invEntryKind(entry),
+    detail: detail || "",
+    usedAt: new Date().toISOString()
+  };
+  await DB.put('redemptions', rec.id, userId, rec);
+  return rec;
+}
+
+async function renderShops(v){
+  const who = me();
+  const DB = await waitForDB();
+  if(!DB){ v.innerHTML = `<div class="card"><div class="small">Database unavailable.</div></div>`; return; }
+
+  if(__shopView.mode === "manage"){ return renderShopManage(v, DB, who); }
+  if(__shopView.mode === "store"){  return renderStorefront(v, DB, who, __shopView.shopId); }
+  if(__shopView.mode === "bag"){    return renderSaddlebag(v, DB, who); }
+  return renderShopBrowse(v, DB, who);
+}
+
+/* ---------------- browse: every shop on the street ---------------- */
+async function renderShopBrowse(v, DB, who){
+  let shops = [];
+  try{ shops = await DB.listAll('shops'); }catch(e){}
+  shops = shops.filter(s=>s && s.name);
+  shops.sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+
+  const mine = who ? shops.find(s=>s.owner===who.userId) : null;
+
+  v.innerHTML = `
+    <div class="card">
+      <h2>Player Shops</h2>
+      <p class="small">Stores run by fellow members. Buy with Buxx — purchases land in your saddlebag and the
+        money goes straight to the shopkeeper's business account.</p>
+      ${who ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button id="sh_bag">My saddlebag</button>
+        <button id="sh_manage">${mine ? "Manage my shop" : "Open my shop"}</button>
+      </div>` : `<p class="small muted">Sign in to buy or open a shop.</p>`}
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 12px;">Browse</h3>
+      ${shops.length ? `<div class="shop-tiles">${shops.map(s=>`
+        <div class="shop-tile" data-shop="${esc(s.id)}">
+          <div class="banner ${imgOk(s.banner)?'':'noimg'}" ${imgOk(s.banner)?`style="background-image:url('${esc(s.banner)}')"`:''}>${imgOk(s.banner)?'':'🏪'}</div>
+          <div class="body">
+            <b>${esc(s.name)}</b>
+            <span class="small">by ${esc(s.owner)}</span>
+            ${s.blurb?`<span class="small" style="opacity:.85;">${esc(String(s.blurb).slice(0,110))}</span>`:''}
+          </div>
+        </div>`).join("")}</div>`
+        : `<p class="small muted">No shops yet. ${who?"Be the first — open yours above.":""}</p>`}
+    </div>`;
+
+  if(who && $("sh_bag")) $("sh_bag").onclick = ()=>{ __shopView={mode:"bag"}; renderShops(v); };
+  if(who && $("sh_manage")) $("sh_manage").onclick = ()=>{ __shopView={mode:"manage",shopId:null}; renderShops(v); };
+  v.querySelectorAll('[data-shop]').forEach(el=>el.onclick=()=>{
+    __shopView={mode:"store", shopId:el.dataset.shop}; renderShops(v);
+  });
+}
+
+/* ---------------- a single storefront (buyer view) ---------------- */
+async function renderStorefront(v, DB, who, shopId){
+  const shop = await DB.get('shops', shopId);
+  if(!shop){ __shopView={mode:"browse"}; return renderShops(v); }
+  let items = [];
+  try{ items = await DB.listByOwner('shopItems', shop.owner); }catch(e){}
+  items = items.filter(i=>i && i.shopId===shopId && i.active!==false);
+
+  // Coupons the buyer owns that THIS shop issued (discounts are per-shop).
+  let coupons = [];
+  if(who){
+    try{
+      const inv = await DB.get('inventory', who.userId);
+      coupons = ((inv && inv.items)||[]).filter(e=> e.source===shop.id && Number(e.discountValue)>0 && (Number(e.qty)||0)>0);
+    }catch(e){}
+  }
+
+  v.innerHTML = `
+    <div class="shop-crumb">
+      <button class="ghost" id="sf_back">← All shops</button>
+      ${who ? `<button class="ghost" id="sf_bag">My saddlebag</button>` : ``}
+      ${who && who.userId===shop.owner ? `<button id="sf_manage">Manage this shop</button>` : ``}
+    </div>
+    <div class="storefront" style="${shopThemeVars(shop.theme)}">
+      <div class="sf-hero">
+        <div class="banner ${imgOk(shop.banner)?'':'noimg'}" ${imgOk(shop.banner)?`style="background-image:url('${esc(shop.banner)}')"`:''}>${imgOk(shop.banner)?'':'🏪'}</div>
+        <div class="meta">
+          <h2>${esc(shop.name)}</h2>
+          <div class="small">Kept by ${esc(shop.owner)}${shop.businessName?` · pays to <b>${esc(shop.businessName)}</b>`:''}</div>
+          ${shop.blurb?`<p style="margin:8px 0 0;">${esc(shop.blurb)}</p>`:''}
+        </div>
+      </div>
+      ${!who ? `<div class="card"><span class="small muted">Sign in to buy.</span></div>` : ''}
+      ${who && coupons.length ? `<div class="card" style="margin-bottom:14px;">
+        <label>Discount ticket</label>
+        <select id="sf_coupon">
+          <option value="">No ticket — pay full price</option>
+          ${coupons.map(c=>`<option value="${esc(c.itemId)}">${esc(c.name)} — ✦${Number(c.discountValue)} off${(Number(c.qty)||1)>1?` (×${c.qty})`:''}</option>`).join("")}
+        </select>
+        <p class="small muted" style="margin:6px 0 0;">A ticket is spent when you buy. Discounts never take a price below ✦0.</p>
+      </div>` : ''}
+      ${items.length ? `<div class="sf-grid">${items.map(i=>{
+        const soldOut = Number(i.stock)===0;
+        const uses = Number(i.uses)||0;
+        const disc = Number(i.discountValue)||0;
+        return `<div class="sf-item">
+          <div class="img ${imgOk(i.image)?'':'noimg'}" ${imgOk(i.image)?`style="background-image:url('${esc(i.image)}')"`:''}>${imgOk(i.image)?'':'✦'}</div>
+          <div class="pad">
+            <div class="nm">${esc(i.name)}</div>
+            ${i.category?`<span class="tag">${esc(i.category)}</span>`:''}
+            ${disc>0?`<span class="small" style="color:var(--accent2);">🎟️ Discount ticket · ✦${disc} off</span>`
+              :(uses>0?`<span class="small" style="color:var(--accent2);">✨ ${uses} use${uses>1?'s':''} each</span>`:'')}
+            ${i.desc?`<span class="small" style="opacity:.85;">${esc(i.desc)}</span>`:''}
+            <span class="small ${soldOut?'':'muted'}">${soldOut?'Sold out':(i.stock===''||i.stock==null?'In stock':`${i.stock} left`)}</span>
+            <span class="sf-price">✦ ${Number(i.price)||0}</span>
+            <button class="sf-buy" data-buy="${esc(i.id)}" ${(!who||soldOut)?'disabled':''}>${soldOut?'Sold out':'Buy'}</button>
+            <div class="small" data-msg="${esc(i.id)}" style="min-height:1em;"></div>
+          </div>
+        </div>`;
+      }).join("")}</div>` : `<div class="card"><span class="small muted">No items stocked yet.</span></div>`}
+    </div>`;
+
+  $("sf_back").onclick = ()=>{ __shopView={mode:"browse"}; renderShops(v); };
+  if($("sf_bag")) $("sf_bag").onclick = ()=>{ __shopView={mode:"bag"}; renderShops(v); };
+  if($("sf_manage")) $("sf_manage").onclick = ()=>{ __shopView={mode:"manage",shopId:null}; renderShops(v); };
+
+  v.querySelectorAll('[data-buy]').forEach(btn=>btn.onclick=()=>buyFromShop(v, DB, who, shop, items, btn.dataset.buy));
+}
+
+async function buyFromShop(v, DB, who, shop, items, itemId){
+  const item = items.find(i=>i.id===itemId);
+  const msg = v.querySelector(`[data-msg="${CSS.escape(itemId)}"]`);
+  if(!item || !msg) return;
+  if(!shop.businessName){ msg.innerHTML = `<span style="color:var(--bad)">This shop has no business linked — it can't take payment.</span>`; return; }
+  const btn = v.querySelector(`[data-buy="${CSS.escape(itemId)}"]`);
+  btn.disabled = true; msg.textContent = "Paying…";
+
+  const token = await (async()=>{ try{ await window.EquiAuth.ready; return await window.EquiAuth.token(); }catch(e){ return null; } })();
+  if(!token){ msg.innerHTML = `<span style="color:var(--bad)">Session expired — sign out and back in.</span>`; btn.disabled=false; return; }
+
+  const listPrice = Number(item.price)||0;
+
+  // Read the buyer's inventory up front — we may spend a coupon and we deliver here.
+  let inv;
+  try{ inv = (await DB.get('inventory', who.userId)) || { id:who.userId, items:[] }; inv.items = inv.items||[]; }
+  catch(err){ msg.innerHTML = `<span style="color:var(--bad)">Couldn't read your saddlebag — try again.</span>`; btn.disabled=false; return; }
+
+  // Resolve a chosen discount ticket (must be owned, issued by this shop).
+  const sel = $("sf_coupon");
+  const couponItemId = sel ? sel.value : "";
+  let coupon = null, discount = 0;
+  if(couponItemId){
+    coupon = inv.items.find(e=> e.source===shop.id && String(e.itemId)===String(couponItemId) && Number(e.discountValue)>0 && (Number(e.qty)||0)>0);
+    if(coupon) discount = Math.min(Number(coupon.discountValue)||0, listPrice); // clamp: never below 0
+  }
+  const charge = Math.max(0, listPrice - discount);
+
+  // Charge (skip the bank entirely if a ticket makes it free).
+  if(charge > 0){
+    const pay = await bankCall({ action:'payBusiness', fromUserId:who.userId, idToken:token,
+      businessName:shop.businessName, amount:charge,
+      note:`Shop: ${shop.name} — ${item.name}${discount?` (ticket −✦${discount})`:''}` });
+    if(!pay || !pay.success){ msg.innerHTML = `<span style="color:var(--bad)">${esc((pay&&pay.error)||'Payment failed.')}</span>`; btn.disabled=false; return; }
+  }
+
+  // Deliver + spend the ticket in the SAME inventory write (one save, consistent).
+  try{
+    if(coupon){
+      coupon.qty = (Number(coupon.qty)||0) - 1;
+      if(coupon.qty <= 0) inv.items = inv.items.filter(x=>x!==coupon);
+      // ticket use is itself a redemption record (audit trail for discounts too)
+      logRedemption(DB, who.userId, coupon, `Applied ✦${discount} to “${item.name}” at ${shop.name}`).catch(()=>{});
+    }
+    const existing = inv.items.find(x=>x.itemId===item.id && x.source===shop.id);
+    if(existing){
+      existing.qty = (Number(existing.qty)||0) + 1;
+      // multi-use tokens pool their uses; single-use/discount stack by qty only
+      if(Number(item.uses) > 1) existing.usesLeft = (Number(existing.usesLeft)||0) + Number(item.uses);
+      else if(existing.singleUse) existing.usesLeft = existing.qty;
+    } else {
+      inv.items.push(shopInvEntry(shop, item, 1));
+    }
+    await DB.put('inventory', who.userId, who.userId, inv);
+  }catch(err){
+    msg.innerHTML = `<span style="color:var(--bad)">Paid, but delivery hit a snag — tell ${esc(shop.owner)}. (${esc(err.message||err)})</span>`;
+    return;
+  }
+
+  // Decrement stock if the shop tracks it (best-effort; shopkeeper owns the doc).
+  if(typeof item.stock === 'number' && item.stock > 0){
+    try{ item.stock -= 1; await DB.put('shopItems', item.id, shop.owner, item); }catch(e){}
+  }
+  const paidLine = charge>0 ? `✦ ${charge} paid` : `free with ticket`;
+  msg.innerHTML = `<span style="color:var(--good)">Bought! ${paidLine}${discount?` (saved ✦${discount})`:''} · check your saddlebag.</span>`;
+  // Refresh so the coupon dropdown and stock reflect the purchase.
+  setTimeout(()=>renderShops(v), 900);
+}
+
+/* ---------------- manage: the shopkeeper's own workspace ---------------- */
+async function renderShopManage(v, DB, who){
+  if(!who){ __shopView={mode:"browse"}; return renderShops(v); }
+  let shops=[]; try{ shops = await DB.listByOwner('shops', who.userId); }catch(e){}
+  const shop = shops[0] || null;
+
+  if(!shop){ return renderShopCreate(v, DB, who); }
+
+  let items=[]; try{ items = (await DB.listByOwner('shopItems', who.userId)).filter(i=>i.shopId===shop.id); }catch(e){}
+  const th = Object.assign({}, SHOP_THEME_DEFAULTS, shop.theme||{});
+
+  v.innerHTML = `
+    <div class="shop-crumb">
+      <button class="ghost" id="mg_back">← All shops</button>
+      <button class="ghost" id="mg_view">View my storefront</button>
+    </div>
+
+    <div class="card">
+      <h2>${esc(shop.name)}</h2>
+      <div class="small">${shop.businessName?`Payments go to <b>${esc(shop.businessName)}</b>`:`<span style="color:var(--bad)">No business linked yet — set one below so you can take payment.</span>`}</div>
+    </div>
+
+    <div class="card">
+      <h3>Storefront look</h3>
+      <p class="small">Give your shop its own face — it still lives inside EquiStories, but these colors and banner are yours.</p>
+      <label>Banner image link</label>
+      <input id="mg_banner" placeholder="https://…/banner.png" value="${esc(shop.banner||'')}" />
+      <label>Shop blurb</label>
+      <textarea id="mg_blurb" rows="2" placeholder="A line about your shop…">${esc(shop.blurb||'')}</textarea>
+      <label>Business name (from the Bank — exactly as registered)</label>
+      <input id="mg_biz" placeholder="e.g. Maeve's Tack Corner" value="${esc(shop.businessName||'')}" />
+      <label>Colors</label>
+      <div class="swatch-row">
+        <div class="swatch"><span class="small">Accent</span><input type="color" id="mg_c_accent" value="${esc(th.accent)}"></div>
+        <div class="swatch"><span class="small">Background</span><input type="color" id="mg_c_panel" value="${esc(th.panel)}"></div>
+        <div class="swatch"><span class="small">Headings</span><input type="color" id="mg_c_head" value="${esc(th.head)}"></div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button id="mg_save">Save look</button>
+        <span id="mg_saveMsg" class="small"></span>
+      </div>
+      <div id="mg_preview" class="sf-hero storefront" style="margin-top:16px;${shopThemeVars(th)}">
+        <div class="banner ${imgOk(shop.banner)?'':'noimg'}" ${imgOk(shop.banner)?`style="background-image:url('${esc(shop.banner)}')"`:''}>${imgOk(shop.banner)?'':'🏪'}</div>
+        <div class="meta"><h2>${esc(shop.name)}</h2><div class="small">Live preview</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>${'Add an item'}</h3>
+      <div class="grid" style="grid-template-columns:1fr 1fr; gap:10px;">
+        <div><label>Name</label><input id="it_name" placeholder="Braided Bridle" /></div>
+        <div><label>Category (optional)</label><input id="it_cat" placeholder="Tack · Consumable · …" /></div>
+      </div>
+      <label>Image link</label>
+      <input id="it_image" placeholder="https://…/item.png" />
+      <label>Description</label>
+      <textarea id="it_desc" rows="2" placeholder="What is it?"></textarea>
+      <div class="grid" style="grid-template-columns:1fr 1fr 1fr; gap:10px;">
+        <div><label>Price (✦)</label><input id="it_price" type="number" min="0" value="0" /></div>
+        <div><label>Stock (blank = ∞)</label><input id="it_stock" type="number" min="0" placeholder="∞" /></div>
+        <div><label>Uses each (0 = normal)</label><input id="it_uses" type="number" min="0" value="0" /></div>
+      </div>
+      <label>Discount ticket worth (✦ off — 0 = not a ticket)</label>
+      <input id="it_disc" type="number" min="0" value="0" />
+      <p class="small muted" style="margin-top:6px;">
+        <b>Normal item:</b> leave Uses and Discount at 0.<br>
+        <b>Token</b> (used in breeding/customs — Twin, Reroll, Stat Reset, Treats…): set <b>Uses each</b> to 1 or more. Buyers get a <b>Use</b> button in their saddlebag; using one removes it and writes a permanent redemption record.<br>
+        <b>Discount ticket:</b> set <b>Discount worth</b> to the ✦ it takes off. Buyers pick it at your checkout; it's spent on use and only works at your shop.
+      </p>
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button id="it_add">Add item</button>
+        <button class="ghost hide" id="it_cancel">Cancel edit</button>
+        <span id="it_msg" class="small"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 12px;">Stock (${items.length})</h3>
+      <div id="mg_items">${items.length?'':'<span class="small muted">No items yet.</span>'}</div>
+    </div>`;
+
+  $("mg_back").onclick = ()=>{ __shopView={mode:"browse"}; renderShops(v); };
+  $("mg_view").onclick = ()=>{ __shopView={mode:"store",shopId:shop.id}; renderShops(v); };
+
+  // live theme preview
+  const syncPreview = ()=>{
+    const t={accent:$("mg_c_accent").value, panel:$("mg_c_panel").value, head:$("mg_c_head").value};
+    const pv=$("mg_preview"); pv.setAttribute("style", `margin-top:16px;${shopThemeVars(t)}`);
+    const b=$("mg_banner").value.trim(); const bn=pv.querySelector('.banner');
+    if(imgOk(b)){ bn.className="banner"; bn.style.backgroundImage=`url('${b}')`; bn.textContent=""; }
+    else { bn.className="banner noimg"; bn.style.backgroundImage=""; bn.textContent="🏪"; }
+  };
+  ["mg_c_accent","mg_c_panel","mg_c_head","mg_banner"].forEach(id=>{ const el=$(id); if(el) el.oninput=syncPreview; });
+
+  $("mg_save").onclick = async ()=>{
+    const patch = Object.assign({}, shop, {
+      banner: $("mg_banner").value.trim(),
+      blurb:  $("mg_blurb").value.trim(),
+      businessName: $("mg_biz").value.trim(),
+      theme: { accent:$("mg_c_accent").value, panel:$("mg_c_panel").value, head:$("mg_c_head").value },
+      updatedAt: new Date().toISOString()
+    });
+    $("mg_saveMsg").textContent = "Saving…";
+    try{ await DB.put('shops', shop.id, who.userId, patch); $("mg_saveMsg").textContent="Saved."; Object.assign(shop, patch); }
+    catch(err){ $("mg_saveMsg").textContent = "Failed: "+(err.message||err); }
+  };
+
+  // item add / edit / list
+  let editingId = null;
+  const resetItem = ()=>{
+    editingId=null;
+    ["it_name","it_cat","it_image","it_desc"].forEach(id=>{ if($(id)) $(id).value=""; });
+    $("it_price").value="0"; $("it_stock").value=""; $("it_uses").value="0"; if($("it_disc")) $("it_disc").value="0";
+    $("it_add").textContent="Add item"; $("it_cancel").classList.add("hide"); $("it_msg").textContent="";
+  };
+  $("it_cancel").onclick = resetItem;
+
+  $("it_add").onclick = async ()=>{
+    const name=$("it_name").value.trim();
+    if(!name){ $("it_msg").textContent="Name the item."; return; }
+    const stockRaw=$("it_stock").value.trim();
+    const rec = {
+      id: editingId || ("item_"+Math.random().toString(36).slice(2,10)),
+      owner: who.userId, shopId: shop.id, name,
+      category: $("it_cat").value.trim(),
+      image: $("it_image").value.trim(),
+      desc: $("it_desc").value.trim(),
+      price: Math.max(0, Number($("it_price").value)||0),
+      stock: stockRaw==="" ? null : Math.max(0, Math.floor(Number(stockRaw)||0)),
+      uses: Math.max(0, Math.floor(Number($("it_uses").value)||0)),
+      discountValue: Math.max(0, Math.floor(Number($("it_disc").value)||0)),
+      active: true
+    };
+    $("it_msg").textContent = editingId ? "Saving…" : "Adding…";
+    try{ await DB.put('shopItems', rec.id, who.userId, rec); resetItem(); renderShops(v); }
+    catch(err){ $("it_msg").textContent = "Failed: "+(err.message||err); }
+  };
+
+  const box = $("mg_items");
+  if(items.length){
+    box.innerHTML = items.map(i=>`
+      <div class="bk-tx" style="border-left:3px solid var(--brass-mid);">
+        <div class="bk-tx-ic">${imgOk(i.image)?`<img src="${esc(i.image)}" style="width:34px;height:34px;object-fit:cover;border-radius:50%;">`:(Number(i.uses)>0?'✨':'✦')}</div>
+        <div class="bk-tx-body">
+          <b>${esc(i.name)}</b>
+          <span class="small">✦ ${Number(i.price)||0} · ${i.stock==null?'∞ stock':(i.stock+' in stock')}${Number(i.uses)>0?` · ${i.uses} uses`:''}${i.active===false?' · <span style="color:var(--bad)">hidden</span>':''}</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="ghost" data-edit="${esc(i.id)}" style="padding:5px 10px;">Edit</button>
+          <button class="ghost" data-toggle="${esc(i.id)}" style="padding:5px 10px;">${i.active===false?'Show':'Hide'}</button>
+          <button class="ghost" data-del="${esc(i.id)}" style="padding:5px 10px;color:var(--bad);">Delete</button>
+        </div>
+      </div>`).join("");
+
+    box.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{
+      const i=items.find(x=>x.id===b.dataset.edit); if(!i) return;
+      editingId=i.id;
+      $("it_name").value=i.name||""; $("it_cat").value=i.category||""; $("it_image").value=i.image||"";
+      $("it_desc").value=i.desc||""; $("it_price").value=Number(i.price)||0;
+      $("it_stock").value=(i.stock==null?"":i.stock); $("it_uses").value=Number(i.uses)||0;
+      if($("it_disc")) $("it_disc").value=Number(i.discountValue)||0;
+      $("it_add").textContent="Save changes"; $("it_cancel").classList.remove("hide");
+      $("it_msg").textContent="Editing “"+(i.name||"")+"”";
+      v.scrollIntoView({behavior:"smooth",block:"start"});
+    });
+    box.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=async()=>{
+      const i=items.find(x=>x.id===b.dataset.toggle); if(!i) return;
+      i.active = i.active===false; await DB.put('shopItems', i.id, who.userId, i); renderShops(v);
+    });
+    box.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
+      if(!confirm('Delete this item? Copies already bought stay in buyers\u2019 saddlebags.')) return;
+      await DB.remove('shopItems', b.dataset.del); renderShops(v);
+    });
+  }
+}
+
+/* ---------------- saddlebag: what you own, and using tokens ---------------- */
+async function renderSaddlebag(v, DB, who){
+  if(!who){ __shopView={mode:"browse"}; return renderShops(v); }
+  let inv=null, history=[];
+  try{ inv = await DB.get('inventory', who.userId); }catch(e){}
+  try{ history = (await DB.listByOwner('redemptions', who.userId)) || []; }catch(e){}
+  history.sort((a,b)=>String(b.usedAt||'').localeCompare(String(a.usedAt||'')));
+  const items = (inv && inv.items) || [];
+
+  const goods    = items.filter(e=>invEntryKind(e)==="good");
+  const tokens   = items.filter(e=>invEntryKind(e)==="token");
+  const tickets  = items.filter(e=>invEntryKind(e)==="discount");
+
+  const card = (e)=>{
+    const k = invEntryKind(e);
+    const qty = Number(e.qty)||0;
+    return `<div class="bk-tx" style="border-left:3px solid ${k==='token'?'var(--accent2)':k==='discount'?'var(--good)':'var(--brass-mid)'};">
+      <div class="bk-tx-ic">${k==='token'?'✨':k==='discount'?'🎟️':'✦'}</div>
+      <div class="bk-tx-body">
+        <b>${esc(e.name)}</b>
+        <span class="small">
+          ${k==='discount'?`✦${Number(e.discountValue)} off · ${qty} left`
+            :k==='token'?(e.singleUse?`${qty} left`:`${Number(e.usesLeft)||0} use${(Number(e.usesLeft)||0)===1?'':'s'} left`)
+            :`×${qty}`}
+          ${e.shopName?` · <span style="opacity:.7">${esc(e.shopName)}</span>`:''}
+        </span>
+        ${e.desc?`<span class="small" style="opacity:.8">${esc(e.desc)}</span>`:''}
+      </div>
+      ${k==='token' ? `<button class="ghost" data-use="${esc(e.id)}" style="padding:6px 12px;">Use one</button>`
+        : k==='discount' ? `<span class="small muted" style="align-self:center;">Use at ${esc(e.shopName||'its shop')}'s checkout</span>`
+        : ``}
+    </div>`;
+  };
+
+  v.innerHTML = `
+    <div class="shop-crumb"><button class="ghost" id="bag_back">← All shops</button></div>
+    <div class="card">
+      <h2>My Saddlebag</h2>
+      <p class="small">Everything you own across every EquiStories shop. <b>Tokens</b> (breeding &amp; custom items)
+        have a <b>Use one</b> button — using it removes the token and records it permanently so mods can verify it.
+        <b>Discount tickets</b> are spent at the checkout of the shop that sold them.</p>
+    </div>
+
+    ${tokens.length ? `<div class="card"><h3>✨ Tokens &amp; consumables</h3><div id="bag_tokens">${tokens.map(card).join("")}</div>
+      <p class="small muted" style="margin-top:8px;">Use a token here when you're about to spend it in a breeding or custom.
+        Bring the confirmation to a mod along with your request.</p></div>` : ''}
+
+    ${tickets.length ? `<div class="card"><h3>🎟️ Discount tickets</h3>${tickets.map(card).join("")}</div>` : ''}
+
+    ${goods.length ? `<div class="card"><h3>✦ Items</h3>${goods.map(card).join("")}</div>` : ''}
+
+    ${!items.length ? `<div class="card"><span class="small muted">Your saddlebag is empty. Buy something from a shop and it lands here.</span></div>` : ''}
+
+    <div class="card">
+      <h3>Redemption history</h3>
+      <p class="small muted">A permanent, tamper-proof record of every token you've used — proof for mods, and proof against double-spending.</p>
+      <div id="bag_hist" style="margin-top:10px;">${history.length?'':'<span class="small muted">Nothing used yet.</span>'}</div>
+    </div>`;
+
+  $("bag_back").onclick = ()=>{ __shopView={mode:"browse"}; renderShops(v); };
+
+  if(history.length){
+    $("bag_hist").innerHTML = history.slice(0,60).map(h=>`
+      <div class="bk-tx" style="border-left:3px solid var(--line);">
+        <div class="bk-tx-ic">${h.kind==='discount'?'🎟️':'✨'}</div>
+        <div class="bk-tx-body">
+          <b>${esc(h.name)}</b>
+          <span class="small">${esc(String(h.usedAt||'').slice(0,10))}${h.detail?` · ${esc(h.detail)}`:''}${h.shopName?` · ${esc(h.shopName)}`:''}</span>
+        </div>
+      </div>`).join("");
+  }
+
+  v.querySelectorAll('[data-use]').forEach(b=>b.onclick=()=>useToken(v, DB, who, b.dataset.use));
+}
+
+async function useToken(v, DB, who, entryId){
+  // Re-read fresh so we never act on a stale count.
+  let inv;
+  try{ inv = await DB.get('inventory', who.userId); }catch(e){ inv=null; }
+  const items = (inv && inv.items) || [];
+  const e = items.find(x=>x.id===entryId);
+  if(!e || invEntryKind(e)!=="token"){ renderShops(v); return; }
+
+  const remaining = Number(e.usesLeft) || Number(e.qty) || 0;
+  if(remaining <= 0){ renderShops(v); return; }
+
+  const detail = prompt(
+    `Use one “${e.name}”?\n\nThis is permanent. Add a note for the mod reviewing it — e.g. which horse or breeding it's for (optional):`,
+    ""
+  );
+  if(detail === null) return; // cancelled
+
+  // Ensure our writes are attributed to us in Firestore.
+  if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
+
+  // Decrement one use. Single-use tokens keep usesLeft in lockstep with qty
+  // (each copy = 1 use); multi-use tokens just spend one use.
+  if(e.singleUse){
+    e.qty = Math.max(0, (Number(e.qty)||0) - 1);
+    e.usesLeft = e.qty;
+  } else if(Number(e.usesLeft) > 0){
+    e.usesLeft -= 1;
+  } else if(Number(e.qty) > 0){
+    e.qty -= 1;
+  }
+  const nowEmpty = (Number(e.usesLeft)||0) <= 0 && (Number(e.qty)||0) <= 0;
+  if(nowEmpty) inv.items = items.filter(x=>x!==e);
+
+  try{
+    // Write the redemption record FIRST — the audit trail must exist even if
+    // the inventory update were to fail, never the reverse.
+    await logRedemption(DB, who.userId, e, detail);
+    await DB.put('inventory', who.userId, who.userId, inv);
+  }catch(err){
+    alert("Couldn't record that use — nothing was spent. ("+(err.message||err)+")");
+    return renderShops(v);
+  }
+  renderShops(v);
+}
+
+/* ---------------- create a shop (needs a bank business) ---------------- */
+async function renderShopCreate(v, DB, who){
+  v.innerHTML = `
+    <div class="shop-crumb"><button class="ghost" id="cr_back">← All shops</button></div>
+    <div class="card">
+      <h2>Open a Shop</h2>
+      <p class="small">Your own storefront inside EquiStories — your name, banner, colors, and item list.
+        Purchases pay a <b>business account</b> at the bank, so create one first (Bank tab → Businesses)
+        and enter its exact name here.</p>
+      <label>Shop name</label>
+      <input id="cr_name" placeholder="e.g. Maeve's Tack Corner" />
+      <label>Bank business name (exactly as registered)</label>
+      <input id="cr_biz" placeholder="the business that receives payments" />
+      <label>Banner image link (optional)</label>
+      <input id="cr_banner" placeholder="https://…/banner.png" />
+      <label>Blurb (optional)</label>
+      <textarea id="cr_blurb" rows="2" placeholder="A line about your shop…"></textarea>
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button id="cr_go">Open my shop</button>
+        <span id="cr_msg" class="small"></span>
+      </div>
+      <p class="small muted" style="margin-top:10px;">Don't have a business yet? Head to the <b>Bank</b> tab, open one under Businesses, then come back.</p>
+    </div>`;
+
+  $("cr_back").onclick = ()=>{ __shopView={mode:"browse"}; renderShops(v); };
+  $("cr_go").onclick = async ()=>{
+    const name=$("cr_name").value.trim();
+    const biz=$("cr_biz").value.trim();
+    if(!name){ $("cr_msg").textContent="Name your shop."; return; }
+    if(!biz){ $("cr_msg").textContent="Enter your bank business name so you can take payment."; return; }
+    $("cr_msg").textContent="Opening…";
+    // ensure the owner session so Firestore accepts the write
+    if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
+    const id = "shop_"+Math.random().toString(36).slice(2,10);
+    const rec = { id, owner:who.userId, name, businessName:biz,
+      banner:$("cr_banner").value.trim(), blurb:$("cr_blurb").value.trim(),
+      theme: Object.assign({}, SHOP_THEME_DEFAULTS), createdAt:new Date().toISOString() };
+    try{ await DB.put('shops', id, who.userId, rec); __shopView={mode:"manage",shopId:id}; renderShops(v); }
+    catch(err){ $("cr_msg").textContent = "Failed: "+(err.message||err)+" — make sure you're signed in on this browser."; }
+  };
+}
+
 window.__render = render;
 window.__waitForDB = waitForDB;
 window.__me = me;
