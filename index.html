@@ -4,42 +4,98 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>EquiStories — Community Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Lora:ital,wght@0,400;0,500;1,400&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
 <style>
   /* Same responsive root size the Stable Manager and Shows use, so the three
      apps read at identical scale instead of the hub looking shrunken. */
   html { font-size: clamp(16px, 0.6vw + 14px, 23px); -webkit-text-size-adjust:100%; }
-  :root{ --bg:#1b1410; --panel:#241a14; --line:#4a392a; --text:#f1e6d8; --dim:#b5a392;
-         --accent:#c98a3a; --accent2:#c9a8e8; --good:#7a9b6e; --bad:#c96a3a; --deep:#15100c; }
+
+  /* Palette bridges the Hub's dark walnut with the Bank's brass/honey/parchment,
+     so the three apps feel like one place. Variable NAMES are unchanged so every
+     existing rule keeps working — only the values and the accents are richer. */
+  :root{
+    --bg:#1a130c; --panel:#241a12; --panel2:#2c2016; --line:#4a3826;
+    --text:#f3e9d8; --dim:#c1ad92;
+    --accent:#d29a3e; --accent2:#c9a8e8; --good:#8a9e68; --bad:#b5623a; --deep:#140e07;
+    --honey:#c8842a; --rust:#9b4f2a; --moss:#5a6e3a;
+    --brass-light:#e8c97a; --brass-mid:#c9a84c; --brass-dark:#8a6820;
+    --gold-shine:linear-gradient(135deg,#e8c97a 0%,#c9a84c 30%,#f2d97e 50%,#c9a84c 70%,#8a6820 100%);
+  }
   *{box-sizing:border-box;}
-  body{ margin:0; background:var(--bg); color:var(--text); font-family:Georgia,'Palatino Linotype',serif; line-height:1.6; }
+  body{ margin:0; background:var(--bg); color:var(--text); font-family:'Lora',Georgia,'Palatino Linotype',serif; line-height:1.6; }
   a{ color:var(--accent); }
-  header{ border-bottom:1px solid var(--line); background:linear-gradient(180deg,#2c1f16,#1b1410); }
+
+  header{ border-bottom:1px solid var(--line); background:linear-gradient(180deg,#2c1f16,#1b1410); position:relative; }
+  header::after{ content:''; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:var(--gold-shine); opacity:.55; }
   .wrap{ max-width:min(1700px, 94vw); margin:0 auto; padding:0 clamp(16px,2vw,32px); }
-  h1{ margin:0; font-size:clamp(1.6rem,4vw,2.4rem); color:var(--accent); letter-spacing:.5px; }
-  .tagline{ color:var(--dim); margin:4px 0 0; }
+  h1{ margin:0; font-family:'Playfair Display',serif; font-weight:700; font-size:clamp(1.8rem,4vw,2.6rem);
+      background:var(--gold-shine); -webkit-background-clip:text; background-clip:text; color:transparent; letter-spacing:.5px; }
+  .tagline{ color:var(--dim); margin:2px 0 0; font-family:'Caveat',cursive; font-size:1.3rem; }
   nav{ display:flex; gap:4px; flex-wrap:wrap; margin-top:14px; }
   .tab{ padding:9px 18px; border:1px solid var(--line); border-bottom:none;
-        border-radius:8px 8px 0 0; cursor:pointer; background:#1e1610; color:var(--dim); font-size:1.02em; }
-  .tab.active{ background:var(--panel); color:var(--accent); font-weight:bold; }
-  .card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px; margin:16px 0; }
-  .card h2{ margin:0 0 10px; color:var(--accent); font-size:1.45em; }
-  .card h3{ margin:0 0 8px; color:var(--accent); font-size:1.2em; }
+        border-radius:8px 8px 0 0; cursor:pointer; background:#1e1610; color:var(--dim);
+        font-family:'Playfair Display',serif; font-size:.98em; letter-spacing:.02em; }
+  .tab.active{ background:var(--gold-shine); color:#241a14; font-weight:700; }
+
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px; margin:16px 0;
+         box-shadow:0 2px 14px rgba(0,0,0,.25), inset 0 0 0 1px rgba(201,168,76,.07); }
+  .card h2{ margin:0 0 10px; font-family:'Playfair Display',serif; color:var(--accent); font-size:1.5em; }
+  .card h3{ margin:0 0 8px; font-family:'Playfair Display',serif; color:var(--accent); font-size:1.22em; }
+  .card h4{ font-family:'Playfair Display',serif; }
   .grid{ display:grid; gap:12px; }
   .small{ font-size:.92em; color:var(--dim); }
   .tag{ display:inline-block; font-size:.9em; padding:3px 9px; border-radius:10px;
         background:var(--deep); color:var(--dim); border:1px solid var(--line); }
-  button{ background:var(--accent); color:#241a14; border:none; padding:9px 18px; border-radius:6px;
-          font-weight:bold; cursor:pointer; font-family:inherit; font-size:1em; }
-  button.ghost{ background:#2c2118; color:var(--text); border:1px solid var(--line); }
+  button{ background:linear-gradient(135deg,var(--honey),var(--rust)); color:#fff6ea; border:none; padding:9px 18px; border-radius:6px;
+          font-weight:700; cursor:pointer; font-family:'Playfair Display',serif; font-size:1em;
+          box-shadow:0 2px 0 rgba(80,32,10,.4), inset 0 1px 0 rgba(255,255,255,.12); }
+  button:hover:not(:disabled){ filter:brightness(1.06); }
+  button:disabled{ opacity:.6; cursor:not-allowed; }
+  button.ghost{ background:#2c2118; color:var(--text); border:1px solid var(--line); box-shadow:none; font-family:'Lora',serif; font-weight:500; }
+  button.ghost:hover{ border-color:var(--brass-mid); filter:none; }
   input, textarea, select{ width:100%; padding:9px; font-size:1em; background:var(--deep); border:1px solid var(--line);
-          color:var(--text); border-radius:5px; font-family:inherit; }
-  label{ font-size:.88em; color:var(--dim); text-transform:uppercase; display:block; margin-top:10px; }
+          color:var(--text); border-radius:5px; font-family:'Lora',serif; }
+  input:focus, textarea:focus, select:focus{ outline:none; border-color:var(--brass-mid); box-shadow:0 0 0 2px rgba(201,168,76,.22); }
+  label{ font-size:.88em; color:var(--dim); text-transform:uppercase; display:block; margin-top:10px; letter-spacing:.03em; }
   .muted{ opacity:.7; }
   .hide{ display:none !important; }
   .linkbox{ display:block; background:var(--deep); border:1px solid var(--line); border-radius:8px;
             padding:14px; text-decoration:none; color:var(--text); transition:border-color .15s; }
   .linkbox:hover{ border-color:var(--accent); }
   .linkbox b{ color:var(--accent); display:block; font-size:1.1em; }
+
+  /* ── BANK TAB ─────────────────────────────────────────────── */
+  .eyebrow{ font-family:'Caveat',cursive; font-size:1.05rem; letter-spacing:.12em; text-transform:uppercase; color:var(--brass-mid); }
+  .bank-hero{ border:1px solid var(--brass-mid);
+    background:linear-gradient(180deg,#2a1f14,#20170f);
+    box-shadow:0 4px 24px rgba(0,0,0,.35), inset 0 0 0 1px rgba(232,201,122,.15); }
+  .bank-hero-row{ display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+  .bank-balance{ font-family:'Caveat',cursive; font-weight:700; font-size:clamp(2.6rem,7vw,3.4rem); line-height:1;
+    background:var(--gold-shine); -webkit-background-clip:text; background-clip:text; color:transparent; margin:2px 0 4px; }
+  .bank-hero-actions{ display:flex; gap:8px; align-items:center; flex-shrink:0; }
+  .bk-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px;
+    border-radius:9px; background:var(--rust); color:#fff; font-family:'Caveat',cursive; font-weight:700; font-size:.85rem; }
+  .bank-filters{ display:flex; gap:6px; }
+  .bk-pill{ padding:4px 14px; border:1px solid var(--line); border-radius:20px; cursor:pointer; font-size:.85rem; color:var(--dim); user-select:none; }
+  .bk-pill:hover{ border-color:var(--brass-mid); color:var(--text); }
+  .bk-pill.active{ background:var(--gold-shine); color:#241a14; font-weight:700; border-color:var(--brass-dark); }
+  .bk-tx{ display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--line); border-radius:10px;
+    margin-bottom:8px; background:var(--deep); }
+  .bk-tx.in{ border-left:3px solid var(--good); }
+  .bk-tx.out{ border-left:3px solid var(--rust); }
+  .bk-tx-ic{ width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background:var(--panel); flex:0 0 auto; font-size:1rem; }
+  .bk-tx-body{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .bk-tx-body b{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bk-tx-date{ font-family:'Caveat',cursive; color:var(--dim); opacity:.75; font-size:.95rem; }
+  .bk-tx-amt{ font-family:'Caveat',cursive; font-weight:700; font-size:1.35rem; white-space:nowrap; }
+  .bk-tx-amt.in{ color:var(--good); }
+  .bk-tx-amt.out{ color:var(--rust); }
+  .bk-notif{ padding:10px 12px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px; background:var(--deep); }
+  .bk-notif.unread{ border-color:var(--brass-mid); background:rgba(200,132,42,.09); }
+  .bk-notif b{ color:var(--accent); text-transform:capitalize; }
 </style>
 </head>
 <body>
@@ -204,7 +260,7 @@ const STAT_LABELS = {stamina:"Stamina",strength:"Strength",scope:"Scope",speed:"
   handiness:"Handiness",boldness:"Boldness",balance:"Balance",gaits:"Gaits",harmony:"Harmony"};
 const statTotal = h => STATS.reduce((n,k)=>n+(Number(h.stats&&h.stats[k])||0), 0);
 const imgOk = u => typeof u==='string' && u && !u.startsWith('data:');
-const TABS = ["Home","Members","Community","Show Board","Notice Board"];
+const TABS = ["Home","Bank","Members","Community","Show Board","Notice Board"];
 let tab = "Home";
 
 async function waitForDB(ms=8000){
@@ -270,6 +326,8 @@ async function renderHome(v){
           <span class="small">Your horses, riders, training, shows and inventory.</span></a>
         <a class="linkbox" href="${__APPS.shows}"><b>Shows →</b>
           <span class="small">Host a show, judge entries, or enter one.</span></a>
+        <a class="linkbox" href="#" data-go="Bank"><b>Bank →</b>
+          <span class="small">Your Buxx balance, transfers, deposits and ledger.</span></a>
         <a class="linkbox" href="#" data-go="Community"><b>Getting Started →</b>
           <span class="small">New here? Read this first.</span></a>
       </div>
@@ -414,6 +472,191 @@ function showRow(rec){
     <div class="small">${__esc(s.discipline||'')} · closes ${__esc(s.closesAt||'—')} · ${entries} ${entries===1?'entry':'entries'}${s.hostId?` · hosted by ${__esc(s.hostId)}`:''}</div>
     <div style="margin-top:6px;"><a href="${__APPS.shows}?show=${encodeURIComponent(rec.__id||s.id||'')}">Open show →</a></div>
   </div>`;
+}
+
+// ============================================================
+//  BANK  — native tab over the same Google Apps Script bank,
+//  reusing this page's signed-in session (no second login).
+//  Reads (balance, history, notifications) need only a userId.
+//  Money moves (transfer, pay) send a fresh Firebase idToken, which
+//  the bank verifies and matches to this owner server-side.
+// ============================================================
+async function renderBank(v){
+  const who = me();
+  if(!who){ renderGate(); return; }
+  const fmtBuxx = n => '฿ ' + (parseFloat(n)||0).toLocaleString();
+
+  v.innerHTML = `
+    <div class="card bank-hero">
+      <div class="bank-hero-row">
+        <div style="min-width:0;">
+          <div class="eyebrow">Your Buxx balance</div>
+          <div id="bkBalance" class="bank-balance">…</div>
+          <div class="small muted">Signed in as <b>${esc(who.userId)}</b></div>
+        </div>
+        <div class="bank-hero-actions">
+          <button class="ghost" id="bkRefresh">Refresh</button>
+          <button class="ghost" id="bkBell">🔔 <span id="bkUnread" class="bk-badge hide">0</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div id="bkNotifs" class="card hide">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+        <h3 style="margin:0;">Notifications</h3>
+        <button class="ghost" id="bkMarkAll" style="padding:4px 12px;font-size:.85rem;">Mark all read</button>
+      </div>
+      <div id="bkNotifList" class="small" style="margin-top:12px;">Loading…</div>
+    </div>
+
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));">
+      <div class="card">
+        <h3>Send Buxx to a player</h3>
+        <label>Their User ID</label><input id="bkToUser" placeholder="Recipient's User ID" />
+        <label>Amount</label><input id="bkToAmt" type="number" min="0.01" step="0.01" placeholder="0" />
+        <label>Note (optional)</label><input id="bkToNote" placeholder="What's it for?" />
+        <button id="bkSend" style="margin-top:12px;width:100%;">Send Buxx</button>
+        <div id="bkSendMsg" class="small" style="margin-top:8px;min-height:1.1em;"></div>
+      </div>
+
+      <div class="card">
+        <h3>Pay a business</h3>
+        <label>Business name</label><input id="bkBizName" placeholder="Exact business name" />
+        <label>Amount</label><input id="bkBizAmt" type="number" min="0.01" step="0.01" placeholder="0" />
+        <label>Note (optional)</label><input id="bkBizNote" placeholder="What's it for?" />
+        <button id="bkPay" style="margin-top:12px;width:100%;">Pay business</button>
+        <div id="bkPayMsg" class="small" style="margin-top:8px;min-height:1.1em;"></div>
+      </div>
+
+      <div class="card">
+        <h3>Deposit</h3>
+        <p class="small muted" style="margin:0 0 2px;">Submit proof of earnings to add Buxx.</p>
+        <label>Amount</label><input id="bkDepAmt" type="number" min="0.01" step="0.01" placeholder="0" />
+        <label>Proof link</label><input id="bkDepProof" placeholder="https://… proof of earnings" />
+        <label>Description (optional)</label><input id="bkDepDesc" placeholder="What's this for?" />
+        <button id="bkDep" style="margin-top:12px;width:100%;">Submit deposit</button>
+        <div id="bkDepMsg" class="small" style="margin-top:8px;min-height:1.1em;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
+        <h3 style="margin:0;">Recent activity</h3>
+        <div class="bank-filters" id="bkFilters">
+          <span class="bk-pill active" data-f="all">All</span>
+          <span class="bk-pill" data-f="in">Incoming</span>
+          <span class="bk-pill" data-f="out">Outgoing</span>
+        </div>
+      </div>
+      <div id="bkHist" class="small" style="margin-top:12px;">Loading…</div>
+    </div>`;
+
+  const say=(id,m,kind)=>{ const el=$(id); if(!el) return;
+    el.style.color = kind==='good'?'var(--good)':kind==='bad'?'var(--bad)':'var(--dim)'; el.textContent=m; };
+
+  async function idToken(){ try{ await window.EquiAuth.ready; return await window.EquiAuth.token(); }catch(e){ return null; } }
+
+  async function loadBalance(){
+    $("bkBalance").textContent = '…';
+    const r = await bankCall({ action:'checkBalance', userId: who.userId });
+    $("bkBalance").textContent = (r && r.success) ? fmtBuxx(r.data.balance) : '—';
+  }
+
+  let allTx=[], txFilter='all';
+  const TX_ICON = t => ({
+    deposit:'💰', transfer:t.direction==='in'?'📨':'📤', transfer_in:'📨', transfer_out:'📤',
+    pay_business:'🏪', business_refund:'↩️', refund_received:'↩️', show:'🏆', work:'🔨',
+    trail:'🌿', item:'🎁', show_hold:'🎗️', show_refund:'↩️'
+  }[t.type] || '✦');
+  function drawHist(){
+    const list = allTx.filter(t=> txFilter==='all' ? true : t.direction===txFilter).slice(0,25);
+    if(!list.length){ $("bkHist").innerHTML='<span class="muted">Nothing here yet.</span>'; return; }
+    $("bkHist").innerHTML = list.map(t=>{
+      const sign = t.direction==='in'?'+':'−';
+      const cls  = t.direction==='in'?'in':'out';
+      const d = t.timestamp ? new Date(t.timestamp).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+      return `<div class="bk-tx ${cls}">
+        <span class="bk-tx-ic">${TX_ICON(t)}</span>
+        <span class="bk-tx-body">
+          <b>${esc(t.label||t.type)}</b>
+          ${t.note?`<span class="muted small">"${esc(t.note)}"</span>`:''}
+          <span class="bk-tx-date">${d}</span>
+        </span>
+        <span class="bk-tx-amt ${cls}">${sign}฿${(parseFloat(t.amount)||0).toLocaleString()}</span>
+      </div>`;
+    }).join('');
+  }
+  async function loadHist(){
+    const r = await bankCall({ action:'getTransactionHistory', userId: who.userId });
+    allTx = (r && r.success) ? (r.data||[]) : [];
+    drawHist();
+  }
+
+  async function loadNotifs(){
+    const r = await bankCall({ action:'getNotifications', userId: who.userId });
+    const ns = (r && r.success) ? (r.data||[]) : [];
+    const unread = ns.filter(n=>!n.read).length;
+    const badge = $("bkUnread");
+    if(unread>0){ badge.textContent = unread>99?'99+':unread; badge.classList.remove('hide'); }
+    else badge.classList.add('hide');
+    $("bkNotifList").innerHTML = ns.length
+      ? ns.slice(0,30).map(n=>`
+          <div class="bk-notif ${n.read?'':'unread'}">
+            <div><b>${esc((n.type||'').replace(/_/g,' '))}</b></div>
+            <div>${esc(n.message)}</div>
+          </div>`).join('')
+      : '<span class="muted">No notifications yet.</span>';
+  }
+
+  // --- wiring ---
+  $("bkRefresh").onclick = ()=>{ loadBalance(); loadHist(); loadNotifs(); };
+  $("bkBell").onclick    = ()=>{ $("bkNotifs").classList.toggle('hide'); };
+  $("bkMarkAll").onclick = async ()=>{ await bankCall({action:'markNotificationsRead', userId:who.userId}); loadNotifs(); };
+
+  $("bkFilters").onclick = e=>{
+    const p=e.target.closest('.bk-pill'); if(!p) return;
+    document.querySelectorAll('#bkFilters .bk-pill').forEach(x=>x.classList.remove('active'));
+    p.classList.add('active'); txFilter=p.dataset.f; drawHist();
+  };
+
+  $("bkSend").onclick = async ()=>{
+    const toUserId=$("bkToUser").value.trim(), amount=parseFloat($("bkToAmt").value), note=$("bkToNote").value.trim();
+    if(!toUserId||!amount){ say('bkSendMsg','Enter a User ID and amount.','bad'); return; }
+    const btn=$("bkSend"); btn.disabled=true; say('bkSendMsg','Sending…');
+    const token=await idToken();
+    if(!token){ say('bkSendMsg','Session expired — sign out and back in.','bad'); btn.disabled=false; return; }
+    const r=await bankCall({action:'transferBuxx', fromUserId:who.userId, idToken:token, toUserId, amount, note});
+    btn.disabled=false;
+    if(r&&r.success){ say('bkSendMsg',`Sent ${fmtBuxx(amount)} to ${toUserId}.`,'good');
+      $("bkToUser").value='';$("bkToAmt").value='';$("bkToNote").value=''; loadBalance(); loadHist(); }
+    else say('bkSendMsg',(r&&r.error)||'Could not send.','bad');
+  };
+
+  $("bkPay").onclick = async ()=>{
+    const businessName=$("bkBizName").value.trim(), amount=parseFloat($("bkBizAmt").value), note=$("bkBizNote").value.trim();
+    if(!businessName||!amount){ say('bkPayMsg','Enter a business name and amount.','bad'); return; }
+    const btn=$("bkPay"); btn.disabled=true; say('bkPayMsg','Paying…');
+    const token=await idToken();
+    if(!token){ say('bkPayMsg','Session expired — sign out and back in.','bad'); btn.disabled=false; return; }
+    const r=await bankCall({action:'payBusiness', fromUserId:who.userId, idToken:token, businessName, amount, note});
+    btn.disabled=false;
+    if(r&&r.success){ say('bkPayMsg',`Paid ${fmtBuxx(amount)} to ${r.data.businessName}.`,'good');
+      $("bkBizName").value='';$("bkBizAmt").value='';$("bkBizNote").value=''; loadBalance(); loadHist(); }
+    else say('bkPayMsg',(r&&r.error)||'Could not pay.','bad');
+  };
+
+  $("bkDep").onclick = async ()=>{
+    const amount=parseFloat($("bkDepAmt").value), proofUrl=$("bkDepProof").value.trim(), description=$("bkDepDesc").value.trim();
+    if(!amount||!proofUrl){ say('bkDepMsg','Enter an amount and a proof link.','bad'); return; }
+    const btn=$("bkDep"); btn.disabled=true; say('bkDepMsg','Submitting…');
+    const r=await bankCall({action:'submitDeposit', userId:who.userId, amount, proofUrl, description});
+    btn.disabled=false;
+    if(r&&r.success){ say('bkDepMsg',`Deposit of ${fmtBuxx(amount)} submitted.`,'good');
+      $("bkDepAmt").value='';$("bkDepProof").value='';$("bkDepDesc").value=''; loadBalance(); loadHist(); }
+    else say('bkDepMsg',(r&&r.error)||'Could not submit.','bad');
+  };
+
+  loadBalance(); loadHist(); loadNotifs();
 }
 
 // ============================================================
@@ -1062,6 +1305,7 @@ function render(){
   const v=$("view");
   v.innerHTML = `<div class="card"><div class="small">Loading…</div></div>`;
   if(tab==="Home") renderHome(v);
+  else if(tab==="Bank") renderBank(v);
   else if(tab==="Members") renderMembers(v);
   else if(tab==="Community") renderCommunity(v);
   else if(tab==="Show Board") renderShowBoard(v);
