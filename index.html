@@ -104,6 +104,24 @@
     border-radius:6px; background:var(--deep); cursor:pointer; }
   .shop-crumb{ display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
 
+  /* ── BREEDS TAB ───────────────────────────────────────────── */
+  .breed-page{ --sf-accent:var(--accent); --sf-panel:var(--deep); --sf-head:var(--brass-mid); }
+  .breed-sub{ display:flex; gap:6px; flex-wrap:wrap; margin:14px 0; }
+  .breed-sub .bk-pill{ font-family:'Playfair Display',serif; }
+  .imp-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; }
+  .imp-card{ border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--sf-panel); display:flex; flex-direction:column; }
+  .imp-card .img{ height:170px; background-size:cover; background-position:center; background-color:var(--panel2); }
+  .imp-card .img.noimg{ display:flex; align-items:center; justify-content:center; font-size:2.2em; color:var(--line); }
+  .imp-card .pad{ padding:12px; flex:1; display:flex; flex-direction:column; gap:6px; }
+  .imp-card .nm{ font-family:'Playfair Display',serif; color:var(--sf-head); font-weight:700; }
+  .imp-status{ font-size:.82em; padding:2px 8px; border-radius:10px; display:inline-block; width:max-content; }
+  .imp-status.available{ background:#22301c; color:var(--good); border:1px solid var(--moss); }
+  .imp-status.pending{ background:#332a14; color:var(--brass-light); border:1px solid var(--brass-dark); }
+  .imp-status.sold{ background:#2a1a1a; color:var(--dim); border:1px solid var(--line); }
+  .reg-row{ display:flex; align-items:center; gap:12px; padding:9px 12px; border:1px solid var(--line);
+    border-radius:8px; margin-bottom:6px; background:var(--deep); }
+  .reg-row .thumb{ width:40px; height:40px; border-radius:6px; background-size:cover; background-position:center; background-color:var(--panel2); flex:0 0 auto; }
+
   /* ── BANK TAB ─────────────────────────────────────────────── */
   .eyebrow{ font-family:'Caveat',cursive; font-size:1.05rem; letter-spacing:.12em; text-transform:uppercase; color:var(--brass-mid); }
   .bank-hero{ border:1px solid var(--brass-mid);
@@ -236,6 +254,16 @@ window.EquiDB = {
       json:JSON.stringify(obj), updatedAt:new Date().toISOString() });
     return true;
   },
+  // Breeds need their staff list readable by Firestore RULES (which can't parse
+  // the json string), so we mirror it as a flat top-level array. Same envelope
+  // otherwise — reads still come back through get()/listAll() unchanged.
+  async putBreed(id, owner, obj){
+    if(!db) return false;
+    const staffUids = Array.isArray(obj.staff) ? obj.staff.map(String) : [];
+    await setDoc(doc(db,'breeds',String(id)), { owner:String(owner), id:String(id),
+      json:JSON.stringify(obj), staffUids, updatedAt:new Date().toISOString() });
+    return true;
+  },
   async get(col,id){
     if(!db) return null;
     const s=await getDoc(doc(db,col,String(id)));
@@ -309,7 +337,7 @@ const STAT_LABELS = {stamina:"Stamina",strength:"Strength",scope:"Scope",speed:"
   handiness:"Handiness",boldness:"Boldness",balance:"Balance",gaits:"Gaits",harmony:"Harmony"};
 const statTotal = h => STATS.reduce((n,k)=>n+(Number(h.stats&&h.stats[k])||0), 0);
 const imgOk = u => typeof u==='string' && u && !u.startsWith('data:');
-const TABS = ["Home","Bank","Shops","Members","Community","Show Board","Notice Board"];
+const TABS = ["Home","Bank","Shops","Breeds","Members","Community","Show Board","Notice Board"];
 let tab = "Home";
 
 async function waitForDB(ms=8000){
@@ -1276,7 +1304,7 @@ function renderNav(){
          <span class="small">${esc(who?who.userId:'')}</span>
          <button class="ghost" id="navOut" style="padding:4px 12px;font-size:.9em;">Sign out</button>
        </span>`;
-  $("nav").querySelectorAll("[data-tab]").forEach(el=>el.onclick=()=>{ tab=el.dataset.tab; if(tab==="Shops"){ __shopView={mode:"browse",shopId:null}; } render(); });
+  $("nav").querySelectorAll("[data-tab]").forEach(el=>el.onclick=()=>{ tab=el.dataset.tab; if(tab==="Shops"){ __shopView={mode:"browse",shopId:null}; } if(tab==="Breeds"){ __breedView={mode:"browse",breedId:null}; } render(); });
   const out=$("navOut");
   if(out) out.onclick=async()=>{
     try{ localStorage.removeItem("equi-lite-bank"); }catch(e){}
@@ -1477,9 +1505,553 @@ function render(){
   else if(tab==="Members") renderMembers(v);
   else if(tab==="Community") renderCommunity(v);
   else if(tab==="Shops") renderShops(v);
+  else if(tab==="Breeds") renderBreeds(v);
   else if(tab==="Show Board") renderShowBoard(v);
   else renderBoard(v);
 }
+// ============================================================
+//  BREEDS — affiliated breed communities (Irish Lightblood & co.)
+//  A breed reuses the bank (business), tokens (breed items), and the
+//  tracker (an import IS a stamped horse). Nothing here is ILB-specific;
+//  the ILB is just the first document in the `breeds` collection.
+//    breeds/{id}        — profile, staff, business, theme
+//    breedImports/{id}  — designs for sale (premade / custom slot)
+//    breedOrders/{id}   — purchase/custom requests (owner = buyer)
+//  Registry is DERIVED from tracked horses stamped with the breed name.
+// ============================================================
+const BREED_THEME_DEFAULTS = { accent:"#c9a8e8", panel:"#140e07", head:"#c9a84c" };
+function breedThemeVars(t){
+  t = t || {};
+  return `--sf-accent:${t.accent||BREED_THEME_DEFAULTS.accent}; --sf-panel:${t.panel||BREED_THEME_DEFAULTS.panel}; --sf-head:${t.head||BREED_THEME_DEFAULTS.head};`;
+}
+function isBreedStaff(breed, who){
+  if(!breed || !who) return false;
+  return breed.owner===who.userId || (Array.isArray(breed.staff) && breed.staff.includes(who.userId));
+}
+
+let __breedView = { mode:"browse", breedId:null, tab:"about" };
+
+async function renderBreeds(v){
+  const who = me();
+  const DB = await waitForDB();
+  if(!DB){ v.innerHTML = `<div class="card"><div class="small">Database unavailable.</div></div>`; return; }
+  if(__breedView.mode==="found"){ return renderBreedFound(v, DB, who); }
+  if(__breedView.mode==="page"){  return renderBreedPage(v, DB, who, __breedView.breedId); }
+  return renderBreedBrowse(v, DB, who);
+}
+
+/* ---------------- browse all breeds ---------------- */
+async function renderBreedBrowse(v, DB, who){
+  let breeds=[]; try{ breeds = await DB.listAll('breeds'); }catch(e){}
+  breeds = breeds.filter(b=>b && b.name);
+  breeds.sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  const mine = who ? breeds.filter(b=>isBreedStaff(b, who)) : [];
+
+  v.innerHTML = `
+    <div class="card">
+      <h2>Affiliated Breeds</h2>
+      <p class="small">Breeds run their own communities inside EquiStories — their own imports, registry,
+        exclusive tokens, and admin. Buying an import creates a real tracked horse on your account, stamped to the breed.</p>
+      ${who ? `<div style="margin-top:10px;"><button id="br_found">Found a breed</button></div>`
+             : `<p class="small muted">Sign in to found or join a breed.</p>`}
+    </div>
+    ${mine.length ? `<div class="card"><h3>Breeds you help run</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">${mine.map(b=>`<button class="ghost" data-open="${esc(b.id)}">${esc(b.name)} ⚙</button>`).join("")}</div></div>` : ''}
+    <div class="card">
+      <h3 style="margin:0 0 12px;">All breeds</h3>
+      ${breeds.length ? `<div class="shop-tiles">${breeds.map(b=>`
+        <div class="shop-tile" data-open="${esc(b.id)}">
+          <div class="banner ${imgOk(b.banner)?'':'noimg'}" ${imgOk(b.banner)?`style="background-image:url('${esc(b.banner)}')"`:''}>${imgOk(b.banner)?'':'🐴'}</div>
+          <div class="body">
+            <b>${esc(b.name)}</b>
+            <span class="small">founded by ${esc(b.owner)}</span>
+            ${b.blurb?`<span class="small" style="opacity:.85;">${esc(String(b.blurb).slice(0,110))}</span>`:''}
+          </div>
+        </div>`).join("")}</div>`
+        : `<p class="small muted">No breeds yet. ${who?"Found the first one above.":""}</p>`}
+    </div>`;
+
+  if(who && $("br_found")) $("br_found").onclick = ()=>{ __breedView={mode:"found"}; renderBreeds(v); };
+  v.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>{
+    __breedView={mode:"page", breedId:el.dataset.open, tab:"about"}; renderBreeds(v);
+  });
+}
+
+/* ---------------- found a breed ---------------- */
+async function renderBreedFound(v, DB, who){
+  if(!who){ __breedView={mode:"browse"}; return renderBreeds(v); }
+  v.innerHTML = `
+    <div class="breed-sub"><button class="ghost" id="bf_back">← All breeds</button></div>
+    <div class="card">
+      <h2>Found a Breed</h2>
+      <p class="small">Start your own affiliated breed. You'll be its founder — able to appoint staff, list imports,
+        and run its registry. Imports are paid into a <b>bank business</b>, so create one first
+        (Bank → Businesses) and enter its exact name here.</p>
+      <label>Breed name</label><input id="bf_name" placeholder="e.g. Irish Lightblood" />
+      <label>Bank business name (exactly as registered — receives import payments)</label>
+      <input id="bf_biz" placeholder="the business imports are paid into" />
+      <label>Short blurb (shown in the directory)</label>
+      <input id="bf_blurb" placeholder="A line about your breed" />
+      <label>Banner image link (optional)</label><input id="bf_banner" placeholder="https://…/banner.png" />
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button id="bf_go">Found my breed</button><span id="bf_msg" class="small"></span>
+      </div>
+      <p class="small muted" style="margin-top:8px;">No business yet? Open one in the <b>Bank</b> tab under Businesses, then come back.</p>
+    </div>`;
+  $("bf_back").onclick = ()=>{ __breedView={mode:"browse"}; renderBreeds(v); };
+  $("bf_go").onclick = async ()=>{
+    const name=$("bf_name").value.trim(), biz=$("bf_biz").value.trim();
+    if(!name){ $("bf_msg").textContent="Name your breed."; return; }
+    if(!biz){ $("bf_msg").textContent="Enter your bank business name so imports can be paid."; return; }
+    $("bf_msg").textContent="Founding…";
+    if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
+    const id = "breed_"+Math.random().toString(36).slice(2,10);
+    const rec = { id, owner:who.userId, name, staff:[], businessName:biz,
+      banner:$("bf_banner").value.trim(), blurb:$("bf_blurb").value.trim(),
+      about:"", importInstructions:"", theme:Object.assign({},BREED_THEME_DEFAULTS),
+      createdAt:new Date().toISOString() };
+    try{ await DB.putBreed(id, who.userId, rec); __breedView={mode:"page",breedId:id,tab:"admin"}; renderBreeds(v); }
+    catch(err){ $("bf_msg").textContent = "Failed: "+(err.message||err)+" — make sure you're signed in on this browser."; }
+  };
+}
+
+/* ---------------- a breed page (about / imports / registry / admin) ---------------- */
+async function renderBreedPage(v, DB, who, breedId){
+  const breed = await DB.get('breeds', breedId);
+  if(!breed){ __breedView={mode:"browse"}; return renderBreeds(v); }
+  const staff = isBreedStaff(breed, who);
+  const sub = __breedView.tab || "about";
+
+  const tabs = ["about","imports","registry"].concat(staff?["admin"]:[]).concat(who?["my orders"]:[]);
+  v.innerHTML = `
+    <div class="breed-sub">
+      <button class="ghost" id="bp_back">← All breeds</button>
+    </div>
+    <div class="breed-page" style="${breedThemeVars(breed.theme)}">
+      <div class="sf-hero">
+        <div class="banner ${imgOk(breed.banner)?'':'noimg'}" ${imgOk(breed.banner)?`style="background-image:url('${esc(breed.banner)}')"`:''}>${imgOk(breed.banner)?'':'🐴'}</div>
+        <div class="meta">
+          <h2>${esc(breed.name)}</h2>
+          <div class="small">Founded by ${esc(breed.owner)}${breed.businessName?` · imports paid to <b>${esc(breed.businessName)}</b>`:''}</div>
+          ${breed.blurb?`<p style="margin:8px 0 0;">${esc(breed.blurb)}</p>`:''}
+        </div>
+      </div>
+      <div class="breed-sub" id="bp_nav">
+        ${tabs.map(t=>`<span class="bk-pill ${t===sub?'active':''}" data-sub="${t}">${t.replace(/\b\w/g,c=>c.toUpperCase())}</span>`).join("")}
+      </div>
+      <div id="bp_body"></div>
+    </div>`;
+
+  $("bp_back").onclick = ()=>{ __breedView={mode:"browse"}; renderBreeds(v); };
+  $("bp_nav").querySelectorAll('[data-sub]').forEach(el=>el.onclick=()=>{
+    __breedView={mode:"page", breedId, tab:el.dataset.sub}; renderBreeds(v);
+  });
+
+  const body = $("bp_body");
+  if(sub==="about")      return breedAbout(body, DB, who, breed, staff);
+  if(sub==="imports")    return breedImportsView(body, DB, who, breed, staff);
+  if(sub==="registry")   return breedRegistry(body, DB, who, breed);
+  if(sub==="my orders")  return breedMyOrders(body, DB, who, breed);
+  if(sub==="admin" && staff) return breedAdmin(body, DB, who, breed);
+  body.innerHTML = "";
+}
+
+function breedAbout(body, DB, who, breed, staff){
+  body.innerHTML = `
+    <div class="card">
+      ${breed.about ? mdish(breed.about) : `<p class="small muted">No description yet.${staff?' Add one in the Admin tab.':''}</p>`}
+    </div>
+    ${breed.importInstructions ? `<div class="card"><h3>Ordering a custom import</h3>${mdish(breed.importInstructions)}</div>` : ''}
+    <div class="card"><h3>Join this breed</h3>
+      <p class="small">Buying or being placed an import registers a horse to you here automatically — there's nothing to sign.
+        Browse the <b>Imports</b> tab to get started, or order a custom.</p>
+    </div>`;
+}
+
+/* ---------------- imports store (buy premades, request customs) ---------------- */
+async function breedImportsView(body, DB, who, breed, staff){
+  let imports=[]; try{ imports = await DB.listByOwner('breedImports', breed.owner); }catch(e){}
+  // staff other than the founder may have listed some; also pull theirs
+  if(Array.isArray(breed.staff)){
+    for(const s of breed.staff){
+      try{ const more = await DB.listByOwner('breedImports', s); imports = imports.concat(more); }catch(e){}
+    }
+  }
+  imports = imports.filter(i=>i && i.breedId===breed.id);
+  const available = imports.filter(i=>i.status==='available' || i.status==='pending');
+
+  body.innerHTML = `
+    <div class="card">
+      <h3>Imports for sale</h3>
+      ${available.length ? `<div class="imp-grid">${available.map(i=>{
+        const claimable = i.status==='available' && who;
+        return `<div class="imp-card">
+          <div class="img ${imgOk(i.image)?'':'noimg'}" ${imgOk(i.image)?`style="background-image:url('${esc(i.image)}')"`:''}>${imgOk(i.image)?'':'🐴'}</div>
+          <div class="pad">
+            <div class="nm">${esc(i.name)}</div>
+            <span class="imp-status ${i.status}">${i.status==='pending'?'On hold':'Available'}</span>
+            ${i.designUrl?`<a class="small" href="${esc(i.designUrl)}" target="_blank" rel="noopener">View design →</a>`:''}
+            <span class="sf-price" style="color:var(--sf-accent);font-family:'Caveat',cursive;font-weight:700;font-size:1.5rem;">✦ ${Number(i.price)||0}</span>
+            <button class="sf-buy" style="background:var(--sf-accent);color:#1a130c;" data-order="${esc(i.id)}" ${claimable?'':'disabled'}>${i.status==='pending'?'On hold':(who?'Order this':'Sign in to order')}</button>
+          </div>
+        </div>`;
+      }).join("")}</div>` : `<p class="small muted">No imports listed right now.</p>`}
+    </div>
+    ${who ? `<div class="card">
+      <h3>Order a custom import</h3>
+      <p class="small">Commission a one-of-a-kind design. Staff review your request, create the design, and place the
+        finished horse on your account.</p>
+      <label>What to call it (working name)</label><input id="co_name" placeholder="e.g. Midnight Spell" />
+      <label>Reference links / wishes</label><textarea id="co_refs" rows="3" placeholder="Colors, markings, refs, vibe — anything to guide the design."></textarea>
+      <label>Budget offered (✦)</label><input id="co_price" type="number" min="0" value="0" />
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button id="co_go">Submit custom request</button><span id="co_msg" class="small"></span>
+      </div>
+    </div>` : ''}`;
+
+  body.querySelectorAll('[data-order]').forEach(b=>b.onclick=()=>breedOrderPremade(body, DB, who, breed, imports, b.dataset.order));
+
+  if(who && $("co_go")){
+    $("co_go").onclick = async ()=>{
+      const horseName=$("co_name").value.trim();
+      if(!horseName){ $("co_msg").textContent="Give it a working name."; return; }
+      $("co_msg").textContent="Submitting…";
+      if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
+      const id="order_"+Math.random().toString(36).slice(2,10);
+      const rec={ id, owner:who.userId, breedId:breed.id, kind:"custom",
+        horseName, refs:$("co_refs").value.trim(), price:Math.max(0,Number($("co_price").value)||0),
+        note:"", status:"submitted", submittedAt:new Date().toISOString() };
+      try{ await DB.put('breedOrders', id, who.userId, rec); $("co_msg").textContent="Submitted — staff will review it."; $("co_name").value="";$("co_refs").value="";$("co_price").value="0"; }
+      catch(err){ $("co_msg").textContent="Failed: "+(err.message||err); }
+    };
+  }
+}
+
+async function breedOrderPremade(body, DB, who, breed, imports, importId){
+  const imp = imports.find(i=>i.id===importId);
+  if(!imp || !who) return;
+  const horseName = prompt(`Order “${imp.name}” for ✦${Number(imp.price)||0}?\n\nName the horse as you'd like it registered (you can change it later):`, imp.name);
+  if(horseName===null) return;
+
+  if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
+  // Create the order (owner = buyer) and put the import on hold so it can't be double-sold.
+  const orderId="order_"+Math.random().toString(36).slice(2,10);
+  const order={ id:orderId, owner:who.userId, breedId:breed.id, importId:imp.id, kind:"premade",
+    horseName:horseName.trim()||imp.name, price:Number(imp.price)||0, note:"",
+    designUrl:imp.designUrl||"", image:imp.image||"",
+    status:"submitted", submittedAt:new Date().toISOString() };
+  try{
+    await DB.put('breedOrders', orderId, who.userId, order);
+    // hold the import — best effort (only staff own the import doc; if this fails,
+    // staff still see the order and can decline duplicates)
+    try{ imp.status='pending'; imp.heldBy=who.userId; await DB.put('breedImports', imp.id, imp.owner||breed.owner, imp); }catch(e){}
+    __breedView={mode:"page",breedId:breed.id,tab:"my orders"}; renderBreeds(document.getElementById('view'));
+  }catch(err){ alert("Couldn't submit the order: "+(err.message||err)); }
+}
+
+/* ---------------- registry (derived from tracked horses) ---------------- */
+async function breedRegistry(body, DB, who, breed){
+  body.innerHTML = `<div class="card"><h3>Registry</h3><div id="reg_list" class="small">Loading…</div></div>`;
+  let horses=[]; try{ horses = await DB.listAll('horses'); }catch(e){}
+  // A registry entry = any tracked horse whose breed matches this breed's name.
+  const reg = horses.filter(h=> h && String(h.breed||'').toLowerCase() === String(breed.name).toLowerCase());
+  reg.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+  if(!reg.length){ $("reg_list").innerHTML = `<span class="muted">No registered horses yet. Imports appear here automatically once placed.</span>`; return; }
+  $("reg_list").innerHTML = `<p class="small muted">${reg.length} registered ${breed.name} horse${reg.length===1?'':'s'}. Built automatically from tracked horses — always current.</p>`
+    + reg.map(h=>{
+      const owner = h.__owner || h.ownerName || '—';
+      const img = imgOk(h.profileImage)?h.profileImage:(imgOk(h.image)?h.image:'');
+      const horseLink = `${__APPS.stable}?horse=${encodeURIComponent(h.id)}`;
+      return `<div class="reg-row">
+        <div class="thumb" ${img?`style="background-image:url('${esc(img)}')"`:''}></div>
+        <div style="flex:1;min-width:0;">
+          <b>${esc(h.name||'Unnamed')}</b>
+          <div class="small">owned by ${esc(owner)}${h.importLink?` · <a href="${esc(h.importLink)}" target="_blank" rel="noopener">import</a>`:''}</div>
+        </div>
+        <a class="small" href="${horseLink}" target="_blank" rel="noopener">Profile →</a>
+      </div>`;
+    }).join("");
+}
+
+/* ---------------- my orders (buyer's own queue) ---------------- */
+async function breedMyOrders(body, DB, who, breed){
+  if(!who){ body.innerHTML=""; return; }
+  let orders=[]; try{ orders = await DB.listByOwner('breedOrders', who.userId); }catch(e){}
+  orders = orders.filter(o=>o.breedId===breed.id).sort((a,b)=>String(b.submittedAt||'').localeCompare(String(a.submittedAt||'')));
+
+  // Approved orders the buyer still needs to CLAIM (creates the horse on their account).
+  const toClaim = orders.filter(o=>o.status==='approved');
+  body.innerHTML = `
+    ${toClaim.length ? `<div class="card"><h3>Ready to add to your tracker</h3>
+      <p class="small">These imports were approved. Claiming one creates the horse on your account (blank art until you upload your own) and pays the breed.</p>
+      ${toClaim.map(o=>`<div class="reg-row">
+        <div style="flex:1;"><b>${esc(o.horseName)}</b><div class="small">${o.kind} · ✦${Number(o.price)||0}${o.reviewNote?` · “${esc(o.reviewNote)}”`:''}</div></div>
+        <button data-claim="${esc(o.id)}">Add to my tracker</button>
+      </div>`).join("")}</div>` : ''}
+    <div class="card"><h3>My orders</h3>
+      ${orders.length ? orders.map(o=>`<div class="reg-row">
+        <div style="flex:1;"><b>${esc(o.horseName)}</b>
+          <div class="small">${o.kind} · ✦${Number(o.price)||0} · <span style="color:${o.status==='placed'?'var(--good)':o.status==='declined'?'var(--bad)':'var(--brass-light)'}">${esc(o.status)}</span>${o.reviewNote?` · “${esc(o.reviewNote)}”`:''}</div></div>
+      </div>`).join("") : `<span class="small muted">No orders yet — browse the Imports tab.</span>`}
+    </div>`;
+
+  body.querySelectorAll('[data-claim]').forEach(b=>b.onclick=()=>breedClaimOrder(body, DB, who, breed, orders.find(o=>o.id===b.dataset.claim)));
+}
+
+// Buyer claims an approved order: pay the breed's business, then create the
+// stamped horse on THEIR OWN account (owner = buyer — rules-clean, no cross writes).
+async function breedClaimOrder(body, DB, who, breed, order){
+  if(!order) return;
+  const price = Number(order.price)||0;
+  if(!confirm(`Add “${order.horseName}” to your tracker?\n\n${price>0?`✦${price} will be paid to ${breed.name}.`:'No charge.'}\nA blank horse profile is created — upload your own art anytime.`)) return;
+
+  if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
+
+  // 1) pay the breed business (buyer's token authorizes it)
+  if(price>0){
+    if(!breed.businessName){ alert("This breed has no business linked — ask staff to fix it before claiming."); return; }
+    const token = await (async()=>{ try{ await window.EquiAuth.ready; return await window.EquiAuth.token(); }catch(e){ return null; } })();
+    if(!token){ alert("Session expired — sign out and back in."); return; }
+    const pay = await bankCall({ action:'payBusiness', fromUserId:who.userId, idToken:token,
+      businessName:breed.businessName, amount:price, note:`${breed.name} import: ${order.horseName}` });
+    if(!pay || !pay.success){ alert((pay&&pay.error)||"Payment failed — nothing was created."); return; }
+  }
+
+  // 2) create the stamped tracked horse on the buyer's account
+  const horseId = "h_"+Math.random().toString(36).slice(2,9);
+  const horse = {
+    id:horseId, name:order.horseName||"New Import", breed:breed.name,
+    age:3, stage:"adult", level:1, exp:0,
+    importLink: order.designUrl || "",
+    ownerName: who.userId,
+    fromBreedOrder: order.id,
+    createdAt: new Date().toISOString()
+  };
+  try{
+    await DB.put('horses', horseId, who.userId, horse);
+  }catch(err){ alert("Paid, but the horse couldn't be created — tell breed staff. ("+(err.message||err)+")"); return; }
+
+  // 3) close out the order and mark the import sold
+  try{
+    order.status="placed"; order.horseId=horseId; order.placedAt=new Date().toISOString();
+    await DB.put('breedOrders', order.id, who.userId, order);
+  }catch(e){}
+  alert(`“${order.horseName}” is now in your tracker and the ${breed.name} registry. Open the Stable Manager to add art and details.`);
+  renderBreeds(document.getElementById('view'));
+}
+
+/* ---------------- admin (founder + staff) ---------------- */
+async function breedAdmin(body, DB, who, breed){
+  let imports=[]; try{ imports = await DB.listByOwner('breedImports', who.userId); }catch(e){}
+  imports = imports.filter(i=>i.breedId===breed.id);
+  // pull orders across the breed: we can only list our own docs by owner, so
+  // we read the whole collection (small) and filter to this breed.
+  let orders=[]; try{ orders = (await DB.listAll('breedOrders')).filter(o=>o.breedId===breed.id); }catch(e){}
+  const pending = orders.filter(o=>o.status==='submitted');
+  const th = Object.assign({}, BREED_THEME_DEFAULTS, breed.theme||{});
+  const isFounder = breed.owner===who.userId;
+
+  body.innerHTML = `
+    <div class="card">
+      <h3>Order queue ${pending.length?`<span class="bk-badge">${pending.length}</span>`:''}</h3>
+      ${pending.length ? pending.map(o=>`
+        <div style="border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:8px;background:var(--deep);">
+          <b>${esc(o.horseName)}</b> <span class="tag">${esc(o.kind)}</span> <span class="tag">✦${Number(o.price)||0}</span>
+          <div class="small">by ${esc(o.owner)} · ${esc(String(o.submittedAt||'').slice(0,10))}</div>
+          ${o.refs?`<div class="small" style="margin-top:4px;">Refs: ${esc(o.refs)}</div>`:''}
+          ${o.designUrl?`<div class="small"><a href="${esc(o.designUrl)}" target="_blank" rel="noopener">Premade design →</a></div>`:''}
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            ${o.kind==='custom'?`<input placeholder="Design URL to attach" data-design="${esc(o.id)}" style="flex:1;min-width:180px;" />`:''}
+            <input placeholder="Note to buyer (optional)" data-note="${esc(o.id)}" style="flex:1;min-width:160px;" />
+            <button data-approve="${esc(o.id)}">Approve</button>
+            <button class="ghost" data-decline="${esc(o.id)}" style="color:var(--bad);">Decline</button>
+          </div>
+        </div>`).join("") : `<span class="small muted">No pending orders.</span>`}
+    </div>
+
+    <div class="card">
+      <h3>List an import</h3>
+      <label>Name</label><input id="ni_name" placeholder="e.g. Black Spell" />
+      <label>Preview image link</label><input id="ni_image" placeholder="https://…/preview.png" />
+      <label>Design link (DeviantArt etc.)</label><input id="ni_design" placeholder="https://www.deviantart.com/…" />
+      <label>Price (✦)</label><input id="ni_price" type="number" min="0" value="0" />
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button id="ni_add">List import</button><span id="ni_msg" class="small"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Listed imports (${imports.length})</h3>
+      <div id="ni_list">${imports.length?'':'<span class="small muted">None yet.</span>'}</div>
+    </div>
+
+    <div class="card">
+      <h3>Request genetics for the Stable Manager</h3>
+      <p class="small">Custom breeds need their genetics set up in the Stable Manager by an admin. Describe what your breed
+        should carry and submit it — an admin builds it, then this breed becomes selectable when registering horses.</p>
+      <div id="gr_status"></div>
+      <label>What colors / patterns should this breed have?</label>
+      <textarea id="gr_desc" rows="4" placeholder="e.g. Standard base colors (bay, black, chestnut) plus cream dilutions, tobiano, and roan. No appaloosa. Should allow silver."></textarea>
+      <label>Any breed-exclusive or unusual genes? (optional)</label>
+      <textarea id="gr_special" rows="2" placeholder="e.g. a signature 'Lightblood shimmer' dilution — describe how it behaves."></textarea>
+      <label>Reference link (optional — a genetics guide, chart, or doc)</label>
+      <input id="gr_ref" placeholder="https://…" />
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button id="gr_send">Submit genetics request</button><span id="gr_msg" class="small"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Breed page &amp; look</h3>
+      <label>About (shown on the breed's About tab — line breaks kept)</label>
+      <textarea id="ba_about" rows="5">${esc(breed.about||'')}</textarea>
+      <label>Custom import instructions (optional)</label>
+      <textarea id="ba_inst" rows="3">${esc(breed.importInstructions||'')}</textarea>
+      <label>Banner image link</label><input id="ba_banner" value="${esc(breed.banner||'')}" />
+      <label>Blurb</label><input id="ba_blurb" value="${esc(breed.blurb||'')}" />
+      <label>Business name (imports paid here)</label><input id="ba_biz" value="${esc(breed.businessName||'')}" />
+      <label>Colors</label>
+      <div class="swatch-row">
+        <div class="swatch"><span class="small">Accent</span><input type="color" id="ba_accent" value="${esc(th.accent)}"></div>
+        <div class="swatch"><span class="small">Background</span><input type="color" id="ba_panel" value="${esc(th.panel)}"></div>
+        <div class="swatch"><span class="small">Headings</span><input type="color" id="ba_head" value="${esc(th.head)}"></div>
+      </div>
+      <div style="margin-top:12px;"><button id="ba_save">Save breed page</button> <span id="ba_msg" class="small"></span></div>
+    </div>
+
+    ${isFounder ? `<div class="card">
+      <h3>Staff</h3>
+      <p class="small">Staff can list imports and review orders. Add trusted members by their User ID.</p>
+      <div id="st_list" style="margin-bottom:8px;">${(breed.staff||[]).length?(breed.staff||[]).map(s=>`<span class="tag" style="margin:2px;">${esc(s)} <a href="#" data-unstaff="${esc(s)}" style="color:var(--bad);">✕</a></span>`).join(""):'<span class="small muted">No staff yet.</span>'}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input id="st_add" placeholder="User ID to add as staff" style="flex:1;min-width:180px;" />
+        <button id="st_go">Add staff</button>
+      </div>
+      <span id="st_msg" class="small"></span>
+    </div>` : ''}`;
+
+  // order approve/decline
+  body.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>breedApproveOrder(body, DB, who, breed, orders.find(o=>o.id===b.dataset.approve), body.querySelector(`[data-design="${CSS.escape(b.dataset.approve)}"]`), body.querySelector(`[data-note="${CSS.escape(b.dataset.approve)}"]`)));
+  body.querySelectorAll('[data-decline]').forEach(b=>b.onclick=async()=>{
+    const o=orders.find(x=>x.id===b.dataset.decline); if(!o) return;
+    const note = body.querySelector(`[data-note="${CSS.escape(o.id)}"]`);
+    o.status="declined"; o.reviewNote=(note&&note.value.trim())||""; o.reviewedBy=who.userId; o.decidedAt=new Date().toISOString();
+    try{ await DB.put('breedOrders', o.id, o.owner, o); }catch(e){ alert("Couldn't update the order (you may not have permission to write another player's order doc). Rules note in the guide covers this."); }
+    // release the held import if any
+    if(o.importId){ try{ const imp=await DB.get('breedImports',o.importId); if(imp && imp.status==='pending'){ imp.status='available'; delete imp.heldBy; await DB.put('breedImports', imp.id, imp.owner||breed.owner, imp); } }catch(e){} }
+    renderBreeds(document.getElementById('view'));
+  });
+
+  // list an import
+  if($("ni_add")) $("ni_add").onclick = async ()=>{
+    const name=$("ni_name").value.trim();
+    if(!name){ $("ni_msg").textContent="Name it."; return; }
+    const id="imp_"+Math.random().toString(36).slice(2,10);
+    const rec={ id, owner:who.userId, breedId:breed.id, name,
+      image:$("ni_image").value.trim(), designUrl:$("ni_design").value.trim(),
+      price:Math.max(0,Number($("ni_price").value)||0), kind:"premade",
+      status:"available", listedAt:new Date().toISOString() };
+    $("ni_msg").textContent="Listing…";
+    try{ await DB.put('breedImports', id, who.userId, rec); renderBreeds(document.getElementById('view')); }
+    catch(err){ $("ni_msg").textContent="Failed: "+(err.message||err); }
+  };
+
+  // listed imports management
+  if($("ni_list") && imports.length){
+    $("ni_list").innerHTML = imports.map(i=>`<div class="reg-row">
+      <div class="thumb" ${imgOk(i.image)?`style="background-image:url('${esc(i.image)}')"`:''}></div>
+      <div style="flex:1;"><b>${esc(i.name)}</b><div class="small">✦${Number(i.price)||0} · <span class="imp-status ${i.status}">${esc(i.status)}</span></div></div>
+      <button class="ghost" data-retire="${esc(i.id)}" style="color:var(--bad);padding:5px 10px;">Delete</button>
+    </div>`).join("");
+    $("ni_list").querySelectorAll('[data-retire]').forEach(b=>b.onclick=async()=>{
+      if(!confirm('Delete this listing?')) return;
+      await DB.remove('breedImports', b.dataset.retire); renderBreeds(document.getElementById('view'));
+    });
+  }
+
+  // save breed page
+  // genetics request: show latest status + submit
+  (async ()=>{
+    let existing=[];
+    try{ existing = (await DB.listByOwner('breedGeneticsRequests', who.userId)).filter(r=>r.breedId===breed.id); }catch(e){}
+    existing.sort((a,b)=>String(b.submittedAt||'').localeCompare(String(a.submittedAt||'')));
+    const last = existing[0];
+    const st = $("gr_status");
+    if(st && last){
+      const color = last.status==='done'?'var(--good)':last.status==='declined'?'var(--bad)':'var(--brass-light)';
+      st.innerHTML = `<div class="note" style="border-left:3px solid ${color};margin-bottom:10px;">
+        Latest request: <b style="color:${color}">${esc(last.status)}</b>${last.adminNote?` — “${esc(last.adminNote)}”`:''}
+        <span class="small muted">(${esc(String(last.submittedAt||'').slice(0,10))})</span></div>`;
+    }
+  })();
+
+  if($("gr_send")) $("gr_send").onclick = async ()=>{
+    const desc=$("gr_desc").value.trim();
+    if(!desc){ $("gr_msg").textContent="Describe the genetics you'd like."; return; }
+    $("gr_msg").textContent="Submitting…";
+    if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
+    const id="genreq_"+Math.random().toString(36).slice(2,10);
+    const rec={ id, owner:who.userId, breedId:breed.id, breedName:breed.name,
+      desc, special:$("gr_special").value.trim(), ref:$("gr_ref").value.trim(),
+      status:"pending", submittedAt:new Date().toISOString() };
+    try{
+      await DB.put('breedGeneticsRequests', id, who.userId, rec);
+      $("gr_msg").textContent="Submitted — an admin will set it up in the Stable Manager.";
+      $("gr_desc").value=""; $("gr_special").value=""; $("gr_ref").value="";
+      renderBreeds(document.getElementById('view'));
+    }catch(err){ $("gr_msg").textContent="Failed: "+(err.message||err); }
+  };
+
+  if($("ba_save")) $("ba_save").onclick = async ()=>{
+    const patch=Object.assign({},breed,{
+      about:$("ba_about").value.trim(), importInstructions:$("ba_inst").value.trim(),
+      banner:$("ba_banner").value.trim(), blurb:$("ba_blurb").value.trim(), businessName:$("ba_biz").value.trim(),
+      theme:{accent:$("ba_accent").value,panel:$("ba_panel").value,head:$("ba_head").value},
+      updatedAt:new Date().toISOString() });
+    $("ba_msg").textContent="Saving…";
+    // only the founder owns the breed doc; staff edits need the founder, so guard:
+    if(breed.owner!==who.userId){ $("ba_msg").textContent="Only the founder can edit the breed page."; return; }
+    try{ await DB.putBreed(breed.id, who.userId, patch); Object.assign(breed,patch); $("ba_msg").textContent="Saved."; }
+    catch(err){ $("ba_msg").textContent="Failed: "+(err.message||err); }
+  };
+
+  // staff management (founder only)
+  if($("st_go")) $("st_go").onclick = async ()=>{
+    const uid=$("st_add").value.trim(); if(!uid){ return; }
+    breed.staff = Array.from(new Set([...(breed.staff||[]), uid]));
+    try{ await DB.putBreed(breed.id, who.userId, breed); $("st_add").value=""; renderBreeds(document.getElementById('view')); }
+    catch(err){ $("st_msg").textContent="Failed: "+(err.message||err); }
+  };
+  body.querySelectorAll('[data-unstaff]').forEach(a=>a.onclick=async(e)=>{
+    e.preventDefault();
+    breed.staff=(breed.staff||[]).filter(s=>s!==a.dataset.unstaff);
+    try{ await DB.putBreed(breed.id, who.userId, breed); renderBreeds(document.getElementById('view')); }catch(err){}
+  });
+}
+
+// Approve: mark the order approved so the BUYER can claim it (which pays + creates
+// the horse on their own account). Staff attach a design URL for customs here.
+async function breedApproveOrder(body, DB, who, breed, order, designEl, noteEl){
+  if(!order) return;
+  order.status="approved";
+  order.reviewedBy=who.userId;
+  order.reviewNote=(noteEl&&noteEl.value.trim())||"";
+  order.decidedAt=new Date().toISOString();
+  if(designEl && designEl.value.trim()) order.designUrl=designEl.value.trim();
+  try{
+    await DB.put('breedOrders', order.id, order.owner, order);
+  }catch(err){
+    alert("Couldn't approve — this needs the Firestore rule that lets breed staff update orders for their breed (see the rules guide). ("+(err.message||err)+")");
+    return;
+  }
+  // mark a premade import sold
+  if(order.importId){
+    try{ const imp=await DB.get('breedImports',order.importId); if(imp){ imp.status='sold'; imp.buyer=order.owner; await DB.put('breedImports', imp.id, imp.owner||breed.owner, imp); } }catch(e){}
+  }
+  alert(`Approved. ${order.owner} can now claim “${order.horseName}” from their My Orders tab — that's when they pay and the horse is created on their account.`);
+  renderBreeds(document.getElementById('view'));
+}
+
 // ============================================================
 //  SHOPS — player-run stores, listed and managed inside the hub
 //  Collections (same {owner,id,json} shape as everything else):
