@@ -2064,6 +2064,10 @@ async function breedApproveOrder(body, DB, who, breed, order, designEl, noteEl){
 //  document the tracker and Emporium share.
 // ============================================================
 const SHOP_THEME_DEFAULTS = { accent:"#d29a3e", panel:"#140e07", head:"#c9a84c" };
+// Premium storefronts: these owners may replace their shop's standard hero with
+// their own custom HTML (rendered in a scripts-disabled sandbox so it can't touch
+// anyone's session). Edit this list to grant more accounts; matched by bank userId.
+const PREMIUM_SHOP_OWNERS = ["PocketCaster"];
 
 function shopThemeVars(t){
   t = t || {};
@@ -2080,6 +2084,7 @@ function shopInvEntry(shop, item, qty){
   // A "single-use" token (uses<=1) stacks by quantity — each copy = one use.
   // A "multi-use" token (uses>1) pools its uses into usesLeft.
   const multiUse = uses > 1;
+  const hasStats = item.stats && Object.keys(item.stats).length>0;
   return {
     id:        shop.id + "_" + item.id,
     itemId:    item.id,
@@ -2092,6 +2097,11 @@ function shopInvEntry(shop, item, qty){
     usesLeft:  multiUse ? uses*qty : undefined,
     discountValue: disc>0 ? disc : undefined,
     singleUse: (consumable && !multiUse) ? true : undefined,
+    // tack/apparel bonuses ride along so the Stable Manager can apply them
+    wearKind:  item.wearKind || undefined,
+    stats:     hasStats ? item.stats : undefined,
+    exp:       Number(item.exp)>0 ? Number(item.exp) : undefined,
+    pp:        Number(item.pp)>0 ? Number(item.pp) : undefined,
     shopName:  shop.name,
     source:    shop.id
   };
@@ -2204,14 +2214,16 @@ async function renderStorefront(v, DB, who, shopId){
       ${who && who.userId===shop.owner ? `<button id="sf_manage">Manage this shop</button>` : ``}
     </div>
     <div class="storefront" style="${shopThemeVars(shop.theme)}">
-      <div class="sf-hero">
+      ${shop.customHtml && PREMIUM_SHOP_OWNERS.includes(shop.owner)
+        ? `<div id="sf_customwrap" style="margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid var(--line);"></div>`
+        : `<div class="sf-hero">
         <div class="banner ${imgOk(shop.banner)?'':'noimg'}" ${imgOk(shop.banner)?`style="background-image:url('${esc(shop.banner)}')"`:''}>${imgOk(shop.banner)?'':'🏪'}</div>
         <div class="meta">
           <h2>${esc(shop.name)}</h2>
           <div class="small">Kept by ${esc(shop.owner)}${shop.businessName?` · pays to <b>${esc(shop.businessName)}</b>`:''}</div>
           ${shop.blurb?`<p style="margin:8px 0 0;">${esc(shop.blurb)}</p>`:''}
         </div>
-      </div>
+      </div>`}
       ${!who ? `<div class="card"><span class="small muted">Sign in to buy.</span></div>` : ''}
       ${who && coupons.length ? `<div class="card" style="margin-bottom:14px;">
         <label>Discount ticket</label>
@@ -2245,6 +2257,18 @@ async function renderStorefront(v, DB, who, shopId){
   $("sf_back").onclick = ()=>{ __shopView={mode:"browse"}; renderShops(v); };
   if($("sf_bag")) $("sf_bag").onclick = ()=>{ __shopView={mode:"bag"}; renderShops(v); };
   if($("sf_manage")) $("sf_manage").onclick = ()=>{ __shopView={mode:"manage",shopId:null}; renderShops(v); };
+  // Premium custom hero: a sandboxed iframe with scripts DISABLED — pure HTML/CSS,
+  // sealed off from the hub session, so a fancy layout can never become an attack.
+  if(shop.customHtml && PREMIUM_SHOP_OWNERS.includes(shop.owner)){
+    const wrapEl=$("sf_customwrap");
+    if(wrapEl){
+      const fr=document.createElement('iframe');
+      fr.setAttribute('sandbox','');
+      fr.style.cssText='width:100%;border:0;display:block;background:transparent;height:'+(Math.max(120,Number(shop.customHtmlHeight)||420))+'px';
+      fr.srcdoc=shop.customHtml;
+      wrapEl.appendChild(fr);
+    }
+  }
 
   v.querySelectorAll('[data-buy]').forEach(btn=>btn.onclick=()=>buyFromShop(v, DB, who, shop, items, btn.dataset.buy));
 }
@@ -2328,6 +2352,11 @@ async function renderShopManage(v, DB, who){
 
   let items=[]; try{ items = (await DB.listByOwner('shopItems', who.userId)).filter(i=>i.shopId===shop.id); }catch(e){}
   const th = Object.assign({}, SHOP_THEME_DEFAULTS, shop.theme||{});
+  let myCodes=[]; try{ myCodes=(await DB.listByOwner('shopCodes', who.userId)).filter(c=>c && c.shopId===shop.id); }catch(e){}
+  let codeClaims={}; try{
+    (await DB.listAll('redemptions')).forEach(r=>{ if(r && r.kind==='code_claim' && r.codeId) codeClaims[r.codeId]=(codeClaims[r.codeId]||0)+1; });
+  }catch(e){}
+  const isPremium = PREMIUM_SHOP_OWNERS.includes(who.userId);
 
   v.innerHTML = `
     <div class="shop-crumb">
@@ -2366,6 +2395,70 @@ async function renderShopManage(v, DB, who){
     </div>
 
     <div class="card">
+      <h3>🎟️ Event codes</h3>
+      <p class="small">Mint a code that grants an item — event prizes, giveaways, specialty rewards. Members redeem it
+        in their <b>Saddlebag</b>; each claim is written to the permanent redemption ledger, one claim per member.</p>
+      ${myCodes.length ? myCodes.map(c=>{
+        const claimed=codeClaims[c.id]||0;
+        const what=c.itemId ? (items.find(i=>i.id===c.itemId)||{}).name||'(deleted item)' : (c.prize&&c.prize.name)||'?';
+        return `<div class="bk-tx" style="border-left:3px solid ${c.active!==false?'var(--good)':'var(--line)'};">
+          <div class="bk-tx-body">
+            <b style="letter-spacing:.08em;">${esc(c.code)}</b>
+            <span class="small">${esc(what)} ×${Number(c.qtyPerClaim)||1} · claimed ${claimed}/${Number(c.maxClaims)||1}${c.active===false?' · <span style="opacity:.7">inactive</span>':''}</span>
+          </div>
+          <button class="ghost" data-ec-toggle="${esc(c.id)}" style="padding:5px 10px;">${c.active===false?'Activate':'Deactivate'}</button>
+          <button class="ghost" data-ec-del="${esc(c.id)}" style="padding:5px 10px;color:var(--bad);">Delete</button>
+        </div>`;
+      }).join("") : `<p class="small muted">No codes yet.</p>`}
+      <div style="border-top:1px solid var(--line);margin-top:10px;padding-top:12px;">
+        <div class="grid" style="grid-template-columns:1fr 1fr; gap:10px;">
+          <div><label>Code</label><input id="ec_code" placeholder="e.g. SPRING26" style="text-transform:uppercase;" /></div>
+          <div><label>Grants</label>
+            <select id="ec_mode">
+              <option value="item">An existing shop item</option>
+              <option value="prize">A one-off prize (not sold in the shop)</option>
+            </select>
+          </div>
+        </div>
+        <div id="ec_itemRow"><label>Item</label>
+          <select id="ec_item">${items.map(i=>`<option value="${esc(i.id)}">${esc(i.name)}</option>`).join("")}</select>
+          ${items.length?'':'<p class="small muted">Add an item below first, or use a one-off prize.</p>'}
+        </div>
+        <div id="ec_prizeRow" class="hide">
+          <div class="grid" style="grid-template-columns:1fr 1fr; gap:10px;">
+            <div><label>Prize name</label><input id="ec_pname" placeholder="Founders' Ribbon" /></div>
+            <div><label>Category</label><input id="ec_pcat" placeholder="Trophy · Ticket · …" /></div>
+          </div>
+          <label>Image link (optional)</label><input id="ec_pimg" placeholder="https://…" />
+          <label>Description (optional)</label><input id="ec_pdesc" placeholder="What is it / what's it for?" />
+          <label>Uses (0 = keepsake, 1+ = usable token)</label><input id="ec_puses" type="number" min="0" value="0" />
+        </div>
+        <div class="grid" style="grid-template-columns:1fr 1fr; gap:10px; margin-top:8px;">
+          <div><label>Qty per claim</label><input id="ec_qty" type="number" min="1" value="1" /></div>
+          <div><label>Max claims (total members)</label><input id="ec_max" type="number" min="1" value="1" /></div>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button id="ec_add">Create code</button><span id="ec_msg" class="small"></span>
+        </div>
+      </div>
+    </div>
+
+    ${isPremium ? `<div class="card">
+      <h3>👑 Premium — custom storefront HTML</h3>
+      <p class="small">Replace your shop's standard header with your own HTML &amp; CSS (your Emporium look).
+        It renders in a <b>scripts-disabled sandbox</b> — style anything, but no JavaScript will run inside it.</p>
+      <label>Custom HTML</label>
+      <textarea id="ph_html" rows="8" style="font-family:monospace;font-size:.85em;">${esc(shop.customHtml||'')}</textarea>
+      <label>Display height (px)</label>
+      <input id="ph_height" type="number" min="120" value="${Number(shop.customHtmlHeight)||420}" style="max-width:140px;" />
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button id="ph_save">Save custom look</button>
+        <button class="ghost" id="ph_clear">Remove (use standard header)</button>
+        <span id="ph_msg" class="small"></span>
+      </div>
+    </div>` : ``}
+
+    <div class="card">
       <h3>${'Add an item'}</h3>
       <div class="grid" style="grid-template-columns:1fr 1fr; gap:10px;">
         <div><label>Name</label><input id="it_name" placeholder="Braided Bridle" /></div>
@@ -2382,6 +2475,23 @@ async function renderShopManage(v, DB, who){
       </div>
       <label>Discount ticket worth (✦ off — 0 = not a ticket)</label>
       <input id="it_disc" type="number" min="0" value="0" />
+      <label>Wearable kind</label>
+      <select id="it_wear">
+        <option value="">Not wearable — consumable, ticket, or plain good</option>
+        <option value="tack">Horse tack — grants Stats &amp; EXP when depicted</option>
+        <option value="apparel">Rider apparel — grants PP (Prestige Points)</option>
+      </select>
+      <div id="it_tackFields" class="hide" style="margin-top:8px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;">
+        <p class="small muted" style="margin:0 0 8px;">What this tack grants when depicted in a training or offsite image.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px;">
+          ${STATS.map(s=>`<div><label class="small">${STAT_LABELS[s]}</label><input type="number" id="it_stat_${s}" value="0" style="padding:5px;" /></div>`).join("")}
+        </div>
+        <div style="margin-top:8px;max-width:160px;"><label class="small">EXP bonus</label><input type="number" id="it_exp" value="0" /></div>
+      </div>
+      <div id="it_apparelFields" class="hide" style="margin-top:8px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;">
+        <p class="small muted" style="margin:0 0 8px;">Prestige Points this apparel grants when depicted on a rider.</p>
+        <div style="max-width:160px;"><label class="small">PP bonus</label><input type="number" id="it_pp" value="0" /></div>
+      </div>
       <p class="small muted" style="margin-top:6px;">
         <b>Normal item:</b> leave Uses and Discount at 0.<br>
         <b>Token</b> (used in breeding/customs — Twin, Reroll, Stat Reset, Treats…): set <b>Uses each</b> to 1 or more. Buyers get a <b>Use</b> button in their saddlebag; using one removes it and writes a permanent redemption record.<br>
@@ -2425,12 +2535,76 @@ async function renderShopManage(v, DB, who){
     catch(err){ $("mg_saveMsg").textContent = "Failed: "+(err.message||err); }
   };
 
+  // event codes: create / toggle / delete
+  const ecMode=$("ec_mode");
+  if(ecMode) ecMode.onchange=()=>{
+    $("ec_itemRow").classList.toggle("hide", ecMode.value!=="item");
+    $("ec_prizeRow").classList.toggle("hide", ecMode.value!=="prize");
+  };
+  if($("ec_add")) $("ec_add").onclick=async()=>{
+    const code=($("ec_code").value||'').toUpperCase().replace(/\s+/g,'');
+    if(!code){ $("ec_msg").textContent="Give the code a name (e.g. SPRING26)."; return; }
+    if(myCodes.some(c=>c.code===code)){ $("ec_msg").textContent="You already have a code called "+code+"."; return; }
+    const rec={ id:"code_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+      owner:who.userId, shopId:shop.id, shopName:shop.name, code,
+      qtyPerClaim:Math.max(1,Math.floor(Number($("ec_qty").value)||1)),
+      maxClaims:Math.max(1,Math.floor(Number($("ec_max").value)||1)),
+      active:true, createdAt:new Date().toISOString() };
+    if($("ec_mode").value==="item"){
+      const it=items.find(i=>i.id===$("ec_item").value);
+      if(!it){ $("ec_msg").textContent="Pick an item (or switch to a one-off prize)."; return; }
+      rec.itemId=it.id;
+    } else {
+      const pname=($("ec_pname").value||'').trim();
+      if(!pname){ $("ec_msg").textContent="Name the prize."; return; }
+      rec.prize={ name:pname, category:($("ec_pcat").value||'').trim(),
+        image:($("ec_pimg").value||'').trim(), desc:($("ec_pdesc").value||'').trim(),
+        uses:Math.max(0,Math.floor(Number($("ec_puses").value)||0)) };
+    }
+    $("ec_msg").textContent="Creating…";
+    try{ await DB.put('shopCodes', rec.id, who.userId, rec); renderShops(v); }
+    catch(err){ $("ec_msg").textContent="Failed: "+(err.message||err); }
+  };
+  v.querySelectorAll('[data-ec-toggle]').forEach(b=>b.onclick=async()=>{
+    const c=myCodes.find(x=>x.id===b.dataset.ecToggle); if(!c) return;
+    c.active=(c.active===false); 
+    try{ await DB.put('shopCodes', c.id, who.userId, c); renderShops(v); }catch(err){ alert("Couldn't update: "+(err.message||err)); }
+  });
+  v.querySelectorAll('[data-ec-del]').forEach(b=>b.onclick=async()=>{
+    if(!confirm("Delete this code? Past claims stay in the ledger; nobody new can redeem it.")) return;
+    try{ await DB.remove('shopCodes', b.dataset.ecDel); renderShops(v); }catch(err){ alert("Couldn't delete: "+(err.message||err)); }
+  });
+
+  // premium custom HTML
+  if($("ph_save")) $("ph_save").onclick=async()=>{
+    const patch=Object.assign({},shop,{ customHtml:$("ph_html").value,
+      customHtmlHeight:Math.max(120,Number($("ph_height").value)||420), updatedAt:new Date().toISOString() });
+    $("ph_msg").textContent="Saving…";
+    try{ await DB.put('shops', shop.id, who.userId, patch); Object.assign(shop,patch); $("ph_msg").textContent="Saved — open your storefront to see it."; }
+    catch(err){ $("ph_msg").textContent="Failed: "+(err.message||err); }
+  };
+  if($("ph_clear")) $("ph_clear").onclick=async()=>{
+    const patch=Object.assign({},shop,{ customHtml:"", updatedAt:new Date().toISOString() });
+    try{ await DB.put('shops', shop.id, who.userId, patch); Object.assign(shop,patch); renderShops(v); }catch(err){}
+  };
+
   // item add / edit / list
   let editingId = null;
+  const syncWearFields = ()=>{
+    const k=$("it_wear")?$("it_wear").value:"";
+    if($("it_tackFields"))    $("it_tackFields").classList.toggle("hide", k!=="tack");
+    if($("it_apparelFields")) $("it_apparelFields").classList.toggle("hide", k!=="apparel");
+  };
+  if($("it_wear")) $("it_wear").onchange=syncWearFields;
+  syncWearFields();
+
   const resetItem = ()=>{
     editingId=null;
     ["it_name","it_cat","it_image","it_desc"].forEach(id=>{ if($(id)) $(id).value=""; });
     $("it_price").value="0"; $("it_stock").value=""; $("it_uses").value="0"; if($("it_disc")) $("it_disc").value="0";
+    STATS.forEach(s=>{ if($("it_stat_"+s)) $("it_stat_"+s).value="0"; });
+    if($("it_exp")) $("it_exp").value="0"; if($("it_pp")) $("it_pp").value="0";
+    if($("it_wear")){ $("it_wear").value=""; syncWearFields(); }
     $("it_add").textContent="Add item"; $("it_cancel").classList.add("hide"); $("it_msg").textContent="";
   };
   $("it_cancel").onclick = resetItem;
@@ -2451,6 +2625,17 @@ async function renderShopManage(v, DB, who){
       discountValue: Math.max(0, Math.floor(Number($("it_disc").value)||0)),
       active: true
     };
+    // Wearable bonuses, gated by kind: tack = Stats+EXP, apparel = PP.
+    const wearKind=$("it_wear")?$("it_wear").value:"";
+    if(wearKind) rec.wearKind=wearKind;
+    if(wearKind==="tack"){
+      const tkStats={};
+      STATS.forEach(s=>{ const val=Number($("it_stat_"+s).value)||0; if(val!==0) tkStats[s]=val; });
+      if(Object.keys(tkStats).length) rec.stats=tkStats;
+      const tkExp=Number($("it_exp").value)||0; if(tkExp) rec.exp=tkExp;
+    } else if(wearKind==="apparel"){
+      const tkPp=Number($("it_pp").value)||0; if(tkPp) rec.pp=tkPp;
+    }
     $("it_msg").textContent = editingId ? "Saving…" : "Adding…";
     try{ await DB.put('shopItems', rec.id, who.userId, rec); resetItem(); renderShops(v); }
     catch(err){ $("it_msg").textContent = "Failed: "+(err.message||err); }
@@ -2479,6 +2664,12 @@ async function renderShopManage(v, DB, who){
       $("it_desc").value=i.desc||""; $("it_price").value=Number(i.price)||0;
       $("it_stock").value=(i.stock==null?"":i.stock); $("it_uses").value=Number(i.uses)||0;
       if($("it_disc")) $("it_disc").value=Number(i.discountValue)||0;
+      STATS.forEach(s=>{ if($("it_stat_"+s)) $("it_stat_"+s).value=(i.stats&&i.stats[s])||0; });
+      if($("it_exp")) $("it_exp").value=Number(i.exp)||0; if($("it_pp")) $("it_pp").value=Number(i.pp)||0;
+      if($("it_wear")){
+        $("it_wear").value = i.wearKind || (Number(i.pp)>0 ? "apparel" : ((i.stats&&Object.keys(i.stats).length)||Number(i.exp)>0 ? "tack" : ""));
+        syncWearFields();
+      }
       $("it_add").textContent="Save changes"; $("it_cancel").classList.remove("hide");
       $("it_msg").textContent="Editing “"+(i.name||"")+"”";
       v.scrollIntoView({behavior:"smooth",block:"start"});
@@ -2537,6 +2728,16 @@ async function renderSaddlebag(v, DB, who){
         <b>Discount tickets</b> are spent at the checkout of the shop that sold them.</p>
     </div>
 
+    <div class="card">
+      <h3>🎟️ Redeem an event code</h3>
+      <p class="small">Got a code from an event, giveaway, or competition? Enter it and the prize lands right here.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input id="bag_code" placeholder="e.g. SPRING26" style="flex:1;min-width:160px;text-transform:uppercase;" />
+        <button id="bag_redeem">Redeem</button>
+      </div>
+      <div id="bag_code_msg" class="small" style="margin-top:8px;min-height:1em;"></div>
+    </div>
+
     ${tokens.length ? `<div class="card"><h3>✨ Tokens &amp; consumables</h3><div id="bag_tokens">${tokens.map(card).join("")}</div>
       <p class="small muted" style="margin-top:8px;">Use a token here when you're about to spend it in a breeding or custom.
         Bring the confirmation to a mod along with your request.</p></div>` : ''}
@@ -2567,6 +2768,64 @@ async function renderSaddlebag(v, DB, who){
   }
 
   v.querySelectorAll('[data-use]').forEach(b=>b.onclick=()=>useToken(v, DB, who, b.dataset.use));
+  if($("bag_redeem")) $("bag_redeem").onclick=()=>claimShopCode(v, DB, who);
+}
+
+// Redeem an event code: verify against the code doc + the append-only ledger
+// (one claim per member, max total claims), record the claim FIRST, then
+// deliver the prize into the member's own inventory doc — same trust model
+// as token use: the ledger is permanent, so a claim can't be hidden or repeated.
+async function claimShopCode(v, DB, who){
+  const msg=$("bag_code_msg");
+  const raw=($("bag_code").value||'').toUpperCase().replace(/\s+/g,'');
+  if(!raw){ if(msg) msg.textContent="Type a code first."; return; }
+  if(msg) msg.textContent="Checking…";
+  try{
+    if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
+    let codes=[]; try{ codes=await DB.listAll('shopCodes'); }catch(e){}
+    const c=codes.find(x=>x && String(x.code||'').toUpperCase()===raw);
+    if(!c){ msg.textContent="No such code — check the spelling."; return; }
+    if(c.active===false){ msg.textContent="That code is no longer active."; return; }
+    let claims=[]; try{ claims=(await DB.listAll('redemptions')).filter(r=>r && r.kind==='code_claim' && r.codeId===c.id); }catch(e){}
+    if(claims.some(r=>String(r.userId)===String(who.userId))){ msg.textContent="You've already claimed this code."; return; }
+    if(claims.length >= (Number(c.maxClaims)||1)){ msg.textContent="This code has been fully claimed."; return; }
+
+    // Resolve what it grants
+    let entry=null, grantName='';
+    const qty=Math.max(1,Number(c.qtyPerClaim)||1);
+    if(c.itemId){
+      const item=await DB.get('shopItems', c.itemId);
+      if(!item){ msg.textContent="The prize item no longer exists — tell the shopkeeper."; return; }
+      const shopDoc=(await DB.get('shops', c.shopId)) || {id:c.shopId, name:c.shopName||'a shop'};
+      entry=shopInvEntry(shopDoc, item, qty); grantName=item.name;
+    } else if(c.prize){
+      const uses=Number(c.prize.uses)||0;
+      entry={ id:c.shopId+"_prize_"+c.id, itemId:0, name:c.prize.name,
+        type:uses>0?"consumable":"shopgood", category:c.prize.category||"", desc:c.prize.desc||"",
+        image:c.prize.image||"", price:0, qty,
+        usesLeft:uses>1?uses*qty:undefined, singleUse:(uses===1)?true:undefined,
+        shopName:c.shopName||"", source:c.shopId };
+      grantName=c.prize.name;
+    } else { msg.textContent="This code grants nothing — tell the shopkeeper."; return; }
+
+    // Ledger FIRST (the permanent record), then delivery.
+    const rec={ id:"rdm_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7),
+      userId:who.userId, itemId:entry.itemId, name:grantName,
+      source:c.shopId, shopName:c.shopName||"", kind:"code_claim",
+      codeId:c.id, code:c.code, detail:"Event code "+c.code, usedAt:new Date().toISOString() };
+    await DB.put('redemptions', rec.id, who.userId, rec);
+
+    let inv=null;
+    try{ inv=(await DB.get('inventory', who.userId)) || {id:who.userId, items:[]}; }catch(e){ inv={id:who.userId, items:[]}; }
+    inv.items=inv.items||[];
+    const hit=inv.items.find(x=>x && x.id===entry.id);
+    if(hit){ hit.qty=(Number(hit.qty)||0)+qty; if(entry.usesLeft) hit.usesLeft=(Number(hit.usesLeft)||0)+entry.usesLeft; }
+    else inv.items.push(entry);
+    await DB.put('inventory', who.userId, who.userId, inv);
+
+    alert("🎉 Claimed "+qty+"× "+grantName+"!");
+    renderShops(v);
+  }catch(err){ if(msg) msg.textContent="Failed: "+(err.message||err); }
 }
 
 async function useToken(v, DB, who, entryId){
