@@ -2176,6 +2176,11 @@ function shopInvEntry(shop, item, qty){
     usesLeft:  multiUse ? uses*qty : undefined,
     discountValue: disc>0 ? disc : undefined,
     singleUse: (consumable && !multiUse) ? true : undefined,
+    // consumable effect rides along so the Stable Manager can apply it on use
+    effect:      item.effect || undefined,
+    effectValue: item.effectValue!=null ? Number(item.effectValue) : undefined,
+    effectStat:  item.effectStat || undefined,
+    effectTag:   item.effectTag || undefined,
     // tack/apparel bonuses ride along so the Stable Manager can apply them
     wearKind:  item.wearKind || undefined,
     stats:     hasStats ? item.stats : undefined,
@@ -2594,6 +2599,29 @@ async function renderShopManage(v, DB, who){
       </div>
       <label>Discount ticket worth (✦ off — 0 = not a ticket)</label>
       <input id="it_disc" type="number" min="0" value="0" />
+
+      <label>Consumable effect <span class="small">(what happens when a player USES this item)</span></label>
+      <select id="it_effect">
+        <option value="">None — plain good, ticket, or wearable</option>
+        <option value="exp">EXP Boost Treat — grants EXP to a horse</option>
+        <option value="stat">Stat Treat — grants a stat point to a horse</option>
+        <option value="breed_token">Breed / Import Token — held for a breeding or import order</option>
+      </select>
+      <div id="it_effExp" class="hide" style="margin-top:6px;max-width:200px;">
+        <label class="small">EXP granted per use</label><input id="it_eff_exp" type="number" min="0" value="0" />
+      </div>
+      <div id="it_effStat" class="hide" style="margin-top:6px;">
+        <div class="grid" style="grid-template-columns:1fr 1fr; gap:10px; max-width:360px;">
+          <div><label class="small">Stat</label><select id="it_eff_stat">${STATS.map(st=>`<option value="${st}">${STAT_LABELS[st]}</option>`).join("")}</select></div>
+          <div><label class="small">Points per use</label><input id="it_eff_statval" type="number" min="0" value="1" /></div>
+        </div>
+      </div>
+      <div id="it_effToken" class="hide" style="margin-top:6px;">
+        <p class="small muted">Held in the saddlebag until the player uses it on a breeding or import order. (The breeding form will consume it — that flow comes with the breeding project.)</p>
+        <input id="it_eff_tokentag" placeholder="Token purpose (e.g. Custom Coat, Trait: Roan)" style="max-width:320px;" />
+      </div>
+      <p class="small muted" style="margin-top:4px;">A consumable effect needs <b>Uses each ≥ 1</b> above so it can actually be spent.</p>
+
       <label>Wearable kind</label>
       <select id="it_wear">
         <option value="">Not wearable — consumable, ticket, or plain good</option>
@@ -2720,6 +2748,15 @@ async function renderShopManage(v, DB, who){
   if($("it_wear")) $("it_wear").onchange=syncWearFields;
   syncWearFields();
 
+  const syncEffectFields = ()=>{
+    const e=$("it_effect")?$("it_effect").value:"";
+    if($("it_effExp"))   $("it_effExp").classList.toggle("hide", e!=="exp");
+    if($("it_effStat"))  $("it_effStat").classList.toggle("hide", e!=="stat");
+    if($("it_effToken")) $("it_effToken").classList.toggle("hide", e!=="breed_token");
+  };
+  if($("it_effect")) $("it_effect").onchange=syncEffectFields;
+  syncEffectFields();
+
   const resetItem = ()=>{
     editingId=null;
     ["it_name","it_cat","it_image","it_desc"].forEach(id=>{ if($(id)) $(id).value=""; });
@@ -2727,6 +2764,7 @@ async function renderShopManage(v, DB, who){
     STATS.forEach(s=>{ if($("it_stat_"+s)) $("it_stat_"+s).value="0"; });
     if($("it_exp")) $("it_exp").value="0"; if($("it_pp")) $("it_pp").value="0";
     if($("it_wear")){ $("it_wear").value=""; syncWearFields(); }
+    if($("it_effect")){ $("it_effect").value=""; if($("it_eff_exp"))$("it_eff_exp").value="0"; if($("it_eff_statval"))$("it_eff_statval").value="1"; if($("it_eff_tokentag"))$("it_eff_tokentag").value=""; syncEffectFields(); }
     $("it_add").textContent="Add item"; $("it_cancel").classList.add("hide"); $("it_msg").textContent="";
   };
   $("it_cancel").onclick = resetItem;
@@ -2766,6 +2804,19 @@ async function renderShopManage(v, DB, who){
     } else if(wearKind==="apparel"){
       const tkPp=Number($("it_pp").value)||0; if(tkPp) rec.pp=tkPp;
     }
+    // Consumable effect (applied when the player uses the item on a horse/order).
+    const effect=$("it_effect")?$("it_effect").value:"";
+    if(effect==="exp"){
+      const n=Math.max(0,Math.floor(Number($("it_eff_exp").value)||0));
+      if(n>0){ rec.effect="exp"; rec.effectValue=n; }
+    } else if(effect==="stat"){
+      const n=Math.max(0,Math.floor(Number($("it_eff_statval").value)||0));
+      if(n>0){ rec.effect="stat"; rec.effectStat=$("it_eff_stat").value; rec.effectValue=n; }
+    } else if(effect==="breed_token"){
+      rec.effect="breed_token"; rec.effectTag=($("it_eff_tokentag").value||"").trim();
+    }
+    // Any effect item must be consumable — force at least 1 use if the shopkeeper forgot.
+    if(rec.effect && !(rec.uses>0)){ rec.uses=1; }
     $("it_msg").textContent = editingId ? "Saving…" : "Adding…";
     try{ await DB.put('shopItems', rec.id, who.userId, rec); resetItem(); renderShops(v); }
     catch(err){ $("it_msg").textContent = "Failed: "+(err.message||err); }
@@ -2799,6 +2850,13 @@ async function renderShopManage(v, DB, who){
       if($("it_wear")){
         $("it_wear").value = i.wearKind || (Number(i.pp)>0 ? "apparel" : ((i.stats&&Object.keys(i.stats).length)||Number(i.exp)>0 ? "tack" : ""));
         syncWearFields();
+      }
+      if($("it_effect")){
+        $("it_effect").value = i.effect || "";
+        if(i.effect==="exp" && $("it_eff_exp")) $("it_eff_exp").value=Number(i.effectValue)||0;
+        if(i.effect==="stat"){ if($("it_eff_stat"))$("it_eff_stat").value=i.effectStat||STATS[0]; if($("it_eff_statval"))$("it_eff_statval").value=Number(i.effectValue)||1; }
+        if(i.effect==="breed_token" && $("it_eff_tokentag")) $("it_eff_tokentag").value=i.effectTag||"";
+        syncEffectFields();
       }
       $("it_add").textContent="Save changes"; $("it_cancel").classList.remove("hide");
       $("it_msg").textContent="Editing “"+(i.name||"")+"”";
