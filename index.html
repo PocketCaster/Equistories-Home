@@ -2177,6 +2177,7 @@ function shopInvEntry(shop, item, qty){
     discountValue: disc>0 ? disc : undefined,
     singleUse: (consumable && !multiUse) ? true : undefined,
     // consumable effect rides along so the Stable Manager can apply it on use
+    kind:        item.kind || undefined,
     effect:      item.effect || undefined,
     effectValue: item.effectValue!=null ? Number(item.effectValue) : undefined,
     effectStat:  item.effectStat || undefined,
@@ -2204,6 +2205,12 @@ function itemKind(item){
 }
 function invEntryKind(e){
   if(Number(e.discountValue) > 0) return "discount";
+  // Treats are consumed on training IMAGES (in the Stable Manager), so they get
+  // NO "Use" button here — they just wait in the saddlebag.
+  if(e.effect === "exp" || e.effect === "stat" || e.kind === "treat_exp" || e.kind === "treat_stat") return "treat";
+  // Tokens (breeding/custom) DO get a Use button that writes a redemption record.
+  if(e.kind === "token" || e.effect === "breed_token") return "token";
+  // Legacy generic consumables (no kind/effect) keep the old token behavior.
   if(Number(e.usesLeft) > 0 || e.singleUse === true || e.type === "consumable") return "token";
   return "good";
 }
@@ -2282,7 +2289,7 @@ async function renderStorefront(v, DB, who, shopId){
   if(!shop){ __shopView={mode:"browse"}; return renderShops(v); }
   let items = [];
   try{ items = await DB.listByOwner('shopItems', shop.owner); }catch(e){}
-  items = items.filter(i=>i && i.shopId===shopId && i.active!==false);
+  items = items.filter(i=>i && i.shopId===shopId && i.active!==false && !i.redeemOnly);
 
   // Coupons the buyer owns that THIS shop issued (discounts are per-shop).
   let coupons = [];
@@ -2586,8 +2593,24 @@ async function renderShopManage(v, DB, who){
       <h3>${'Add an item'}</h3>
       <div class="grid" style="grid-template-columns:1fr 1fr; gap:10px;">
         <div><label>Name</label><input id="it_name" placeholder="Braided Bridle" /></div>
-        <div><label>Category (optional)</label><input id="it_cat" placeholder="Tack · Consumable · …" /></div>
+        <div><label>Kind <span class="small">(what this item IS)</span></label>
+          <select id="it_kind">
+            <optgroup label="Gear — persistent, stays in inventory">
+              <option value="tack">Tack — worn on a horse (stats / EXP)</option>
+              <option value="apparel">Apparel — worn on a rider (PP)</option>
+            </optgroup>
+            <optgroup label="Consumables — limited use, spent away">
+              <option value="treat_exp">Treat: EXP — used on training images</option>
+              <option value="treat_stat">Treat: Stat — used on training images</option>
+              <option value="token">Token — breeding / custom (Use button in saddlebag)</option>
+              <option value="ticket">Ticket — shop discount (redeem-code only, not sold)</option>
+            </optgroup>
+            <option value="good">Plain good — collectible / decor, no function</option>
+          </select>
+        </div>
       </div>
+      <label>Category label <span class="small">(optional — free text, just for display/browsing)</span></label>
+      <input id="it_cat" placeholder="e.g. Bridles, Winter Line…" />
       <label>Image link</label>
       <input id="it_image" placeholder="https://…/item.png" />
       <label>Description</label>
@@ -2595,17 +2618,16 @@ async function renderShopManage(v, DB, who){
       <div class="grid" style="grid-template-columns:1fr 1fr 1fr; gap:10px;">
         <div><label>Price (✦)</label><input id="it_price" type="number" min="0" value="0" /></div>
         <div><label>Stock (blank = ∞)</label><input id="it_stock" type="number" min="0" placeholder="∞" /></div>
-        <div><label>Uses each (0 = normal)</label><input id="it_uses" type="number" min="0" value="0" /></div>
+        <div id="it_usesCell"><label>Uses each <span class="small">(consumables)</span></label><input id="it_uses" type="number" min="0" value="0" /></div>
       </div>
-      <label>Discount ticket worth (✦ off — 0 = not a ticket)</label>
-      <input id="it_disc" type="number" min="0" value="0" />
+      <div id="it_discRow" class="hide"><label>Discount ticket worth (✦ off)</label>
+      <input id="it_disc" type="number" min="0" value="0" /></div>
 
-      <label>Consumable effect <span class="small">(what happens when a player USES this item)</span></label>
-      <select id="it_effect">
-        <option value="">None — plain good, ticket, or wearable</option>
-        <option value="exp">EXP Boost Treat — grants EXP to a horse</option>
-        <option value="stat">Stat Treat — grants a stat point to a horse</option>
-        <option value="breed_token">Breed / Import Token — held for a breeding or import order</option>
+      <select id="it_effect" class="hide">
+        <option value="">None</option>
+        <option value="exp">exp</option>
+        <option value="stat">stat</option>
+        <option value="breed_token">breed_token</option>
       </select>
       <div id="it_effExp" class="hide" style="margin-top:6px;max-width:200px;">
         <label class="small">EXP granted per use</label><input id="it_eff_exp" type="number" min="0" value="0" />
@@ -2620,13 +2642,10 @@ async function renderShopManage(v, DB, who){
         <p class="small muted">Held in the saddlebag until the player uses it on a breeding or import order. (The breeding form will consume it — that flow comes with the breeding project.)</p>
         <input id="it_eff_tokentag" placeholder="Token purpose (e.g. Custom Coat, Trait: Roan)" style="max-width:320px;" />
       </div>
-      <p class="small muted" style="margin-top:4px;">A consumable effect needs <b>Uses each ≥ 1</b> above so it can actually be spent.</p>
-
-      <label>Wearable kind</label>
-      <select id="it_wear">
-        <option value="">Not wearable — consumable, ticket, or plain good</option>
-        <option value="tack">Horse tack — grants Stats &amp; EXP when depicted</option>
-        <option value="apparel">Rider apparel — grants PP (Prestige Points)</option>
+      <select id="it_wear" class="hide">
+        <option value="">none</option>
+        <option value="tack">tack</option>
+        <option value="apparel">apparel</option>
       </select>
       <div id="it_tackFields" class="hide" style="margin-top:8px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;">
         <p class="small muted" style="margin:0 0 8px;">What this tack grants when depicted in a training or offsite image.</p>
@@ -2757,6 +2776,28 @@ async function renderShopManage(v, DB, who){
   if($("it_effect")) $("it_effect").onchange=syncEffectFields;
   syncEffectFields();
 
+  // MASTER Kind selector: one dropdown drives the hidden effect/wear fields and
+  // shows only the sub-fields that Kind needs. This is the single place the
+  // shopkeeper declares what an item is.
+  const syncKind = ()=>{
+    const k = $("it_kind") ? $("it_kind").value : "good";
+    // map Kind -> the underlying wear/effect state
+    const wear = k==="tack" ? "tack" : k==="apparel" ? "apparel" : "";
+    const eff  = k==="treat_exp" ? "exp" : k==="treat_stat" ? "stat" : k==="token" ? "breed_token" : "";
+    if($("it_wear"))   $("it_wear").value = wear;
+    if($("it_effect")) $("it_effect").value = eff;
+    syncWearFields();
+    syncEffectFields();
+    // discount row only for tickets
+    if($("it_discRow")) $("it_discRow").classList.toggle("hide", k!=="ticket");
+    // uses field only matters for consumables (treat/token/ticket); hide for gear/good
+    const isConsumable = (k==="treat_exp"||k==="treat_stat"||k==="token"||k==="ticket");
+    if($("it_usesCell")) $("it_usesCell").classList.toggle("hide", !isConsumable);
+    // token tag sub-field label already lives in it_effToken (shown when eff===breed_token)
+  };
+  if($("it_kind")) $("it_kind").onchange=syncKind;
+  syncKind();
+
   const resetItem = ()=>{
     editingId=null;
     ["it_name","it_cat","it_image","it_desc"].forEach(id=>{ if($(id)) $(id).value=""; });
@@ -2765,6 +2806,7 @@ async function renderShopManage(v, DB, who){
     if($("it_exp")) $("it_exp").value="0"; if($("it_pp")) $("it_pp").value="0";
     if($("it_wear")){ $("it_wear").value=""; syncWearFields(); }
     if($("it_effect")){ $("it_effect").value=""; if($("it_eff_exp"))$("it_eff_exp").value="0"; if($("it_eff_statval"))$("it_eff_statval").value="1"; if($("it_eff_tokentag"))$("it_eff_tokentag").value=""; syncEffectFields(); }
+    if($("it_kind")){ $("it_kind").value="tack"; syncKind(); }
     $("it_add").textContent="Add item"; $("it_cancel").classList.add("hide"); $("it_msg").textContent="";
   };
   $("it_cancel").onclick = resetItem;
@@ -2785,6 +2827,18 @@ async function renderShopManage(v, DB, who){
       discountValue: Math.max(0, Math.floor(Number($("it_disc").value)||0)),
       active: true
     };
+    // Master Kind: the single source of truth for what this item is.
+    const kind = $("it_kind") ? $("it_kind").value : "good";
+    rec.kind = kind;
+    // Tickets are redeem-code-only: never listed for sale. Mark + hide from shelf.
+    if(kind==="ticket"){
+      rec.redeemOnly = true;
+      rec.active = false;                 // not shown on the storefront
+      if(!(rec.uses>0)) rec.uses = 1;     // a ticket is a single-use consumable
+      if(!(rec.discountValue>0)) rec.discountValue = 0;
+    }
+    // Tokens & treats are consumables — ensure they can actually be spent.
+    if((kind==="token"||kind==="treat_exp"||kind==="treat_stat") && !(rec.uses>0)) rec.uses = 1;
     // Wearable bonuses, gated by kind: tack = Stats+EXP, apparel = PP.
     const wearKind=$("it_wear")?$("it_wear").value:"";
     if(wearKind) rec.wearKind=wearKind;
@@ -2858,6 +2912,22 @@ async function renderShopManage(v, DB, who){
         if(i.effect==="breed_token" && $("it_eff_tokentag")) $("it_eff_tokentag").value=i.effectTag||"";
         syncEffectFields();
       }
+      // Master Kind: use stored kind, or infer from legacy items (pre-Kind).
+      if($("it_kind")){
+        let k = i.kind;
+        if(!k){
+          if(i.wearKind==="tack") k="tack";
+          else if(i.wearKind==="apparel") k="apparel";
+          else if(i.effect==="exp") k="treat_exp";
+          else if(i.effect==="stat") k="treat_stat";
+          else if(i.effect==="breed_token") k="token";
+          else if(Number(i.discountValue)>0 || i.redeemOnly) k="ticket";
+          else if((i.stats&&Object.keys(i.stats).length)||Number(i.exp)>0) k="tack";
+          else if(Number(i.pp)>0) k="apparel";
+          else k="good";
+        }
+        $("it_kind").value=k; syncKind();
+      }
       $("it_add").textContent="Save changes"; $("it_cancel").classList.remove("hide");
       $("it_msg").textContent="Editing “"+(i.name||"")+"”";
       v.scrollIntoView({behavior:"smooth",block:"start"});
@@ -2895,15 +2965,17 @@ async function renderSaddlebag(v, DB, who){
         <b>${esc(e.name)}</b>
         <span class="small">
           ${k==='discount'?`✦${Number(e.discountValue)} off · ${qty} left`
-            :k==='token'?(e.singleUse?`${qty} left`:`${Number(e.usesLeft)||0} use${(Number(e.usesLeft)||0)===1?'':'s'} left`)
+            :(k==='token'||k==='treat')?(e.singleUse?`${qty} left`:`${Number(e.usesLeft)||0} use${(Number(e.usesLeft)||0)===1?'':'s'} left`)
             :`×${qty}`}
           ${e.shopName?` · <span style="opacity:.7">${esc(e.shopName)}</span>`:''}
         </span>
         ${e.desc?`<span class="small" style="opacity:.8">${esc(e.desc)}</span>`:''}
       </div>
       ${k==='token' ? `<button class="ghost" data-use="${esc(e.id)}" style="padding:6px 12px;">Use one</button>`
+        : k==='treat' ? `<span class="small muted" style="align-self:center;">Used on training images</span>`
         : k==='discount' ? `<span class="small muted" style="align-self:center;">Use at ${esc(e.shopName||'its shop')}'s checkout</span>`
         : ``}
+      <button class="ghost" data-gift="${esc(e.id)}" style="padding:6px 12px;">🎁 Gift</button>
     </div>`;
   };
 
@@ -2912,7 +2984,9 @@ async function renderSaddlebag(v, DB, who){
     <div class="card">
       <h2>My Saddlebag</h2>
       <p class="small">Everything you own across every EquiStories shop. <b>Tokens</b> (breeding &amp; custom items)
-        have a <b>Use one</b> button — using it removes the token and records it permanently so mods can verify it.
+have a <b>Use one</b> button — using it removes the token and records it permanently so mods can verify it.
+        <b>Treats</b> are used on training images in the Stable Manager. <b>Tickets</b> are spent at a shop's checkout.
+        Any item can be <b>🎁 Gifted</b> to another member.
         <b>Discount tickets</b> are spent at the checkout of the shop that sold them.</p>
     </div>
 
@@ -2956,7 +3030,70 @@ async function renderSaddlebag(v, DB, who){
   }
 
   v.querySelectorAll('[data-use]').forEach(b=>b.onclick=()=>useToken(v, DB, who, b.dataset.use));
+  v.querySelectorAll('[data-gift]').forEach(b=>b.onclick=()=>giftItem(v, DB, who, b.dataset.gift));
   if($("bag_redeem")) $("bag_redeem").onclick=()=>claimShopCode(v, DB, who);
+}
+
+// Gift ONE unit of a saddlebag item to another member. Works for any kind —
+// treats, tokens, tickets, tack, apparel, plain goods. Moves one copy (with its
+// uses) out of the giver's inventory and into the recipient's, confirming first.
+async function giftItem(v, DB, who, entryId){
+  let inv;
+  try{ inv = await DB.get('inventory', who.userId); }catch(e){ inv=null; }
+  const items = (inv && inv.items) || [];
+  const e = items.find(x=>x.id===entryId);
+  if(!e){ renderShops(v); return; }
+
+  const to = prompt(`Gift “${e.name}” to which member?\n\nType their exact EquiStories User ID:`, "");
+  if(to === null) return;                       // cancelled
+  const toId = to.trim();
+  if(!toId){ return; }
+  if(toId === who.userId){ alert("That's your own account — pick someone else."); return; }
+  if(!confirm(`Gift ONE “${e.name}” to ${toId}? This leaves your saddlebag and lands in theirs. This can't be undone.`)) return;
+
+  if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
+
+  // Build the single unit to transfer (one copy, one "use" worth for uses-items).
+  const perUses = e.singleUse ? 1
+                : (Number(e.usesLeft)>0 ? Math.max(1, Math.round(Number(e.usesLeft)/Math.max(1,Number(e.qty)||1))) : 0);
+  const gift = Object.assign({}, e, {
+    qty: 1,
+    usesLeft: (Number(e.usesLeft)>0 ? perUses : e.usesLeft),
+    giftedFrom: who.userId
+  });
+
+  // Remove one unit from the giver.
+  if(e.singleUse){
+    e.qty = Math.max(0, (Number(e.qty)||0) - 1);
+    e.usesLeft = e.qty;
+  } else if(Number(e.qty) > 0){
+    e.qty -= 1;
+    if(Number(e.usesLeft) > 0) e.usesLeft = Math.max(0, Number(e.usesLeft) - perUses);
+  }
+  const nowEmpty = (Number(e.qty)||0) <= 0 && !(e.singleUse===false && Number(e.usesLeft)>0);
+  if(nowEmpty) inv.items = items.filter(x=>x!==e);
+
+  try{
+    // Recipient inventory: merge with any identical stack they already own.
+    let rInv;
+    try{ rInv = await DB.get('inventory', toId); }catch(_){ rInv=null; }
+    if(!rInv || !rInv.items){ rInv = { id: toId, items: [] }; }
+    const hit = rInv.items.find(x=>x && x.id===gift.id);
+    if(hit){
+      hit.qty = (Number(hit.qty)||0) + 1;
+      if(Number(gift.usesLeft)>0) hit.usesLeft = (Number(hit.usesLeft)||0) + Number(gift.usesLeft);
+    } else {
+      rInv.items.push(gift);
+    }
+    // Write recipient FIRST, then remove from giver — so a failure can't destroy
+    // the item (worst case it's briefly in both, never in neither).
+    await DB.put('inventory', toId, toId, rInv);
+    await DB.put('inventory', who.userId, who.userId, inv);
+    alert(`🎁 Sent one “${e.name}” to ${toId}!`);
+  }catch(err){
+    alert("Gift failed — nothing was sent. ("+(err.message||err)+")");
+  }
+  renderShops(v);
 }
 
 // Redeem an event code: verify against the code doc + the append-only ledger
