@@ -2074,10 +2074,15 @@ const PREMIUM_SHOP_OWNERS = ["PocketCaster"];
 // (The buy buttons are always real hub markup, so buying is never their code.)
 function sanitizeShopCss(css){
   css = String(css||"");
-  // No closing the style tag, no @import (external fetch), no javascript: urls,
-  // no expression()/behavior (legacy IE script vectors), no bindings.
+  // No closing the style tag, no javascript: urls, no expression()/behavior
+  // (legacy IE script vectors), no bindings.
   if(/<\/?\s*style/i.test(css)) return "";
-  css = css.replace(/@import[^;]*;?/gi, "");
+  // @import is a data-exfil / external-fetch vector in general, BUT font
+  // imports from Google Fonts are safe (they load fonts, can't run script), so
+  // we allow ONLY those and strip any other @import.
+  css = css.replace(/@import\s+url\(\s*['"]?(https:\/\/fonts\.googleapis\.com\/[^)'"]*)['"]?\s*\)\s*;?/gi,
+                    (m,u)=>`@import url('${u}');`);
+  css = css.replace(/@import(?!\s+url\(\s*['"]?https:\/\/fonts\.googleapis\.com\/)[^;]*;?/gi, "");
   css = css.replace(/url\(\s*['"]?\s*javascript:[^)]*\)/gi, "url()");
   css = css.replace(/expression\s*\(/gi, "(");
   css = css.replace(/-moz-binding[^;]*;?/gi, "");
