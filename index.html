@@ -570,6 +570,7 @@ async function renderBank(v){
           <div class="eyebrow">Your Buxx balance</div>
           <div id="bkBalance" class="bank-balance">…</div>
           <div class="small muted">Signed in as <b>${esc(who.userId)}</b></div>
+          ${premiumStatusLine(who.userId)}
         </div>
         <div class="bank-hero-actions">
           <button class="ghost" id="bkRefresh">Refresh</button>
@@ -880,7 +881,7 @@ async function renderMembers(v){
         return `<a class="linkbox" href="${__APPS.stable}?player=${encodeURIComponent(uid)}" style="display:flex;gap:14px;align-items:center;">
           ${av}
           <span style="min-width:0;">
-            <b>${__esc(name)}</b>
+            <b>${__esc(name)}${premiumBadge(uid)}</b>
             <span class="small">${countBy(horses,uid)} horses · ${countBy(riders,uid)} riders</span>
             ${p.discord?`<span class="small muted">Discord: ${__esc(p.discord)}</span>`:''}
           </span></a>`;
@@ -1632,7 +1633,7 @@ async function renderBreedPage(v, DB, who, breedId){
         <div class="banner ${imgOk(breed.banner)?'':'noimg'}" ${imgOk(breed.banner)?`style="background-image:url('${esc(breed.banner)}')"`:''}>${imgOk(breed.banner)?'':'🐴'}</div>
         <div class="meta">
           <h2>${esc(breed.name)}</h2>
-          <div class="small">Founded by ${esc(breed.owner)}${breed.businessName?` · imports paid to <b>${esc(breed.businessName)}</b>`:''}</div>
+          <div class="small">Founded by ${esc(breed.owner)}${premiumBadge(breed.owner)}${breed.businessName?` · imports paid to <b>${esc(breed.businessName)}</b>`:''}</div>
           ${breed.blurb?`<p style="margin:8px 0 0;">${esc(breed.blurb)}</p>`:''}
         </div>
       </div>
@@ -2067,7 +2068,54 @@ const SHOP_THEME_DEFAULTS = { accent:"#d29a3e", panel:"#140e07", head:"#c9a84c" 
 // Premium storefronts: these owners may replace their shop's standard hero with
 // their own custom HTML (rendered in a scripts-disabled sandbox so it can't touch
 // anyone's session). Edit this list to grant more accounts; matched by bank userId.
-const PREMIUM_SHOP_OWNERS = ["PocketCaster"];
+// Premium members (by bank userId). One source of truth for every premium
+// perk: custom shop look, multiple shops, profile CSS, the name badge, and the
+// higher stat-gear cap. Admins (below) are premium + uncapped.
+const PREMIUM_MEMBERS = ["PocketCaster"];
+const ADMIN_MEMBERS   = ["PocketCaster"];   // uncapped gear; site owner(s)
+// Back-compat alias — old code referenced PREMIUM_SHOP_OWNERS.
+const PREMIUM_SHOP_OWNERS = PREMIUM_MEMBERS;
+// Premium status = on the permanent list OR holding an unexpired premiumUntil
+// date (granted by the Ko-fi service). We cache the stored dates so these checks
+// can stay synchronous everywhere they're already used.
+const __premiumCache = {};   // userId -> premiumUntil (ms)
+async function loadPremiumCache(DB){
+  try{
+    const recs = await DB.listAll('premiumMembers');
+    recs.forEach(r=>{
+      const uid = r.__owner || r.__id || (r.userId);
+      const until = Number(r.premiumUntil)||0;
+      if(uid) __premiumCache[uid] = until;
+    });
+  }catch(e){ /* premium store may not exist yet — that's fine */ }
+}
+function hasActiveStoredPremium(uid){
+  const until = __premiumCache[uid];
+  return !!until && until > Date.now();
+}
+function isPremiumMember(uid){ return !!uid && (PREMIUM_MEMBERS.includes(uid) || hasActiveStoredPremium(uid)); }
+function isAdminMember(uid){ return !!uid && ADMIN_MEMBERS.includes(uid); }
+// Per-stat gear cap: regular +2, premium +3, admin unlimited.
+function gearStatCap(uid){ return isAdminMember(uid) ? Infinity : (isPremiumMember(uid) ? 3 : 2); }
+// A small crown badge shown beside premium members' names across the hub.
+function premiumBadge(uid){
+  if(!isPremiumMember(uid)) return "";
+  return ` <span title="Premium member" style="display:inline-block;font-size:.85em;color:#d4af37;vertical-align:baseline;">&#128081;</span>`;
+}
+// A friendly status line for the signed-in member: shows premium expiry (or
+// "permanent" for the list) if active, otherwise a gentle invite to support.
+function premiumStatusLine(uid){
+  if(ADMIN_MEMBERS.includes(uid) || PREMIUM_MEMBERS.includes(uid)){
+    return `<div class="small" style="color:#d4af37;margin-top:2px;">&#128081; Premium member</div>`;
+  }
+  const until = __premiumCache[uid];
+  if(until && until > Date.now()){
+    const days = Math.ceil((until - Date.now())/(24*60*60*1000));
+    const dateStr = new Date(until).toLocaleDateString();
+    return `<div class="small" style="color:#d4af37;margin-top:2px;">&#128081; Premium active — ${days} day${days===1?'':'s'} left (until ${dateStr}). Renew anytime; early renewals add on.</div>`;
+  }
+  return `<div class="small muted" style="margin-top:2px;">Not premium. <a href="https://ko-fi.com/" target="_blank" style="color:var(--accent);">Support EquiStories</a> to unlock the crown, custom shop looks, multiple shops, and +3 gear. Enter your User ID <b>${esc(uid)}</b> at checkout.</div>`;
+}
 
 // Premium storefronts let owners style the WHOLE page, but safely: their CSS and
 // wrapper HTML are sanitized so nothing can run script or break out of the shop.
@@ -2255,7 +2303,7 @@ async function renderStorefront(v, DB, who, shopId){
         <div class="banner ${imgOk(shop.banner)?'':'noimg'}" ${imgOk(shop.banner)?`style="background-image:url('${esc(shop.banner)}')"`:''}>${imgOk(shop.banner)?'':'🏪'}</div>
         <div class="meta">
           <h2>${esc(shop.name)}</h2>
-          <div class="small">Kept by ${esc(shop.owner)}${shop.businessName?` · pays to <b>${esc(shop.businessName)}</b>`:''}</div>
+          <div class="small">Kept by ${esc(shop.owner)}${premiumBadge(shop.owner)}${shop.businessName?` · pays to <b>${esc(shop.businessName)}</b>`:''}</div>
           ${shop.blurb?`<p style="margin:8px 0 0;">${esc(shop.blurb)}</p>`:''}
         </div>
       </div>`;
@@ -2539,8 +2587,9 @@ async function renderShopManage(v, DB, who){
       <div id="it_tackFields" class="hide" style="margin-top:8px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;">
         <p class="small muted" style="margin:0 0 8px;">What this tack grants when depicted in a training or offsite image.</p>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px;">
-          ${STATS.map(s=>`<div><label class="small">${STAT_LABELS[s]}</label><input type="number" id="it_stat_${s}" value="0" style="padding:5px;" /></div>`).join("")}
+          ${STATS.map(s=>`<div><label class="small">${STAT_LABELS[s]}</label><input type="number" id="it_stat_${s}" value="0" max="${gearStatCap(who.userId)===Infinity?'':gearStatCap(who.userId)}" style="padding:5px;" /></div>`).join("")}
         </div>
+        <p class="small muted" style="margin-top:6px;">${gearStatCap(who.userId)===Infinity?'Admin: no per-stat cap.':`Max <b>+${gearStatCap(who.userId)}</b> per stat${isPremiumMember(who.userId)?' (premium)':' — premium members can make +3'}.`}</p>
         <div style="margin-top:8px;max-width:160px;"><label class="small">EXP bonus</label><input type="number" id="it_exp" value="0" /></div>
       </div>
       <div id="it_apparelFields" class="hide" style="margin-top:8px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;">
@@ -2687,9 +2736,17 @@ async function renderShopManage(v, DB, who){
     if(wearKind) rec.wearKind=wearKind;
     if(wearKind==="tack"){
       const tkStats={};
-      STATS.forEach(s=>{ const val=Number($("it_stat_"+s).value)||0; if(val!==0) tkStats[s]=val; });
+      const cap=gearStatCap(who.userId);
+      let capped=false;
+      STATS.forEach(s=>{
+        let val=Number($("it_stat_"+s).value)||0;
+        if(val>cap){ val=cap; capped=true; }
+        if(val<-cap){ val=-cap; capped=true; }   // symmetric for any negative gear
+        if(val!==0) tkStats[s]=val;
+      });
       if(Object.keys(tkStats).length) rec.stats=tkStats;
       const tkExp=Number($("it_exp").value)||0; if(tkExp) rec.exp=tkExp;
+      if(capped){ $("it_msg").textContent = `Note: stat bonuses were capped at +${cap} per stat (${isPremiumMember(who.userId)?'premium':'standard'} limit).`; }
     } else if(wearKind==="apparel"){
       const tkPp=Number($("it_pp").value)||0; if(tkPp) rec.pp=tkPp;
     }
@@ -2997,7 +3054,12 @@ window.__waitForDB = waitForDB;
 window.__me = me;
 window.__esc = esc;
 window.__APPS = APPS;
-render();
+// Load stored premium (Ko-fi-granted, with expiry) before the first paint so
+// badges / gear caps are correct from the start; then a normal render.
+(async ()=>{
+  try{ const DB = await waitForDB(4000); if(DB) await loadPremiumCache(DB); }catch(e){}
+  render();
+})();
 })();
 </script>
 </body>
