@@ -2134,6 +2134,7 @@ function shopInvEntry(shop, item, qty){
 }
 
 let __shopView = { mode:"browse", shopId:null };
+// modes: browse | store | manage | bag | create
 
 // How an item behaves. Anything with uses>0 is consumable; a discountValue
 // makes it a coupon spent at checkout, otherwise it's a token used in
@@ -2170,6 +2171,7 @@ async function renderShops(v){
   const DB = await waitForDB();
   if(!DB){ v.innerHTML = `<div class="card"><div class="small">Database unavailable.</div></div>`; return; }
 
+  if(__shopView.mode === "create"){ return renderShopCreate(v, DB, who); }
   if(__shopView.mode === "manage"){ return renderShopManage(v, DB, who); }
   if(__shopView.mode === "store"){  return renderStorefront(v, DB, who, __shopView.shopId); }
   if(__shopView.mode === "bag"){    return renderSaddlebag(v, DB, who); }
@@ -2386,7 +2388,9 @@ async function buyFromShop(v, DB, who, shop, items, itemId){
 async function renderShopManage(v, DB, who){
   if(!who){ __shopView={mode:"browse"}; return renderShops(v); }
   let shops=[]; try{ shops = await DB.listByOwner('shops', who.userId); }catch(e){}
-  const shop = shops[0] || null;
+  // Premium owners can keep several shops; pick the one being managed (or the
+  // first). Non-premium simply have one, so shops[0] is it.
+  const shop = (__shopView.shopId && shops.find(s=>s.id===__shopView.shopId)) || shops[0] || null;
 
   if(!shop){ return renderShopCreate(v, DB, who); }
 
@@ -2402,6 +2406,10 @@ async function renderShopManage(v, DB, who){
     <div class="shop-crumb">
       <button class="ghost" id="mg_back">← All shops</button>
       <button class="ghost" id="mg_view">View my storefront</button>
+      ${shops.length>1 ? `<select id="mg_switch" title="Switch shop" style="max-width:220px;">
+        ${shops.map(sh=>`<option value="${esc(sh.id)}" ${sh.id===shop.id?'selected':''}>${esc(sh.name)}</option>`).join("")}
+      </select>` : ``}
+      ${isPremium ? `<button class="ghost" id="mg_newshop" title="Premium: open another shop">+ New shop</button>` : ``}
     </div>
 
     <div class="card">
@@ -2553,6 +2561,8 @@ async function renderShopManage(v, DB, who){
 
   $("mg_back").onclick = ()=>{ __shopView={mode:"browse"}; renderShops(v); };
   $("mg_view").onclick = ()=>{ __shopView={mode:"store",shopId:shop.id}; renderShops(v); };
+  if($("mg_switch")) $("mg_switch").onchange = (e)=>{ __shopView={mode:"manage",shopId:e.target.value}; renderShops(v); };
+  if($("mg_newshop")) $("mg_newshop").onclick = ()=>{ __shopView={mode:"create"}; renderShops(v); };
 
   // live theme preview
   const syncPreview = ()=>{
@@ -2917,6 +2927,26 @@ async function useToken(v, DB, who, entryId){
 
 /* ---------------- create a shop (needs a bank business) ---------------- */
 async function renderShopCreate(v, DB, who){
+  // One shop per member; premium may open more. If a non-premium owner already
+  // has a shop, show the upsell rather than a second create form.
+  if(who){
+    let existing=[]; try{ existing = await DB.listByOwner('shops', who.userId); }catch(e){}
+    const isPremium = PREMIUM_SHOP_OWNERS.includes(who.userId);
+    if(existing.length>=1 && !isPremium){
+      v.innerHTML = `
+        <div class="shop-crumb"><button class="ghost" id="cr_back">← All shops</button></div>
+        <div class="card">
+          <h2>You already have a shop</h2>
+          <p class="small">Every member can run one storefront. Running <b>multiple shops</b> is a
+            Premium feature — handy if you want a separate breed store, event stall, or themed shop.</p>
+          <p class="small muted">Want another? Premium access is granted per account — reach out to an admin.</p>
+          <div style="margin-top:10px;"><button id="cr_tomanage">Manage my shop</button></div>
+        </div>`;
+      $("cr_back").onclick=()=>{ __shopView={mode:"browse"}; renderShops(v); };
+      $("cr_tomanage").onclick=()=>{ __shopView={mode:"manage",shopId:existing[0].id}; renderShops(v); };
+      return;
+    }
+  }
   v.innerHTML = `
     <div class="shop-crumb"><button class="ghost" id="cr_back">← All shops</button></div>
     <div class="card">
