@@ -2351,15 +2351,19 @@ async function renderStorefront(v, DB, who, shopId){
       // live shop contains <select> and buy buttons that the HTML sanitizer
       // would otherwise strip — it must never pass through sanitizeShopHtml.
       const liveBlock = `<div class="sf-live">${liveShop}</div>`;
-      const hasPlaceholder = shop.customWrap && /\{\{\s*SHOP\s*\}\}/.test(shop.customWrap);
+      // Strip HTML comments from the wrapper FIRST — otherwise a stray {{SHOP}}
+      // mentioned in a comment would swallow the substitution. Then replace
+      // EVERY {{SHOP}} occurrence (global), so the live shop always lands.
+      const wrapClean = (shop.customWrap || "").replace(/<!--[\s\S]*?-->/g, "");
+      const hasPlaceholder = /\{\{\s*SHOP\s*\}\}/.test(wrapClean);
       let frame;
       if(hasPlaceholder){
-        frame = sanitizeShopHtml(shop.customWrap).replace(/\{\{\s*SHOP\s*\}\}/, liveBlock);
-        // If the placeholder didn't survive sanitizing for any reason, append
+        frame = sanitizeShopHtml(wrapClean).replace(/\{\{\s*SHOP\s*\}\}/g, liveBlock);
+        // Safety net: if the placeholder didn't survive for any reason, append
         // the shop so items always show rather than vanishing.
         if(!frame.includes(liveBlock)) frame += liveBlock;
       } else {
-        frame = (shop.customWrap ? sanitizeShopHtml(shop.customWrap) : heroHtml) + liveBlock;
+        frame = (wrapClean.trim() ? sanitizeShopHtml(wrapClean) : heroHtml) + liveBlock;
       }
       return `<div class="storefront storefront-custom" style="${shopThemeVars(shop.theme)}">
         ${css?`<style>${css}</style>`:''}
