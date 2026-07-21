@@ -337,7 +337,7 @@ const STAT_LABELS = {stamina:"Stamina",strength:"Strength",scope:"Scope",speed:"
   handiness:"Handiness",boldness:"Boldness",balance:"Balance",gaits:"Gaits",harmony:"Harmony"};
 const statTotal = h => STATS.reduce((n,k)=>n+(Number(h.stats&&h.stats[k])||0), 0);
 const imgOk = u => typeof u==='string' && u && !u.startsWith('data:');
-const TABS = ["Home","Bank","Shops","Breeds","Members","Community","Forum","Show Board","Notice Board"];
+const TABS = ["Home","Bank","Shops","Breeds","Members","Community","Forum"];
 let tab = "Home";
 
 async function waitForDB(ms=8000){
@@ -427,15 +427,26 @@ async function renderHome(v){
 
   const DB = await __waitForDB();
   if(!DB){ $("stats").textContent = "Can't reach the database right now."; return; }
-  const [profiles, horses, riders, shows] = await Promise.all([
-    DB.listAll('profiles'), DB.listAll('horses'), DB.listAll('riders'), DB.listAll('shows')
+  const [profiles, horses, riders, shows, forumThreads] = await Promise.all([
+    DB.listAll('profiles'), DB.listAll('horses'), DB.listAll('riders'), DB.listAll('shows'),
+    DB.listAll('forumThreads').catch(()=>[])
   ]);
   const open = shows.filter(s=>s.show && s.show.status!=='closed');
+  // Forum activity: count posts (threads + replies) created since midnight today.
+  const midnight = new Date(); midnight.setHours(0,0,0,0);
+  const since = midnight.getTime();
+  let postsToday = 0;
+  (forumThreads||[]).forEach(t=>{
+    if(t.createdAt && new Date(t.createdAt).getTime() >= since) postsToday++;
+    (t.replies||[]).forEach(r=>{ if(r.at && new Date(r.at).getTime() >= since) postsToday++; });
+  });
   $("stats").innerHTML = `
     <span class="tag">${profiles.length} members</span>
     <span class="tag">${horses.length} horses</span>
     <span class="tag">${riders.length} riders</span>
-    <span class="tag">${shows.length} shows hosted</span>`;
+    <span class="tag">${shows.length} shows hosted</span>
+    <span class="tag" style="cursor:pointer;" data-go="Forum" title="Go to the forum">${postsToday>0?`🔥 ${postsToday} new post${postsToday===1?'':'s'} today`:'Forum'}</span>`;
+  const fg=$("stats").querySelector('[data-go="Forum"]'); if(fg) fg.onclick=()=>tabJump("Forum");
   $("homeShows").innerHTML = open.length
     ? open.slice(0,5).map(showRow).join("")
     : `<span class="muted">No shows are open right now. Host one!</span>`;
@@ -1073,11 +1084,32 @@ async function renderAdminPanel(v){
   };
 }
 
+// Attach Ctrl/Cmd+B and Ctrl/Cmd+I to a textarea: wraps the selected text in
+// **bold** or *italic* (the forum's own markup). Makes posting feel normal.
+function attachFormatKeys(ta){
+  if(!ta) return;
+  ta.addEventListener('keydown', e=>{
+    if(!(e.ctrlKey||e.metaKey)) return;
+    const k=e.key.toLowerCase();
+    const wrap = k==='b' ? '**' : k==='i' ? '*' : null;
+    if(!wrap) return;
+    e.preventDefault();
+    const s=ta.selectionStart, en=ta.selectionEnd, val=ta.value;
+    const sel=val.slice(s,en) || (k==='b'?'bold text':'italic text');
+    ta.value = val.slice(0,s) + wrap + sel + wrap + val.slice(en);
+    // reselect the inner text so they can keep typing over it
+    ta.selectionStart = s + wrap.length;
+    ta.selectionEnd   = s + wrap.length + sel.length;
+    ta.focus();
+  });
+}
+
 async function renderForum(v){
   const who = __me();
   const DB = await __waitForDB();
   if(!DB){ v.innerHTML = `<div class="card"><div class="small">Database unavailable.</div></div>`; return; }
   const boards = await getForumBoards(DB);
+  if(__forumView.mode==="showguides") return renderShowBoard(v);
   if(__forumView.mode==="thread") return renderForumThread(v, DB, who, boards);
   if(__forumView.mode==="board")  return renderForumBoard(v, DB, who, boards);
   return renderForumBoards(v, DB, who, boards);
@@ -1103,6 +1135,13 @@ async function renderForumBoards(v, DB, who, boards){
     </div>
     ${admin ? `<p class="small muted">Manage boards from the <b>Admin</b> tab.</p>` : ``}
     <div class="card">
+      <div class="linkbox" data-showguides="1" style="cursor:pointer;border-color:var(--accent);">
+        <b>📋 Show Guides</b>
+        <span class="small">Post and browse show guides — lore, classes, rules, prizes, and the entry link.</span>
+        <span class="small muted">Structured show listings, linked to the Shows app.</span>
+      </div>
+    </div>
+    <div class="card">
       ${boards.map(b=>`
         <div class="linkbox" data-board="${esc(b.id)}" style="cursor:pointer;">
           <b>${esc(b.name)}</b>
@@ -1112,6 +1151,7 @@ async function renderForumBoards(v, DB, who, boards){
     </div>`;
 
   v.querySelectorAll('[data-board]').forEach(el=>el.onclick=()=>{ __forumView={mode:"board",boardId:el.dataset.board,threadId:null}; renderForum(v); });
+  const sg=v.querySelector('[data-showguides]'); if(sg) sg.onclick=()=>{ __forumView={mode:"showguides"}; renderForum(v); };
 }
 
 // ---- one board: its threads + new-thread composer ----
@@ -1135,7 +1175,7 @@ async function renderForumBoard(v, DB, who, boards){
       <label>Title</label><input id="ft_title" placeholder="Give your thread a title" />
       <label>Post</label>
       <textarea id="ft_body" rows="5" placeholder="Write your post…  **bold**  *italic*  [img]https://…[/img]  links auto-link"></textarea>
-      <p class="small muted" style="margin:4px 0;">Formatting: <code>**bold**</code>, <code>*italic*</code>, <code>[img]URL[/img]</code> for pictures, and pasted links become clickable.</p>
+      <p class="small muted" style="margin:4px 0;">Formatting: <code>**bold**</code>, <code>*italic*</code>, <code>[img]URL[/img]</code> for pictures, and pasted links become clickable. Tip: <b>Ctrl/Cmd+B</b> and <b>Ctrl/Cmd+I</b> wrap the selected text.</p>
       <div style="margin-top:8px;"><button id="ft_post">Post thread</button> <span id="ft_msg" class="small"></span></div>
     </div>` : ``}
     <div class="card">
@@ -1148,6 +1188,7 @@ async function renderForumBoard(v, DB, who, boards){
 
   $("f_back").onclick=()=>{ __forumView={mode:"boards",boardId:null,threadId:null}; renderForum(v); };
   v.querySelectorAll('[data-thread]').forEach(el=>el.onclick=()=>{ __forumView={mode:"thread",boardId:board.id,threadId:el.dataset.thread}; renderForum(v); });
+  attachFormatKeys($("ft_body"));
   if($("ft_post")) $("ft_post").onclick=async()=>{
     const title=($("ft_title").value||"").trim();
     const body=($("ft_body").value||"").trim();
@@ -1199,6 +1240,7 @@ async function renderForumThread(v, DB, who, boards){
   $("f_back").onclick=()=>{ __forumView={mode:"board",boardId:t.boardId,threadId:null}; renderForum(v); };
   $("f_home").onclick=()=>{ __forumView={mode:"boards",boardId:null,threadId:null}; renderForum(v); };
 
+  attachFormatKeys($("fr_body"));
   if($("fr_post")) $("fr_post").onclick=async()=>{
     const body=($("fr_body").value||"").trim();
     if(!body){ $("fr_msg").textContent="Write something."; return; }
@@ -1391,92 +1433,6 @@ Breeds should be internally consistent and not simply a re-skin of an existing o
 // ============================================================
 //  NOTICE BOARD  (classifieds)
 // ============================================================
-const BOARD_CATS = ["Looking for a horse","Horse for sale","Art for Buxx","Art trade","Stud service",
-  "Looking for art","Roleplay partner","Collab wanted","Other"];
-
-async function renderBoard(v){
-  const who=__me();
-  v.innerHTML = `
-    <div class="card">
-      <h2>Notice Board</h2>
-      <p class="small">Buy, sell, trade and find collaborators. Posts are public and stay until removed.</p>
-      ${who ? `
-        <label>What is this?</label>
-        <select id="b_cat">${BOARD_CATS.map(c=>`<option>${c}</option>`).join("")}</select>
-        <label>Title</label><input id="b_title" placeholder="e.g. Selling a 2yo Lightblood filly" />
-        <label>Details</label><textarea id="b_body" rows="4" placeholder="Price, what you're after, links…"></textarea>
-        <label>Link (optional)</label><input id="b_link" placeholder="https://…" />
-        <button id="b_post" style="margin-top:12px;">Post to the board</button>
-        <span id="b_status" class="small" style="margin-left:8px;"></span>`
-      : `<p class="small muted">Sign in on the <a href="${__APPS.stable}">Stable Manager</a> first — the board uses the same account, and this page will pick it up automatically.</p>`}
-    </div>
-    <div class="card">
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <h3 style="margin:0;">Posts</h3>
-        <select id="b_filter" style="width:auto;"><option value="">All categories</option>
-          ${BOARD_CATS.map(c=>`<option>${c}</option>`).join("")}</select>
-      </div>
-      <div id="b_list" style="margin-top:12px;">Loading…</div>
-    </div>`;
-
-  if(who){
-    $("b_post").onclick=async()=>{
-      const t=$("b_title").value.trim();
-      if(!t){ $("b_status").textContent='Give it a title.'; return; }
-      const DB=await __waitForDB(); if(!DB){ $("b_status").textContent='No database.'; return; }
-      $("b_status").textContent='Posting…';
-      const id='post_'+Math.random().toString(36).slice(2,10);
-      try{
-        await DB.put('listings', id, who.userId, { id, poster:who.userId,
-          category:$("b_cat").value, title:t, body:$("b_body").value.trim(),
-          link:$("b_link").value.trim(), createdAt:new Date().toISOString(), status:'open' });
-        $("b_title").value=''; $("b_body").value=''; $("b_link").value='';
-        $("b_status").textContent='Posted.'; loadPosts();
-      }catch(err){ $("b_status").textContent='Failed: '+(err.message||err); }
-    };
-  }
-  $("b_filter").onchange=loadPosts;
-  loadPosts();
-
-  async function loadPosts(){
-    const DB=await __waitForDB();
-    if(!DB){ $("b_list").innerHTML='<span class="muted">Database unavailable.</span>'; return; }
-    let posts=await DB.listAll('listings');
-    const f=$("b_filter").value;
-    if(f) posts=posts.filter(p=>p.category===f);
-    posts.sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
-    if(!posts.length){ $("b_list").innerHTML='<span class="muted">Nothing posted yet.</span>'; return; }
-    $("b_list").innerHTML=posts.map(p=>{
-      const mine=who && p.poster===who.userId;
-      const filled=p.status==='filled';
-      return `<div style="border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--deep);${filled?'opacity:.55;':''}">
-        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;">
-          <b style="color:var(--accent);">${__esc(p.title)}</b>
-          <span class="tag">${__esc(p.category||'Other')}</span>
-        </div>
-        <div class="small">by <a href="${__APPS.stable}?player=${encodeURIComponent(p.poster)}">${__esc(p.poster)}</a>
-          · ${__esc((p.createdAt||'').slice(0,10))}${filled?' · <b>CLOSED</b>':''}</div>
-        ${p.body?`<div style="margin-top:6px;white-space:pre-wrap;">${__esc(p.body)}</div>`:''}
-        ${p.link?`<div style="margin-top:6px;"><a href="${__esc(p.link)}" target="_blank" rel="noopener">Link →</a></div>`:''}
-        ${mine?`<div style="margin-top:8px;display:flex;gap:6px;">
-            <button class="ghost" data-fill="${p.id}" style="padding:3px 10px;font-size:.85rem;">${filled?'Re-open':'Mark closed'}</button>
-            <button class="ghost" data-del="${p.id}" style="padding:3px 10px;font-size:.85rem;color:var(--bad);">Delete</button>
-          </div>`:''}
-      </div>`;
-    }).join("");
-
-    $("b_list").querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
-      if(!confirm('Delete this post?')) return;
-      const DB2=await __waitForDB(); await DB2.remove('listings', b.dataset.del); loadPosts();
-    });
-    $("b_list").querySelectorAll('[data-fill]').forEach(b=>b.onclick=async()=>{
-      const DB2=await __waitForDB();
-      const p=posts.find(x=>x.id===b.dataset.fill); if(!p) return;
-      p.status = p.status==='filled' ? 'open' : 'filled';
-      await DB2.put('listings', p.id, p.poster, p); loadPosts();
-    });
-  }
-}
 
 // ============================================================
 //  SHOW BOARD — long-form show guides & flavor text
@@ -1489,6 +1445,7 @@ async function renderShowBoard(v){
   let editingId = null;
 
   v.innerHTML = `
+    <div class="shop-crumb"><button class="ghost" id="sg_back">← Forum</button></div>
     <div class="card">
       <h2>Show Board</h2>
       <p class="small">The flavor and the fine print. Post your show's guide here — lore, classes, rules,
@@ -1519,6 +1476,8 @@ async function renderShowBoard(v){
     if($("sg_cancel")) $("sg_cancel").classList.add("hide");
     if($("sg_status")) $("sg_status").textContent = "";
   }
+
+  if($("sg_back")) $("sg_back").onclick=()=>{ __forumView={mode:"boards",boardId:null,threadId:null}; renderForum(v); };
 
   if(who){
     $("sg_post").onclick = async ()=>{
@@ -1825,8 +1784,7 @@ function render(){
   else if(tab==="Admin"){ const w=me(); if(w && isAdminMember(w.userId)) renderAdminPanel(v); else { tab="Home"; renderHome(v); } }
   else if(tab==="Shops") renderShops(v);
   else if(tab==="Breeds") renderBreeds(v);
-  else if(tab==="Show Board") renderShowBoard(v);
-  else renderBoard(v);
+  else renderForum(v);
 }
 // ============================================================
 //  BREEDS — affiliated breed communities (Irish Lightblood & co.)
