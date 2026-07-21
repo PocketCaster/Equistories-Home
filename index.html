@@ -2346,12 +2346,24 @@ async function renderStorefront(v, DB, who, shopId){
     // the page; {{SHOP}} marks where the live shop drops in. No scripts, ever.
     if(premium && (shop.customCss || shop.customWrap)){
       const css = sanitizeShopCss(shop.customCss||"");
-      const wrap = shop.customWrap && shop.customWrap.includes("{{SHOP}}")
-        ? shop.customWrap.replace("{{SHOP}}", `<div class="sf-live">${liveShop}</div>`)
-        : (heroHtml + `<div class="sf-live">${liveShop}</div>`);
+      // IMPORTANT: sanitize the OWNER's wrapper HTML on its own, THEN drop the
+      // trusted, hub-generated live shop into the already-clean wrapper. The
+      // live shop contains <select> and buy buttons that the HTML sanitizer
+      // would otherwise strip — it must never pass through sanitizeShopHtml.
+      const liveBlock = `<div class="sf-live">${liveShop}</div>`;
+      const hasPlaceholder = shop.customWrap && /\{\{\s*SHOP\s*\}\}/.test(shop.customWrap);
+      let frame;
+      if(hasPlaceholder){
+        frame = sanitizeShopHtml(shop.customWrap).replace(/\{\{\s*SHOP\s*\}\}/, liveBlock);
+        // If the placeholder didn't survive sanitizing for any reason, append
+        // the shop so items always show rather than vanishing.
+        if(!frame.includes(liveBlock)) frame += liveBlock;
+      } else {
+        frame = (shop.customWrap ? sanitizeShopHtml(shop.customWrap) : heroHtml) + liveBlock;
+      }
       return `<div class="storefront storefront-custom" style="${shopThemeVars(shop.theme)}">
         ${css?`<style>${css}</style>`:''}
-        ${sanitizeShopHtml(wrap)}
+        ${frame}
       </div>`;
     }
     // Standard storefront.
