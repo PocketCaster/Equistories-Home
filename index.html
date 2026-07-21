@@ -2069,6 +2069,32 @@ const SHOP_THEME_DEFAULTS = { accent:"#d29a3e", panel:"#140e07", head:"#c9a84c" 
 // anyone's session). Edit this list to grant more accounts; matched by bank userId.
 const PREMIUM_SHOP_OWNERS = ["PocketCaster"];
 
+// Premium storefronts let owners style the WHOLE page, but safely: their CSS and
+// wrapper HTML are sanitized so nothing can run script or break out of the shop.
+// (The buy buttons are always real hub markup, so buying is never their code.)
+function sanitizeShopCss(css){
+  css = String(css||"");
+  // No closing the style tag, no @import (external fetch), no javascript: urls,
+  // no expression()/behavior (legacy IE script vectors), no bindings.
+  if(/<\/?\s*style/i.test(css)) return "";
+  css = css.replace(/@import[^;]*;?/gi, "");
+  css = css.replace(/url\(\s*['"]?\s*javascript:[^)]*\)/gi, "url()");
+  css = css.replace(/expression\s*\(/gi, "(");
+  css = css.replace(/-moz-binding[^;]*;?/gi, "");
+  css = css.replace(/behavior\s*:[^;]*;?/gi, "");
+  return css;
+}
+function sanitizeShopHtml(html){
+  html = String(html||"");
+  // Strip anything that could execute: script/iframe/object/embed/link/meta tags,
+  // on* event attributes, and javascript: URLs. Pure layout/markup survives.
+  html = html.replace(/<\s*(script|iframe|object|embed|link|meta|base|form)\b[^>]*>/gi, "");
+  html = html.replace(/<\s*\/\s*(script|iframe|object|embed|link|meta|base|form)\s*>/gi, "");
+  html = html.replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+  html = html.replace(/(href|src)\s*=\s*(["']?)\s*javascript:[^"'>\s]*\2/gi, '$1="#"');
+  return html;
+}
+
 function shopThemeVars(t){
   t = t || {};
   const a = t.accent || SHOP_THEME_DEFAULTS.accent;
@@ -2213,19 +2239,26 @@ async function renderStorefront(v, DB, who, shopId){
       ${who ? `<button class="ghost" id="sf_bag">My saddlebag</button>` : ``}
       ${who && who.userId===shop.owner ? `<button id="sf_manage">Manage this shop</button>` : ``}
     </div>
-    <div class="storefront" style="${shopThemeVars(shop.theme)}">
-      ${shop.customHtml && PREMIUM_SHOP_OWNERS.includes(shop.owner)
-        ? `<div id="sf_customwrap" style="margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid var(--line);"></div>`
-        : `<div class="sf-hero">
+    ${buildStorefrontHtml()}`;
+
+  function buildStorefrontHtml(){
+    const premium = PREMIUM_SHOP_OWNERS.includes(shop.owner);
+    // Standard hero (used unless a premium owner supplies wrapper HTML).
+    const heroHtml = `<div class="sf-hero">
         <div class="banner ${imgOk(shop.banner)?'':'noimg'}" ${imgOk(shop.banner)?`style="background-image:url('${esc(shop.banner)}')"`:''}>${imgOk(shop.banner)?'':'🏪'}</div>
         <div class="meta">
           <h2>${esc(shop.name)}</h2>
           <div class="small">Kept by ${esc(shop.owner)}${shop.businessName?` · pays to <b>${esc(shop.businessName)}</b>`:''}</div>
           ${shop.blurb?`<p style="margin:8px 0 0;">${esc(shop.blurb)}</p>`:''}
         </div>
-      </div>`}
+      </div>`;
+
+    // The live, hub-powered shop content: coupon picker + item grid + buy buttons.
+    // This is ALWAYS real hub markup — a premium owner's CSS restyles it, but the
+    // buying logic is never theirs, so it can't touch anyone's session.
+    const liveShop = `
       ${!who ? `<div class="card"><span class="small muted">Sign in to buy.</span></div>` : ''}
-      ${who && coupons.length ? `<div class="card" style="margin-bottom:14px;">
+      ${who && coupons.length ? `<div class="card sf-coupons" style="margin-bottom:14px;">
         <label>Discount ticket</label>
         <select id="sf_coupon">
           <option value="">No ticket — pay full price</option>
@@ -2251,24 +2284,31 @@ async function renderStorefront(v, DB, who, shopId){
             <div class="small" data-msg="${esc(i.id)}" style="min-height:1em;"></div>
           </div>
         </div>`;
-      }).join("")}</div>` : `<div class="card"><span class="small muted">No items stocked yet.</span></div>`}
+      }).join("")}</div>` : `<div class="card"><span class="small muted">No items stocked yet.</span></div>`}`;
+
+    // Premium styling: owner CSS is scoped under .storefront-custom and sanitized
+    // (no </style>, @import, or url(javascript:) escapes). Their wrapper HTML frames
+    // the page; {{SHOP}} marks where the live shop drops in. No scripts, ever.
+    if(premium && (shop.customCss || shop.customWrap)){
+      const css = sanitizeShopCss(shop.customCss||"");
+      const wrap = shop.customWrap && shop.customWrap.includes("{{SHOP}}")
+        ? shop.customWrap.replace("{{SHOP}}", `<div class="sf-live">${liveShop}</div>`)
+        : (heroHtml + `<div class="sf-live">${liveShop}</div>`);
+      return `<div class="storefront storefront-custom" style="${shopThemeVars(shop.theme)}">
+        ${css?`<style>${css}</style>`:''}
+        ${sanitizeShopHtml(wrap)}
+      </div>`;
+    }
+    // Standard storefront.
+    return `<div class="storefront" style="${shopThemeVars(shop.theme)}">
+      ${heroHtml}
+      ${liveShop}
     </div>`;
+  }
 
   $("sf_back").onclick = ()=>{ __shopView={mode:"browse"}; renderShops(v); };
   if($("sf_bag")) $("sf_bag").onclick = ()=>{ __shopView={mode:"bag"}; renderShops(v); };
   if($("sf_manage")) $("sf_manage").onclick = ()=>{ __shopView={mode:"manage",shopId:null}; renderShops(v); };
-  // Premium custom hero: a sandboxed iframe with scripts DISABLED — pure HTML/CSS,
-  // sealed off from the hub session, so a fancy layout can never become an attack.
-  if(shop.customHtml && PREMIUM_SHOP_OWNERS.includes(shop.owner)){
-    const wrapEl=$("sf_customwrap");
-    if(wrapEl){
-      const fr=document.createElement('iframe');
-      fr.setAttribute('sandbox','');
-      fr.style.cssText='width:100%;border:0;display:block;background:transparent;height:'+(Math.max(120,Number(shop.customHtmlHeight)||420))+'px';
-      fr.srcdoc=shop.customHtml;
-      wrapEl.appendChild(fr);
-    }
-  }
 
   v.querySelectorAll('[data-buy]').forEach(btn=>btn.onclick=()=>buyFromShop(v, DB, who, shop, items, btn.dataset.buy));
 }
@@ -2444,16 +2484,18 @@ async function renderShopManage(v, DB, who){
     </div>
 
     ${isPremium ? `<div class="card">
-      <h3>👑 Premium — custom storefront HTML</h3>
-      <p class="small">Replace your shop's standard header with your own HTML &amp; CSS (your Emporium look).
-        It renders in a <b>scripts-disabled sandbox</b> — style anything, but no JavaScript will run inside it.</p>
-      <label>Custom HTML</label>
-      <textarea id="ph_html" rows="8" style="font-family:monospace;font-size:.85em;">${esc(shop.customHtml||'')}</textarea>
-      <label>Display height (px)</label>
-      <input id="ph_height" type="number" min="120" value="${Number(shop.customHtmlHeight)||420}" style="max-width:140px;" />
+      <h3>👑 Premium — custom storefront look</h3>
+      <p class="small">Style your <b>whole</b> storefront — banner, colors, fonts, framing, layout — to match your old shop.
+        Your CSS restyles the real shop; buying still runs on the hub's safe buttons underneath, so it's fully secure.
+        <b>No JavaScript</b> is needed or allowed — it's pure look.</p>
+      <label>Custom CSS <span class="small">(styles everything inside your storefront)</span></label>
+      <textarea id="ph_css" rows="10" placeholder=".storefront-custom{ font-family:'Cinzel',serif; background:#0b1e3f; }&#10;.storefront-custom .sf-buy{ background:linear-gradient(#e9c46a,#b8860b); color:#1a130c; }&#10;.storefront-custom .sf-item{ border:1px solid #d4af37; border-radius:12px; }" style="font-family:monospace;font-size:.85em;">${esc(shop.customCss||'')}</textarea>
+      <label style="margin-top:8px;">Wrapper HTML <span class="small">(optional — your header/frame; put <code>{{SHOP}}</code> where items should appear)</span></label>
+      <textarea id="ph_wrap" rows="8" placeholder="<div class='my-hero'><img src='https://…/banner.png'><h1>Irish Lightblood Emporium</h1></div>&#10;{{SHOP}}&#10;<footer class='my-foot'>Thanks for visiting!</footer>" style="font-family:monospace;font-size:.85em;">${esc(shop.customWrap||'')}</textarea>
+      <p class="small muted" style="margin-top:6px;">Tip: to use a custom font, paste its raw <code>@font-face</code> rule into <b>Custom CSS</b> (a Google Fonts <code>&lt;link&gt;</code> in the wrapper is stripped for safety). Your CSS targets <code>.storefront-custom</code> and the real shop classes: <code>.sf-item</code>, <code>.sf-buy</code>, <code>.sf-price</code>, <code>.sf-grid</code>, <code>.nm</code>, <code>.img</code>.</p>
       <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button id="ph_save">Save custom look</button>
-        <button class="ghost" id="ph_clear">Remove (use standard header)</button>
+        <button class="ghost" id="ph_clear">Remove (use standard look)</button>
         <span id="ph_msg" class="small"></span>
       </div>
     </div>` : ``}
@@ -2577,14 +2619,14 @@ async function renderShopManage(v, DB, who){
 
   // premium custom HTML
   if($("ph_save")) $("ph_save").onclick=async()=>{
-    const patch=Object.assign({},shop,{ customHtml:$("ph_html").value,
-      customHtmlHeight:Math.max(120,Number($("ph_height").value)||420), updatedAt:new Date().toISOString() });
+    const patch=Object.assign({},shop,{ customCss:$("ph_css").value, customWrap:$("ph_wrap").value,
+      updatedAt:new Date().toISOString() });
     $("ph_msg").textContent="Saving…";
     try{ await DB.put('shops', shop.id, who.userId, patch); Object.assign(shop,patch); $("ph_msg").textContent="Saved — open your storefront to see it."; }
     catch(err){ $("ph_msg").textContent="Failed: "+(err.message||err); }
   };
   if($("ph_clear")) $("ph_clear").onclick=async()=>{
-    const patch=Object.assign({},shop,{ customHtml:"", updatedAt:new Date().toISOString() });
+    const patch=Object.assign({},shop,{ customCss:"", customWrap:"", updatedAt:new Date().toISOString() });
     try{ await DB.put('shops', shop.id, who.userId, patch); Object.assign(shop,patch); renderShops(v); }catch(err){}
   };
 
