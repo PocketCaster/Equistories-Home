@@ -337,7 +337,7 @@ const STAT_LABELS = {stamina:"Stamina",strength:"Strength",scope:"Scope",speed:"
   handiness:"Handiness",boldness:"Boldness",balance:"Balance",gaits:"Gaits",harmony:"Harmony"};
 const statTotal = h => STATS.reduce((n,k)=>n+(Number(h.stats&&h.stats[k])||0), 0);
 const imgOk = u => typeof u==='string' && u && !u.startsWith('data:');
-const TABS = ["Home","Bank","Shops","Breeds","Members","Community","Show Board","Notice Board"];
+const TABS = ["Home","Bank","Shops","Breeds","Members","Community","Forum","Show Board","Notice Board"];
 let tab = "Home";
 
 async function waitForDB(ms=8000){
@@ -895,6 +895,246 @@ const BASE_BREEDS = ["Thoroughbred","Quarter Horse","Paint","Appaloosa","Knabstr
   "Friesian","Haflinger","Andalusian","PRE","Lipizzaner","Clydesdale","Percheron","Shetland Pony",
   "Welsh Pony","Mustang","Akhal-Teke","Icelandic","Gypsy Vanner","Dutch Warmblood","Hanoverian","Warmblood"];
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  FORUM (Layer 1: boards + threads + posting + admin-delete)
+//  A ProBoards-style board for members who can't/don't use Discord. Data model:
+//    config/forum  -> { boards:[{id,name,desc}] }  (admin-managed board list)
+//    forumThreads  -> one doc per thread: {id, boardId, owner, title, body,
+//                     image, createdAt, updatedAt, pinned, replies:[...]}
+//  Layer 1 stores replies inline on the thread doc (simple + cheap); if a board
+//  ever gets huge we can split replies into their own collection later.
+// ═══════════════════════════════════════════════════════════════════════════
+const DEFAULT_FORUM_BOARDS = [
+  { id:"ads",    name:"Advertisements",        desc:"Promote your art, commissions, breeds, or projects." },
+  { id:"rp",     name:"On-Site Roleplay",      desc:"Actually roleplay here, thread by thread." },
+  { id:"rpsearch",name:"RP Search",            desc:"Looking for a roleplay partner or plot? Post here." },
+  { id:"events", name:"Events & Announcements",desc:"Community happenings, contests, news." },
+  { id:"trade",  name:"Trade & Marketplace",   desc:"Offer or seek horses, art, items, services." },
+  { id:"art",    name:"Art Share",             desc:"Show off your work and your horses." },
+  { id:"general",name:"General & Chat",        desc:"Everything else — introductions, chatter, questions." },
+];
+
+// A SAFE post formatter. Members type plain text; we escape everything, then
+// re-enable a small, safe subset: **bold**, *italic*, line breaks, bare URLs as
+// links, and [img]URL[/img] for images. No raw HTML is ever rendered, so there's
+// no script-injection surface.
+function forumFormat(raw){
+  let t = esc(String(raw||""));                                  // escape first — nothing below can inject HTML
+  // images: [img]https://...[/img]
+  t = t.replace(/\[img\]\s*(https?:\/\/[^\s\]]+?)\s*\[\/img\]/gi,
+      (m,u)=>`<img src="${u}" referrerpolicy="no-referrer" style="max-width:100%;max-height:420px;border-radius:8px;display:block;margin:8px 0;" />`);
+  // bold / italic
+  t = t.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+  t = t.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1<i>$2</i>");
+  // bare links (that aren't already inside an <img src=)
+  t = t.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)(?=[\s)]|$)/g,
+      (m,pre,u)=>`${pre}<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`);
+  // newlines
+  t = t.replace(/\n/g, "<br>");
+  return t;
+}
+
+let __forumView = { mode:"boards", boardId:null, threadId:null };
+
+async function getForumBoards(DB){
+  try{
+    const cfg = await DB.get('config','forum');
+    if(cfg && Array.isArray(cfg.boards) && cfg.boards.length) return cfg.boards;
+  }catch(e){}
+  return DEFAULT_FORUM_BOARDS;
+}
+
+async function renderForum(v){
+  const who = __me();
+  const DB = await __waitForDB();
+  if(!DB){ v.innerHTML = `<div class="card"><div class="small">Database unavailable.</div></div>`; return; }
+  const boards = await getForumBoards(DB);
+  if(__forumView.mode==="thread") return renderForumThread(v, DB, who, boards);
+  if(__forumView.mode==="board")  return renderForumBoard(v, DB, who, boards);
+  return renderForumBoards(v, DB, who, boards);
+}
+
+// ---- board list ----
+async function renderForumBoards(v, DB, who, boards){
+  let threads=[]; try{ threads = await DB.listAll('forumThreads'); }catch(e){}
+  const countByBoard = {}; const lastByBoard = {};
+  threads.forEach(t=>{
+    if(!t||!t.boardId) return;
+    countByBoard[t.boardId]=(countByBoard[t.boardId]||0)+1;
+    const when = t.updatedAt||t.createdAt||"";
+    if(!lastByBoard[t.boardId] || when>lastByBoard[t.boardId]) lastByBoard[t.boardId]=when;
+  });
+  const admin = who && isAdminMember(who.userId);
+
+  v.innerHTML = `
+    <div class="card">
+      <h2>Forum</h2>
+      <p class="small">A home for discussion, roleplay, ads, and trades — right here on the site, no Discord needed.
+      ${who?'Pick a board to read or start a thread.':'<b>Sign in to post.</b> You can browse freely.'}</p>
+    </div>
+    ${admin ? `<div class="card">
+      <details><summary style="cursor:pointer;font-weight:bold;color:var(--accent);">⚙ Manage boards (admin)</summary>
+        <p class="small muted" style="margin:8px 0;">One board per line: <code>id | Name | Description</code>. The id is a short tag (no spaces) used internally — don't change an existing id or its threads detach.</p>
+        <textarea id="fb_boards" rows="8" style="font-family:monospace;font-size:.85em;">${boards.map(b=>`${b.id} | ${esc(b.name)} | ${esc(b.desc||'')}`).join("\n")}</textarea>
+        <div style="margin-top:8px;"><button id="fb_save">Save boards</button> <span id="fb_msg" class="small"></span></div>
+      </details>
+    </div>` : ``}
+    <div class="card">
+      ${boards.map(b=>`
+        <div class="linkbox" data-board="${esc(b.id)}" style="cursor:pointer;">
+          <b>${esc(b.name)}</b>
+          <span class="small">${esc(b.desc||'')}</span>
+          <span class="small muted">${countByBoard[b.id]||0} thread${(countByBoard[b.id]||0)===1?'':'s'}${lastByBoard[b.id]?` · last ${forumWhen(lastByBoard[b.id])}`:''}</span>
+        </div>`).join("")}
+    </div>`;
+
+  v.querySelectorAll('[data-board]').forEach(el=>el.onclick=()=>{ __forumView={mode:"board",boardId:el.dataset.board,threadId:null}; renderForum(v); });
+  if($("fb_save")) $("fb_save").onclick=async()=>{
+    const parsed=[]; const seen=new Set();
+    ($("fb_boards").value||"").split("\n").forEach(line=>{
+      const p=line.split("|").map(x=>x.trim());
+      if(!p[0]||!p[1]) return;
+      const id=p[0].toLowerCase().replace(/[^a-z0-9_]/g,"");
+      if(!id||seen.has(id)) return; seen.add(id);
+      parsed.push({id, name:p[1], desc:p[2]||""});
+    });
+    if(!parsed.length){ $("fb_msg").textContent="Need at least one valid board."; return; }
+    $("fb_msg").textContent="Saving…";
+    try{ await DB.put('config','forum',who.userId,{id:"forum",boards:parsed}); renderForum(v); }
+    catch(err){ $("fb_msg").textContent="Failed: "+(err.message||err); }
+  };
+}
+
+// ---- one board: its threads + new-thread composer ----
+async function renderForumBoard(v, DB, who, boards){
+  const board = boards.find(b=>b.id===__forumView.boardId) || boards[0];
+  let threads=[]; try{ threads = (await DB.listAll('forumThreads')).filter(t=>t&&t.boardId===board.id); }catch(e){}
+  threads.sort((a,b)=>{
+    if((b.pinned?1:0)!==(a.pinned?1:0)) return (b.pinned?1:0)-(a.pinned?1:0);
+    return String(b.updatedAt||b.createdAt||"").localeCompare(String(a.updatedAt||a.createdAt||""));
+  });
+  const admin = who && isAdminMember(who.userId);
+
+  v.innerHTML = `
+    <div class="shop-crumb"><button class="ghost" id="f_back">← All boards</button></div>
+    <div class="card">
+      <h2>${esc(board.name)}</h2>
+      <p class="small">${esc(board.desc||'')}</p>
+    </div>
+    ${who ? `<div class="card">
+      <h3>Start a thread</h3>
+      <label>Title</label><input id="ft_title" placeholder="Give your thread a title" />
+      <label>Post</label>
+      <textarea id="ft_body" rows="5" placeholder="Write your post…  **bold**  *italic*  [img]https://…[/img]  links auto-link"></textarea>
+      <p class="small muted" style="margin:4px 0;">Formatting: <code>**bold**</code>, <code>*italic*</code>, <code>[img]URL[/img]</code> for pictures, and pasted links become clickable.</p>
+      <div style="margin-top:8px;"><button id="ft_post">Post thread</button> <span id="ft_msg" class="small"></span></div>
+    </div>` : ``}
+    <div class="card">
+      ${threads.length ? threads.map(t=>`
+        <div class="linkbox" data-thread="${esc(t.id)}" style="cursor:pointer;">
+          <b>${t.pinned?'📌 ':''}${esc(t.title||'(untitled)')}</b>
+          <span class="small muted">by ${esc(t.owner||'?')}${premiumBadge(t.owner)} · ${forumWhen(t.createdAt)} · ${(t.replies||[]).length} repl${(t.replies||[]).length===1?'y':'ies'}${t.updatedAt&&t.updatedAt!==t.createdAt?` · last ${forumWhen(t.updatedAt)}`:''}</span>
+        </div>`).join("") : `<p class="small muted">No threads yet. ${who?'Be the first to post.':'Sign in to start one.'}</p>`}
+    </div>`;
+
+  $("f_back").onclick=()=>{ __forumView={mode:"boards",boardId:null,threadId:null}; renderForum(v); };
+  v.querySelectorAll('[data-thread]').forEach(el=>el.onclick=()=>{ __forumView={mode:"thread",boardId:board.id,threadId:el.dataset.thread}; renderForum(v); });
+  if($("ft_post")) $("ft_post").onclick=async()=>{
+    const title=($("ft_title").value||"").trim();
+    const body=($("ft_body").value||"").trim();
+    if(!title){ $("ft_msg").textContent="Give it a title."; return; }
+    if(!body){ $("ft_msg").textContent="Write something."; return; }
+    const id="th_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    const now=new Date().toISOString();
+    const rec={ id, boardId:board.id, owner:who.userId, title, body, createdAt:now, updatedAt:now, pinned:false, replies:[] };
+    $("ft_msg").textContent="Posting…";
+    try{ await DB.put('forumThreads', id, who.userId, rec); __forumView={mode:"thread",boardId:board.id,threadId:id}; renderForum(v); }
+    catch(err){ $("ft_msg").textContent="Failed: "+(err.message||err); }
+  };
+}
+
+// ---- one thread: original post + replies + reply composer ----
+async function renderForumThread(v, DB, who, boards){
+  let t=null; try{ t = await DB.get('forumThreads', __forumView.threadId); }catch(e){}
+  if(!t){ __forumView={mode:"board",boardId:__forumView.boardId,threadId:null}; return renderForum(v); }
+  const board = boards.find(b=>b.id===t.boardId) || {name:"Board",id:t.boardId};
+  const admin = who && isAdminMember(who.userId);
+  const replies = t.replies||[];
+
+  const postBlock = (author, when, html, extra)=>`
+    <div style="border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px;background:var(--panel,#140e07);">
+      <div class="small muted" style="margin-bottom:6px;">${esc(author||'?')}${premiumBadge(author)} · ${forumWhen(when)}${extra||''}</div>
+      <div style="line-height:1.55;">${html}</div>
+    </div>`;
+
+  v.innerHTML = `
+    <div class="shop-crumb">
+      <button class="ghost" id="f_back">← ${esc(board.name)}</button>
+      <button class="ghost" id="f_home">All boards</button>
+    </div>
+    <div class="card">
+      <h2>${t.pinned?'📌 ':''}${esc(t.title||'(untitled)')}</h2>
+      ${admin?`<div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="ghost" id="f_pin">${t.pinned?'Unpin':'📌 Pin'}</button>
+        <button class="ghost" id="f_delthread" style="color:var(--bad);">Delete thread</button>
+      </div>`:``}
+      ${postBlock(t.owner, t.createdAt, forumFormat(t.body), admin||(who&&who.userId===t.owner)?` · <a href="#" data-delpost="OP" style="color:var(--bad);">delete</a>`:'')}
+      ${replies.map((r,i)=>postBlock(r.owner, r.at, forumFormat(r.body), (admin||(who&&who.userId===r.owner))?` · <a href="#" data-delpost="${i}" style="color:var(--bad);">delete</a>`:'')).join("")}
+    </div>
+    ${who ? `<div class="card">
+      <h3>Reply</h3>
+      <textarea id="fr_body" rows="4" placeholder="Write a reply…  **bold**  *italic*  [img]URL[/img]"></textarea>
+      <div style="margin-top:8px;"><button id="fr_post">Post reply</button> <span id="fr_msg" class="small"></span></div>
+    </div>` : `<div class="card"><span class="small muted">Sign in to reply.</span></div>`}`;
+
+  $("f_back").onclick=()=>{ __forumView={mode:"board",boardId:t.boardId,threadId:null}; renderForum(v); };
+  $("f_home").onclick=()=>{ __forumView={mode:"boards",boardId:null,threadId:null}; renderForum(v); };
+
+  if($("fr_post")) $("fr_post").onclick=async()=>{
+    const body=($("fr_body").value||"").trim();
+    if(!body){ $("fr_msg").textContent="Write something."; return; }
+    const now=new Date().toISOString();
+    t.replies=t.replies||[]; t.replies.push({ owner:who.userId, body, at:now });
+    t.updatedAt=now;
+    $("fr_msg").textContent="Posting…";
+    try{
+      if(window.EquiAuth && window.EquiAuth.uid !== t.owner){ /* reply writes need the thread owner's doc; use a replies subwrite */ }
+      await DB.put('forumThreads', t.id, t.owner, t);
+      renderForum(v);
+    }catch(err){ $("fr_msg").textContent="Failed: "+(err.message||err); }
+  };
+
+  if($("f_pin")) $("f_pin").onclick=async()=>{ t.pinned=!t.pinned; try{ await DB.put('forumThreads', t.id, t.owner, t); renderForum(v);}catch(e){} };
+  if($("f_delthread")) $("f_delthread").onclick=async()=>{
+    if(!confirm("Delete this whole thread? This can't be undone.")) return;
+    try{ await DB.remove('forumThreads', t.id); __forumView={mode:"board",boardId:t.boardId,threadId:null}; renderForum(v);}catch(e){}
+  };
+  v.querySelectorAll('[data-delpost]').forEach(a=>a.onclick=async(ev)=>{
+    ev.preventDefault();
+    const which=a.dataset.delpost;
+    if(which==="OP"){
+      if(!confirm("Delete the original post? This deletes the whole thread.")) return;
+      try{ await DB.remove('forumThreads', t.id); __forumView={mode:"board",boardId:t.boardId,threadId:null}; renderForum(v);}catch(e){}
+    } else {
+      if(!confirm("Delete this reply?")) return;
+      const i=Number(which); t.replies.splice(i,1);
+      try{ await DB.put('forumThreads', t.id, t.owner, t); renderForum(v);}catch(e){}
+    }
+  });
+}
+
+function forumWhen(iso){
+  if(!iso) return "";
+  const d=new Date(iso); if(isNaN(d)) return "";
+  const now=Date.now(), diff=now-d.getTime();
+  const day=86400000;
+  if(diff<60000) return "just now";
+  if(diff<3600000) return Math.floor(diff/60000)+"m ago";
+  if(diff<day) return Math.floor(diff/3600000)+"h ago";
+  if(diff<7*day) return Math.floor(diff/day)+"d ago";
+  return d.toLocaleDateString();
+}
+
 async function renderCommunity(v){
   v.innerHTML = `
     <div class="card">
@@ -989,8 +1229,10 @@ async function renderCommunity(v){
       + BASE_BREEDS.map(b=>`<span class="tag">${__esc(b)}</span>`).join("") + `</div>`;
   }
 
-  // Signed-in members can edit the hub copy — no code editing required.
-  if(__me()){
+  // Only ADMINS can edit the shared community copy (Discord link, guides,
+  // WidgetBot IDs, events). These fields show to everyone, so member-editing
+  // would let anyone repoint the invite or vandalize the page.
+  if(__me() && isAdminMember(__me().userId)){
     $("cEditWrap").innerHTML = `<div class="card"><h3>Edit community content</h3>
       <p class="small">Signed in as <b>${__esc(__me().userId)}</b>. These fields are shared by everyone.</p>
       <label>Discord invite link</label><input id="e_discord" value="${__esc(H.discord||'')}" placeholder="https://discord.gg/…" />
@@ -1505,6 +1747,7 @@ function render(){
   else if(tab==="Bank") renderBank(v);
   else if(tab==="Members") renderMembers(v);
   else if(tab==="Community") renderCommunity(v);
+  else if(tab==="Forum") renderForum(v);
   else if(tab==="Shops") renderShops(v);
   else if(tab==="Breeds") renderBreeds(v);
   else if(tab==="Show Board") renderShowBoard(v);
