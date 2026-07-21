@@ -410,6 +410,7 @@ async function renderHome(v){
       </div>
     </div>
     <div class="card"><h3>Community at a glance</h3><div id="stats" class="small">Counting…</div></div>
+    <div id="statDetail"></div>
     <div id="spotlight"></div>
     <div class="card"><h3>Leaderboards</h3>
       <p class="small">Highest total stats across the community, and the riders with the most Prestige.
@@ -441,12 +442,35 @@ async function renderHome(v){
     (t.replies||[]).forEach(r=>{ if(r.at && new Date(r.at).getTime() >= since) postsToday++; });
   });
   $("stats").innerHTML = `
-    <span class="tag">${profiles.length} members</span>
-    <span class="tag">${horses.length} horses</span>
-    <span class="tag">${riders.length} riders</span>
-    <span class="tag">${shows.length} shows hosted</span>
+    <span class="tag" style="cursor:pointer;" data-stat="members" title="See all members">${profiles.length} members</span>
+    <span class="tag" style="cursor:pointer;" data-stat="horses" title="See all horses">${horses.length} horses</span>
+    <span class="tag" style="cursor:pointer;" data-stat="riders" title="See all riders">${riders.length} riders</span>
+    <span class="tag" style="cursor:pointer;" data-stat="shows" title="See all shows">${shows.length} shows hosted</span>
     <span class="tag" style="cursor:pointer;" data-go="Forum" title="Go to the forum">${postsToday>0?`🔥 ${postsToday} new post${postsToday===1?'':'s'} today`:'Forum'}</span>`;
   const fg=$("stats").querySelector('[data-go="Forum"]'); if(fg) fg.onclick=()=>tabJump("Forum");
+  // Clicking a stat chip opens a full list in a panel below.
+  $("stats").querySelectorAll('[data-stat]').forEach(chip=>chip.onclick=()=>{
+    const kind=chip.dataset.stat;
+    const panel=$("statDetail"); if(!panel) return;
+    const rows = kind==="members" ? profiles.slice().sort((a,b)=>String(a.userId||a.id||'').localeCompare(String(b.userId||b.id||''))).map(p=>{
+        const uid=p.userId||p.id||'?';
+        return `<div class="linkbox"><b>${__esc(uid)}${premiumBadge(uid)}</b><span class="small muted">${countBy(horses,uid)} horses · ${countBy(riders,uid)} riders</span></div>`;
+      }).join("")
+      : kind==="horses" ? horses.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))).map(h=>
+        `<div class="linkbox"><a href="${__APPS.stable}?horse=${encodeURIComponent(h.id)}" target="_blank"><b>${__esc(h.name||'Unnamed')}</b></a><span class="small muted">${__esc(h.breed||'—')}${h.owner?` · ${__esc(h.owner)}`:''}${h.level?` · Lv ${h.level}`:''}</span></div>`).join("")
+      : kind==="riders" ? riders.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))).map(r=>
+        `<div class="linkbox"><a href="${__APPS.stable}?rider=${encodeURIComponent(r.id)}" target="_blank"><b>${__esc(r.name||'Unnamed')}</b></a><span class="small muted">${r.owner?__esc(r.owner):''}</span></div>`).join("")
+      : shows.slice().map(showRow).join("");
+    const title = kind==="members"?`All members (${profiles.length})`
+      : kind==="horses"?`All horses (${horses.length})`
+      : kind==="riders"?`All riders (${riders.length})`
+      : `All shows (${shows.length})`;
+    panel.innerHTML = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;">${title}</h3><button class="ghost" id="statClose" style="padding:4px 12px;">Close ✕</button></div>
+      <div style="margin-top:10px;">${rows||'<span class="small muted">Nothing here yet.</span>'}</div></div>`;
+    panel.scrollIntoView({behavior:"smooth", block:"nearest"});
+    const cl=$("statClose"); if(cl) cl.onclick=()=>{ panel.innerHTML=""; };
+  });
   $("homeShows").innerHTML = open.length
     ? open.slice(0,5).map(showRow).join("")
     : `<span class="muted">No shows are open right now. Host one!</span>`;
@@ -1170,6 +1194,13 @@ async function renderForumBoard(v, DB, who, boards){
       <h2>${esc(board.name)}</h2>
       <p class="small">${esc(board.desc||'')}</p>
     </div>
+    ${threads.some(t=>t.pinned) ? `<div class="card">
+      ${threads.filter(t=>t.pinned).map(t=>`
+        <div class="linkbox" data-thread="${esc(t.id)}" style="cursor:pointer;border-color:var(--accent);">
+          <b>📌 ${esc(t.title||'(untitled)')}</b>
+          <span class="small muted">by ${esc(t.owner||'?')}${premiumBadge(t.owner)} · ${forumWhen(t.createdAt)} · ${(t.replies||[]).length} repl${(t.replies||[]).length===1?'y':'ies'}${t.updatedAt&&t.updatedAt!==t.createdAt?` · last ${forumWhen(t.updatedAt)}`:''}</span>
+        </div>`).join("")}
+    </div>` : ``}
     ${who ? `<div class="card">
       <h3>Start a thread</h3>
       <label>Title</label><input id="ft_title" placeholder="Give your thread a title" />
@@ -1179,11 +1210,11 @@ async function renderForumBoard(v, DB, who, boards){
       <div style="margin-top:8px;"><button id="ft_post">Post thread</button> <span id="ft_msg" class="small"></span></div>
     </div>` : ``}
     <div class="card">
-      ${threads.length ? threads.map(t=>`
+      ${threads.filter(t=>!t.pinned).length ? threads.filter(t=>!t.pinned).map(t=>`
         <div class="linkbox" data-thread="${esc(t.id)}" style="cursor:pointer;">
-          <b>${t.pinned?'📌 ':''}${esc(t.title||'(untitled)')}</b>
+          <b>${esc(t.title||'(untitled)')}</b>
           <span class="small muted">by ${esc(t.owner||'?')}${premiumBadge(t.owner)} · ${forumWhen(t.createdAt)} · ${(t.replies||[]).length} repl${(t.replies||[]).length===1?'y':'ies'}${t.updatedAt&&t.updatedAt!==t.createdAt?` · last ${forumWhen(t.updatedAt)}`:''}</span>
-        </div>`).join("") : `<p class="small muted">No threads yet. ${who?'Be the first to post.':'Sign in to start one.'}</p>`}
+        </div>`).join("") : `<p class="small muted">${threads.some(t=>t.pinned)?'No other threads yet.':'No threads yet.'} ${who?'Be the first to post.':'Sign in to start one.'}</p>`}
     </div>`;
 
   $("f_back").onclick=()=>{ __forumView={mode:"boards",boardId:null,threadId:null}; renderForum(v); };
@@ -1297,11 +1328,7 @@ async function renderCommunity(v){
       <div id="cChat"></div>
     </div>
     <div class="card"><h3>How to get started</h3><div id="cStart"></div></div>
-    <div class="card"><h3>Shows &amp; events</h3><div id="cShows" class="small">Loading…</div></div>
-    <div class="card"><h3>Breed directory</h3>
-      <p class="small">Every breed you can register a horse as. Affiliated breeds are community-made
-      and come with their own genetics.</p>
-      <div id="cBreeds" class="small">Loading…</div></div>
+    <div class="card"><h3>Community events</h3><div id="cEvents" class="small">Loading…</div></div>
     <div class="card"><h3>How to affiliate your breed</h3><div id="cAffil"></div></div>`;
 
   const DB = await __waitForDB();
@@ -1345,38 +1372,15 @@ async function renderCommunity(v){
 
   // Shows + events
   if(DB){
-    const shows = await DB.listAll('shows');
-    const open = shows.filter(s=>s.show && s.show.status!=='closed');
-    const closed = shows.filter(s=>s.show && s.show.status==='closed');
     const evHtml = (H.events||[]).length
-      ? `<h4 style="color:var(--accent2);margin:14px 0 6px;">Community events</h4>`
-        + H.events.map(e=>`<div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--deep);">
+      ? H.events.map(e=>`<div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--deep);">
              <b style="color:var(--accent2);">${__esc(e.title||'Event')}</b>
              ${e.when?`<span class="tag">${__esc(e.when)}</span>`:''}
              <div class="small">${__esc(e.desc||'')}</div>
              ${e.link?`<div style="margin-top:4px;"><a href="${__esc(e.link)}" target="_blank" rel="noopener">Details →</a></div>`:''}
            </div>`).join("")
-      : "";
-    $("cShows").innerHTML =
-      `<h4 style="color:var(--accent);margin:0 0 6px;">Open shows (${open.length})</h4>`
-      + (open.length ? open.map(showRow).join("") : `<span class="muted">Nothing open right now.</span>`)
-      + (closed.length ? `<h4 style="color:var(--dim);margin:14px 0 6px;">Recently closed (${closed.length})</h4>`
-          + closed.slice(0,5).map(showRow).join("") : "")
-      + evHtml;
-
-    // Breed directory
-    const gcfg = await DB.get('config','global');
-    const custom = (gcfg && gcfg.customBreeds) || [];
-    $("cBreeds").innerHTML =
-      `<h4 style="color:var(--accent);margin:0 0 6px;">Affiliated breeds (${custom.length})</h4>`
-      + (custom.length
-          ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">`
-            + custom.map(b=>`<span class="tag" style="background:#2a1a3a;color:var(--accent2);border-color:#6a4a8a;" title="${(b.loci||[]).length} genetic loci">${__esc(b.name)}</span>`).join("")
-            + `</div>`
-          : `<span class="muted">No affiliated breeds yet — yours could be the first.</span>`)
-      + `<h4 style="color:var(--accent);margin:14px 0 6px;">Standard breeds (${BASE_BREEDS.length})</h4>
-         <div style="display:flex;flex-wrap:wrap;gap:6px;">`
-      + BASE_BREEDS.map(b=>`<span class="tag">${__esc(b)}</span>`).join("") + `</div>`;
+      : `<span class="muted">No community events right now.</span>`;
+    if($("cEvents")) $("cEvents").innerHTML = evHtml;
   }
 
   // (The community-content editor now lives in the admin-only Admin tab.)
@@ -1846,7 +1850,30 @@ async function renderBreedBrowse(v, DB, who){
           </div>
         </div>`).join("")}</div>`
         : `<p class="small muted">No breeds yet. ${who?"Found the first one above.":""}</p>`}
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 6px;">Breed directory</h3>
+      <p class="small">Every breed you can register a horse as. Affiliated breeds are community-made and come with their own genetics.</p>
+      <div id="brDirectory" class="small">Loading…</div>
     </div>`;
+
+  // Breed directory: affiliated (from breeds collection) + standard base breeds.
+  (async()=>{
+    const dir=$("brDirectory"); if(!dir) return;
+    let custom=[]; try{ const g=await DB.get('config','global'); custom=(g&&g.customBreeds)||[]; }catch(e){}
+    // also treat any breeds-collection entries as affiliated
+    const affiliatedNames = Array.from(new Set([...custom.map(b=>b.name), ...breeds.map(b=>b.name)].filter(Boolean)));
+    dir.innerHTML =
+      `<h4 style="color:var(--accent);margin:0 0 6px;">Affiliated breeds (${affiliatedNames.length})</h4>`
+      + (affiliatedNames.length
+          ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">`
+            + affiliatedNames.map(n=>`<span class="tag" style="background:#2a1a3a;color:var(--accent2);border-color:#6a4a8a;">${esc(n)}</span>`).join("")
+            + `</div>`
+          : `<span class="muted">No affiliated breeds yet — yours could be the first.</span>`)
+      + `<h4 style="color:var(--accent);margin:14px 0 6px;">Standard breeds (${BASE_BREEDS.length})</h4>
+         <div style="display:flex;flex-wrap:wrap;gap:6px;">`
+      + BASE_BREEDS.map(b=>`<span class="tag">${esc(b)}</span>`).join("") + `</div>`;
+  })();
 
   if(who && $("br_found")) $("br_found").onclick = ()=>{ __breedView={mode:"found"}; renderBreeds(v); };
   v.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>{
