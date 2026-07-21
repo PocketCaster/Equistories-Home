@@ -979,27 +979,75 @@ async function renderAdminPanel(v){
         <a href="https://widgetbot.io" target="_blank" rel="noopener">widgetbot.io</a>, then in Discord enable
         Developer Mode → right-click your server → Copy Server ID, and right-click the channel → Copy Channel ID.
         Leave blank to hide the chat.</p>
-      <label>Community events (one per line: Title | When | Description | Link)</label>
-      <textarea id="e_events" rows="4" placeholder="Spring Art Jam | March 2026 | A month-long prompt series | https://…">${
-        esc((H.events||[]).map(e=>[e.title,e.when,e.desc,e.link].filter(Boolean).join(' | ')).join('\n'))}</textarea>
+      <label>Community events</label>
+      <p class="small muted" style="margin:2px 0 8px;">Each event shows as a card on the Community page. Fill the boxes — no special formatting needed.</p>
+      <div id="e_eventRows"></div>
+      <button id="e_addEvent" class="ghost" style="margin-top:6px;">+ Add event</button>
       <div style="margin-top:12px;"><button id="e_save">Save community content</button>
         <span id="e_status" class="small" style="margin-left:8px;"></span></div>
     </div>
 
     <div class="card">
       <h3>Forum boards</h3>
-      <p class="small muted">One board per line: <code>id | Name | Description</code>. The id is a short internal tag (no spaces) — don't change an existing id or its threads detach.</p>
-      <textarea id="fb_boards" rows="8" style="font-family:monospace;font-size:.85em;">${boards.map(b=>`${b.id} | ${esc(b.name)} | ${esc(b.desc||'')}`).join("\n")}</textarea>
+      <p class="small muted">Each board is a section of the forum. Fill in a name and description; the short "id" is filled automatically but you can adjust it. <b>Don't change an existing board's id</b> — its threads would detach.</p>
+      <div id="fb_boardRows"></div>
+      <button id="fb_addBoard" class="ghost" style="margin-top:6px;">+ Add board</button>
       <div style="margin-top:8px;"><button id="fb_save">Save boards</button> <span id="fb_msg" class="small"></span></div>
     </div>`;
+
+  // ---- friendly EVENT rows (labeled boxes, add/remove) ----
+  const eventsState = (H.events||[]).map(e=>({title:e.title||"",when:e.when||"",desc:e.desc||"",link:e.link||""}));
+  function drawEventRows(){
+    const box=$("e_eventRows"); if(!box) return;
+    if(!eventsState.length){ box.innerHTML=`<p class="small muted">No events yet. Click "Add event" to make one.</p>`; return; }
+    box.innerHTML = eventsState.map((e,i)=>`
+      <div style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+        <div class="grid" style="grid-template-columns:1fr 1fr;gap:8px;">
+          <div><label class="small">Title</label><input data-ev="${i}" data-f="title" value="${esc(e.title)}" placeholder="Spring Art Jam" /></div>
+          <div><label class="small">When</label><input data-ev="${i}" data-f="when" value="${esc(e.when)}" placeholder="March 2026" /></div>
+        </div>
+        <label class="small">Description</label><input data-ev="${i}" data-f="desc" value="${esc(e.desc)}" placeholder="A month-long prompt series" />
+        <label class="small">Link (optional)</label><input data-ev="${i}" data-f="link" value="${esc(e.link)}" placeholder="https://…" />
+        <button class="ghost" data-evdel="${i}" style="margin-top:6px;color:var(--bad);padding:4px 10px;">Remove</button>
+      </div>`).join("");
+    box.querySelectorAll('[data-ev]').forEach(inp=>inp.oninput=()=>{ eventsState[+inp.dataset.ev][inp.dataset.f]=inp.value; });
+    box.querySelectorAll('[data-evdel]').forEach(b=>b.onclick=()=>{ eventsState.splice(+b.dataset.evdel,1); drawEventRows(); });
+  }
+  drawEventRows();
+  if($("e_addEvent")) $("e_addEvent").onclick=()=>{ eventsState.push({title:"",when:"",desc:"",link:""}); drawEventRows(); };
+
+  // ---- friendly BOARD rows (labeled boxes, add/remove) ----
+  const boardsState = boards.map(b=>({id:b.id||"",name:b.name||"",desc:b.desc||"",_existing:true}));
+  const slugify=s=>String(s||"").toLowerCase().replace(/[^a-z0-9_]/g,"").slice(0,24);
+  function drawBoardRows(){
+    const box=$("fb_boardRows"); if(!box) return;
+    box.innerHTML = boardsState.map((b,i)=>`
+      <div style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+        <div class="grid" style="grid-template-columns:2fr 1fr;gap:8px;">
+          <div><label class="small">Board name</label><input data-bd="${i}" data-f="name" value="${esc(b.name)}" placeholder="Advertisements" /></div>
+          <div><label class="small">id ${b._existing?'<span style="color:var(--bad)">(keep as-is)</span>':'<span class="muted">(auto)</span>'}</label><input data-bd="${i}" data-f="id" value="${esc(b.id)}" placeholder="ads" style="font-family:monospace;" /></div>
+        </div>
+        <label class="small">Description</label><input data-bd="${i}" data-f="desc" value="${esc(b.desc)}" placeholder="What this board is for" />
+        <button class="ghost" data-bddel="${i}" style="margin-top:6px;color:var(--bad);padding:4px 10px;">Remove</button>
+      </div>`).join("");
+    box.querySelectorAll('[data-bd]').forEach(inp=>inp.oninput=()=>{
+      const b=boardsState[+inp.dataset.bd], f=inp.dataset.f;
+      b[f]=inp.value;
+      // auto-fill id from name for NEW boards only (never rewrite an existing id)
+      if(f==="name" && !b._existing && !b._idTouched){ b.id=slugify(inp.value); const idInp=box.querySelector(`[data-bd="${inp.dataset.bd}"][data-f="id"]`); if(idInp) idInp.value=b.id; }
+      if(f==="id"){ b._idTouched=true; b.id=slugify(inp.value); }
+    });
+    box.querySelectorAll('[data-bddel]').forEach(bt=>bt.onclick=()=>{ boardsState.splice(+bt.dataset.bddel,1); drawBoardRows(); });
+  }
+  drawBoardRows();
+  if($("fb_addBoard")) $("fb_addBoard").onclick=()=>{ boardsState.push({id:"",name:"",desc:"",_existing:false}); drawBoardRows(); };
 
   // community content save
   $("e_save").onclick=async()=>{
     $("e_status").textContent='Saving…';
-    const events=$("e_events").value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
-      const [title,when,desc,link]=l.split('|').map(x=>(x||'').trim());
-      return {title,when,desc,link};
-    });
+    const events=eventsState
+      .map(e=>({title:(e.title||"").trim(),when:(e.when||"").trim(),desc:(e.desc||"").trim(),link:(e.link||"").trim()}))
+      .filter(e=>e.title||e.when||e.desc||e.link);
     try{
       await DB.put('config','hub',who.userId,{ id:'hub',
         discord:$("e_discord").value.trim(), start:$("e_start").value.trim(),
@@ -1012,14 +1060,13 @@ async function renderAdminPanel(v){
   // forum boards save
   $("fb_save").onclick=async()=>{
     const parsed=[]; const seen=new Set();
-    ($("fb_boards").value||"").split("\n").forEach(line=>{
-      const p=line.split("|").map(x=>x.trim());
-      if(!p[0]||!p[1]) return;
-      const id=p[0].toLowerCase().replace(/[^a-z0-9_]/g,"");
-      if(!id||seen.has(id)) return; seen.add(id);
-      parsed.push({id, name:p[1], desc:p[2]||""});
+    boardsState.forEach(b=>{
+      const name=(b.name||"").trim();
+      let id=slugify(b.id||name);
+      if(!name||!id||seen.has(id)) return; seen.add(id);
+      parsed.push({id, name, desc:(b.desc||"").trim()});
     });
-    if(!parsed.length){ $("fb_msg").textContent="Need at least one valid board."; return; }
+    if(!parsed.length){ $("fb_msg").textContent="Add at least one board with a name."; return; }
     $("fb_msg").textContent="Saving…";
     try{ await DB.put('config','forum',who.userId,{id:"forum",boards:parsed}); $("fb_msg").textContent="Saved."; }
     catch(err){ $("fb_msg").textContent="Failed: "+(err.message||err); }
@@ -1775,7 +1822,7 @@ function render(){
   else if(tab==="Members") renderMembers(v);
   else if(tab==="Community") renderCommunity(v);
   else if(tab==="Forum") renderForum(v);
-  else if(tab==="Admin"){ if(who && isAdminMember(who.userId)) renderAdminPanel(v); else { tab="Home"; renderHome(v); } }
+  else if(tab==="Admin"){ const w=me(); if(w && isAdminMember(w.userId)) renderAdminPanel(v); else { tab="Home"; renderHome(v); } }
   else if(tab==="Shops") renderShops(v);
   else if(tab==="Breeds") renderBreeds(v);
   else if(tab==="Show Board") renderShowBoard(v);
