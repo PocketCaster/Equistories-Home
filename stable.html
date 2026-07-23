@@ -5833,11 +5833,30 @@ async function ingestShowRecord(h, incoming){
       artEntry ? saveArtEntry(h, artEntry) : Promise.resolve(true),
     ]);
     await save();
+    // Rider Prestige — same call the manual "Log a Show" flow makes, so a show
+    // claimed from EquiStories Shows credits the rider exactly like one logged
+    // by hand. The entrant chose the rider and ticked the art-based points when
+    // they entered; the show-result points came from the final placement.
+    let ppGain = 0, ppRider = null;
+    if(ok && target.riderId){
+      ppRider = state.riders.find(r=>r.id===target.riderId);
+      if(ppRider){
+        const srcs = Array.isArray(target.riderSources) ? target.riderSources : [];
+        ppGain = Number(target.riderPP) || 0;
+        if(ppGain > 0){
+          try{
+            await grantRiderPPForEntry(ppRider, 'competition', target, h, { pp:ppGain, sources:srcs });
+          }catch(e){ console.warn('[EquiStories] rider PP failed:', e && e.message); ppGain = 0; }
+        }
+      }
+    }
+
     if(ok && artOk){
-      addLog(`${h.name} — ${target.discipline||'Show'}${target.venue?' at '+target.venue:''} · ${target.difficulty||'Entered'}${expGain?` · +${expGain} EXP`:''}`);
-      return {ok:true, exp:expGain, msg: artEntry
-        ? `${existing?'Artwork added to':'Added to'} ${h.name} — show, placing and artwork logged${expGain?` (+${expGain} EXP)`:''}.`
-        : `Added to ${h.name}'s record.`};
+      addLog(`${h.name} — ${target.discipline||'Show'}${target.venue?' at '+target.venue:''} · ${target.difficulty||'Entered'}${expGain?` · +${expGain} EXP`:''}${ppGain?` · ${ppRider.name} +${ppGain} PP`:''}`);
+      const ppNote = ppGain ? ` ${ppRider.name} earned +${ppGain} PP.` : '';
+      return {ok:true, exp:expGain, pp:ppGain, msg: artEntry
+        ? `${existing?'Artwork added to':'Added to'} ${h.name} — show, placing and artwork logged${expGain?` (+${expGain} EXP)`:''}.${ppNote}`
+        : `Added to ${h.name}'s record.${ppNote}`};
     } else {
       // Roll the whole claim back so a failed save can't leave half of it behind.
       if(!existing) h.compHistory=h.compHistory.filter(r=>r.id!==rec.id);
