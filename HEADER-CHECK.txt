@@ -1,0 +1,37 @@
+If the header still looks different between pages, run this and send me both results.
+It ends the guessing — it reports what the browser actually computed, which I
+can't see from here.
+
+HOW
+1. Open  https://pocketcaster.github.io/Equistories-Home/index.html
+2. Press F12  (or Cmd+Option+I on a Mac) and click the "Console" tab
+3. Paste the line below, press Enter, copy what it prints
+4. Do exactly the same on  stable.html
+5. Send me both lines
+
+
+PASTE THIS:
+
+copy(JSON.stringify({page:location.pathname,zoom:Math.round(devicePixelRatio*100)/100,win:innerWidth,doc:document.documentElement.scrollWidth,root:getComputedStyle(document.documentElement).fontSize,hdr:(h=>h?{left:Math.round(h.getBoundingClientRect().left),top:Math.round(h.getBoundingClientRect().top),w:Math.round(h.getBoundingClientRect().width)}:'NO HEADER')(document.querySelector('.equi-hd__wrap')),logo:(l=>l?Math.round(l.getBoundingClientRect().height):'none')(document.querySelector('.equi-hd__logo')),title:(t=>t?getComputedStyle(t).fontSize:'none')(document.querySelector('.equi-hd__title')),css:[...document.styleSheets].map(s=>(s.href||'inline').split('/').pop())},null,1))
+
+(It copies the answer to your clipboard as well as printing it, so you can just
+paste it to me.)
+
+
+WHAT I'M LOOKING FOR
+
+zoom    should be identical on both pages. If it isn't, that's the whole
+        problem — press Ctrl+0 on each page to reset and re-check.
+win     the window width. Must match on both.
+doc     the document width. If this is BIGGER than "win" on one page, that page
+        can scroll sideways, which makes everything on it look shifted left.
+root    the root font size. Must be identical — everything sized in rem keys
+        off this.
+hdr     left/top/width of the header block. These three numbers are the answer:
+        if they match on both pages, the header is not moving and something
+        else is (scroll position, zoom). If they differ, I can work out
+        precisely which rule is responsible from the numbers alone.
+logo    rendered crest height in px. Should be the same on both.
+title   computed size of the EquiStories wordmark. Should be the same on both.
+css     which stylesheets actually loaded, in order. If one page is missing a
+        file, or loading an extra one, it shows up here.

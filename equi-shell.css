@@ -40,7 +40,21 @@ html{
   -webkit-text-size-adjust: 100%;
   scrollbar-gutter: stable;      /* keeps the page width identical everywhere */
   overflow-y: scroll;            /* fallback for browsers without the above  */
+  overflow-x: hidden;            /* see below                                */
 }
+/* No page may scroll sideways. If one page is even a few pixels wider than the
+   window it can be nudged horizontally, and then EVERYTHING on it — including
+   the header — looks shifted left compared to a page that fits. Long words,
+   wide tables and nowrap rows are the usual culprits, so they're handled here
+   rather than hunted one at a time. */
+html body{
+  overflow-x: hidden;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+html body img:not(.equi-hd__logo){ max-width: 100%; }
+html body pre, html body code{ overflow-wrap: anywhere; }
+html body table{ max-width: 100%; }
 html:root{
   /* ---- canonical palette -------------------------------------------------
      Manager and Shows were already byte-identical; the Hub had drifted a few
