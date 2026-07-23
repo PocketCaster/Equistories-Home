@@ -166,10 +166,10 @@
 </style>
   <link rel="stylesheet" href="style/equi-shell.css" />
   <link rel="stylesheet" href="style/equi-components.css" />
-  <script src="core/equi-nav.js" data-app="hub" data-tagline="An art-driven horse roleplay community — draw, train, compete, breed." defer></script>
 </head>
 <body>
 <div id="equi-nav"></div>
+<script src="core/equi-nav.js" data-app="hub"></script>
 
 
 <script>
@@ -313,11 +313,8 @@ ready.then(v=>{ try{ window.__equiDBResolve(v); }catch(e){} })
      .catch(()=>{ try{ window.__equiDBResolve(false); }catch(e){} });
 </script>
 
-<!-- The crest, wordmark and tagline now come from the shared banner
-     (core/equi-nav.js). What stays here is the Hub's own SECTION nav. -->
-<div class="wrap" style="padding-top:14px;">
-  <nav id="nav"></nav>
-</div>
+<!-- Header, wordmark, tagline and the #nav tab row all come from the
+     shared header in core/equi-nav.js. -->
 
 <main class="wrap" id="view" style="padding-bottom:60px;"></main>
 
