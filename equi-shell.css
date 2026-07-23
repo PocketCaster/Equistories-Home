@@ -1,0 +1,195 @@
+/* ==========================================================================
+   EquiStories — shared shell
+   One palette, one typeface, one top bar for every page on the site.
+
+   HOW THIS WORKS WITHOUT REWRITING ANYTHING
+   -----------------------------------------
+   The three apps grew their own names for the same colours: the manager says
+   --accent, Shows says --amber, the Hub says --accent and --honey. Rather than
+   find-and-replace across ~16,000 lines of existing markup, this file defines
+   ONE canonical palette and then ALIASES every historical name onto it. Existing
+   var(--amber) / var(--accent) / var(--parchment) keep working untouched — they
+   just resolve to the same colour now.
+
+   The variable block uses `html:root` and the type rules use `html body`. Those
+   are one notch more specific than the plain `:root` / `body` the apps declare,
+   so this file wins WHEREVER it is loaded — including on the Stable Manager,
+   whose <style> block lives down in the body. That means a single, ordinary
+   <link> in <head> on every page. Everything else is prefixed .equi- so it
+   cannot collide with app CSS.
+   ========================================================================== */
+
+/* Playfair Display + Lora are what the Hub already loads and uses; matching
+   them here is what brings the Manager and Shows into line, rather than
+   introducing a fourth typeface nothing else uses. */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Lora:ital,wght@0,400;0,500;1,400&family=Caveat:wght@500;600&display=swap');
+
+html:root{
+  /* ---- canonical palette -------------------------------------------------
+     Manager and Shows were already byte-identical; the Hub had drifted a few
+     shades. These are the Manager/Shows values, so two of the three apps are
+     unchanged and the Hub comes into line.                                   */
+  --equi-bg:        #1b1410;
+  --equi-ink:       #15100c;   /* deepest — page chrome, top bar             */
+  --equi-panel:     #241a14;   /* cards                                       */
+  --equi-raised:    #2c2118;   /* inputs, raised rows                         */
+  --equi-line:      #4a392a;   /* borders                                     */
+  --equi-text:      #f1e6d8;
+  --equi-dim:       #b5a392;   /* secondary text                              */
+  --equi-accent:    #c98a3a;   /* brass — primary accent                      */
+  --equi-accent-2:  #c9a8e8;   /* orchid — prestige / rider                   */
+  --equi-good:      #7a9b6e;
+  --equi-warn:      #c9a23a;
+  --equi-bad:       #b1473f;
+  --equi-rust:      #c96a3a;
+
+  --equi-serif: 'Lora', 'Palatino Linotype', Georgia, serif;
+  --equi-display: 'Playfair Display', Georgia, serif;
+  --equi-mono: 'Courier New', ui-monospace, monospace;
+
+  --equi-radius: 8px;
+  --equi-gold-shine: linear-gradient(135deg,#e8c97a 0%,#c9a84c 30%,#f2d97e 50%,#c9a84c 70%,#8a6820 100%);
+
+  /* ---- aliases: Stable Manager ---- */
+  --bg: var(--equi-bg);
+  --panel: var(--equi-panel);
+  --panel2: var(--equi-raised);
+  --text: var(--equi-text);
+  --dim: var(--equi-dim);
+  --accent: var(--equi-accent);
+  --accent2: var(--equi-good);
+  --good: var(--equi-good);
+  --warn: var(--equi-warn);
+  --danger: var(--equi-bad);
+
+  /* ---- aliases: Shows ---- */
+  --amber: var(--equi-accent);
+  --parchment: var(--equi-text);
+  --raised: var(--equi-raised);
+  --ink: var(--equi-ink);
+  --line: var(--equi-line);
+  --moss: var(--equi-good);
+  --rust: var(--equi-rust);
+  --mono: var(--equi-mono);
+
+  /* ---- aliases: Community Hub ---- */
+  --deep: var(--equi-ink);
+  --honey: var(--equi-accent);
+  --bad: var(--equi-bad);
+}
+
+/* Hub-only tokens keep their own meaning but follow the shared accent. */
+html:root{ --sf-accent: var(--equi-accent); --sf-bg: var(--equi-panel);
+       --sf-panel: var(--equi-ink); --sf-text: var(--equi-text); }
+
+html body{ font-family: var(--equi-serif); }
+html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); letter-spacing:.01em; }
+
+/* ==========================================================================
+   SITE HEADER — one header, every page.
+   This is the Community Hub's header, verbatim: the warm gradient panel, the
+   gold hairline, the gold-shine Playfair wordmark, the Caveat tagline, and the
+   boxed tab row with your name and Sign out at the right-hand end. The crest
+   from the tracker now sits beside the wordmark.
+   ========================================================================== */
+.equi-hd{
+  background: linear-gradient(180deg, #2c1f16, var(--equi-bg));
+  border-bottom: 1px solid var(--equi-line);
+  position: relative;
+  font-family: var(--equi-serif);
+}
+.equi-hd::after{
+  content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px;
+  background: var(--equi-gold-shine);
+  opacity:.55;
+}
+.equi-hd__wrap{
+  max-width: min(1700px, 94vw);
+  margin: 0 auto;
+  padding: 18px clamp(16px,2vw,32px) 0;
+}
+.equi-hd__brand{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+.equi-hd__logo{
+  height: clamp(66px, 7.5vw, 104px);
+  width: auto; display:block;
+  filter: drop-shadow(0 2px 7px rgba(0,0,0,.5));
+}
+.equi-hd__title{
+  margin:0;
+  font-family: var(--equi-display);
+  font-weight:700;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  background: var(--equi-gold-shine);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height:1.15;
+}
+.equi-hd__tagline{
+  color: var(--equi-dim);
+  margin: 2px 0 0;
+  font-family: 'Caveat', cursive;
+  font-size: 1.3rem;
+}
+
+/* Tab row — the Hub writes its own tabs in here; the other pages get links
+   across the site. Either way the styling is identical. */
+.equi-hd__nav{
+  display:flex; gap:4px; flex-wrap:wrap;
+  margin-top:14px;
+  align-items:center;
+}
+.equi-hd__nav .tab{
+  padding:9px 18px;
+  border:1px solid var(--equi-line);
+  border-bottom:none;
+  border-radius:8px 8px 0 0;
+  cursor:pointer;
+  background:#1e1610;
+  color: var(--equi-dim);
+  font-family: var(--equi-serif);
+  font-size:1rem;
+  text-decoration:none;
+  display:inline-block;
+}
+.equi-hd__nav .tab:hover{ color: var(--equi-text); }
+.equi-hd__nav .tab.active{
+  background: var(--equi-gold-shine);
+  color:#241a14;
+  font-weight:700;
+}
+.equi-hd__user{
+  margin-left:auto;
+  display:flex; align-items:center; gap:10px;
+  padding:0 4px;
+}
+.equi-hd__user .small{ font-size:.92em; color: var(--equi-dim); }
+.equi-hd__user button{
+  padding:4px 12px; font-size:.9em; margin-top:0;
+  background:#2c2118; color: var(--equi-text);
+  border:1px solid var(--equi-line); border-radius:6px;
+  cursor:pointer; font-family: var(--equi-serif);
+}
+.equi-hd__user button:hover{ border-color: var(--equi-accent); }
+
+@media (max-width: 620px){
+  .equi-hd__wrap{ padding-top:12px; }
+  .equi-hd__logo{ height:56px; }
+  .equi-hd__brand{ gap:12px; }
+  .equi-hd__tagline{ font-size:1.08rem; }
+  .equi-hd__nav .tab{ padding:8px 12px; font-size:.92rem; }
+  .equi-hd__user{ margin-left:0; width:100%; }
+}
+
+/* Links across the site, sitting under the tagline. Plain HTML in every page,
+   so navigation survives even if no JavaScript runs. */
+.equi-hd__apps{ margin-top:6px; display:flex; gap:14px; flex-wrap:wrap; }
+.equi-hd__app{
+  color: var(--equi-dim);
+  text-decoration:none;
+  font-size:.9rem;
+  border-bottom:1px solid transparent;
+}
+.equi-hd__app:hover{ color: var(--equi-text); border-bottom-color: var(--equi-line); }
+.equi-hd__app.is-here{ color: var(--equi-accent); border-bottom-color: var(--equi-accent); }
+.equi-hd__words{ min-width:0; }
