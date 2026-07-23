@@ -288,3 +288,48 @@ html body .equi-hd__user button{
 }
 html body .equi-hd__user a.ghost:hover,
 html body .equi-hd__user button:hover{ border-color: var(--equi-accent); }
+
+
+/* ==========================================================================
+   PROFILE FRAMES — a shared set members can pick for avatars, horse and rider
+   portraits, and roster thumbnails. Pure CSS so they cost nothing to load and
+   work identically in the Hub and the tracker.
+   Usage: <div class="equi-frame equi-frame--brass"><img …></div>
+   ========================================================================== */
+.equi-frame{ position:relative; display:inline-block; line-height:0; border-radius:10px; }
+.equi-frame > img{ display:block; width:100%; height:100%; object-fit:cover; border-radius:inherit; }
+
+.equi-frame--none{ }
+.equi-frame--brass{ padding:4px; background:var(--equi-gold-shine); border-radius:12px; }
+.equi-frame--brass > img{ border-radius:9px; }
+.equi-frame--rope{ padding:5px; border:3px double var(--equi-accent); border-radius:12px; background:var(--equi-ink); }
+.equi-frame--ribbon{ padding:4px; border:2px solid var(--equi-accent); border-radius:12px; box-shadow:0 0 0 4px var(--equi-ink), 0 0 0 6px var(--equi-accent-2); }
+.equi-frame--rosette{ padding:6px; border-radius:50%; background:conic-gradient(var(--equi-accent) 0 25%, var(--equi-brass-light) 0 50%, var(--equi-accent) 0 75%, var(--equi-brass-light) 0); }
+.equi-frame--rosette > img{ border-radius:50%; }
+.equi-frame--plaque{ padding:8px 8px 20px; background:linear-gradient(180deg,#3a2b1d,#241a14); border:1px solid var(--equi-line); border-radius:6px; box-shadow:0 3px 10px rgba(0,0,0,.45); }
+.equi-frame--plaque::after{ content:attr(data-caption); position:absolute; left:0; right:0; bottom:4px; text-align:center; font-family:var(--equi-serif); font-size:.72rem; color:var(--equi-accent); line-height:1.2; }
+.equi-frame--moss{ padding:4px; border:2px solid var(--equi-good); border-radius:12px; }
+.equi-frame--plum{ padding:4px; border:2px solid var(--equi-accent-2); border-radius:12px; }
+.equi-frame--vignette::after{ content:""; position:absolute; inset:0; border-radius:inherit; box-shadow:inset 0 0 26px 8px rgba(0,0,0,.55); pointer-events:none; }
+.equi-frame--polaroid{ padding:7px 7px 26px; background:#efe6d6; border-radius:3px; box-shadow:0 3px 12px rgba(0,0,0,.5); }
+.equi-frame--polaroid > img{ border-radius:0; }
+.equi-frame--polaroid::after{ content:attr(data-caption); position:absolute; left:0; right:0; bottom:6px; text-align:center; font-family:'Caveat',cursive; font-size:1rem; color:#3a2b1d; }
+
+/* ==========================================================================
+   GALLERY — a masonry-ish column layout for art logs, so pieces keep their own
+   proportions instead of being cropped to a uniform tile.
+   ========================================================================== */
+.equi-gallery{ column-gap:12px; columns:3; }
+@media (max-width:1100px){ .equi-gallery{ columns:2; } }
+@media (max-width:620px){ .equi-gallery{ columns:1; } }
+.equi-gallery > .equi-gitem{
+  break-inside:avoid; -webkit-column-break-inside:avoid; page-break-inside:avoid;
+  margin:0 0 12px; background:var(--equi-panel);
+  border:1px solid var(--equi-line); border-radius:10px; overflow:hidden;
+}
+.equi-gallery > .equi-gitem img{ display:block; width:100%; height:auto; }
+.equi-gallery > .equi-gitem .equi-gcap{ padding:8px 10px; font-size:.88em; color:var(--equi-dim); }
+.equi-gallery > .equi-gitem .equi-gcap b{ color:var(--equi-text); }
+
+/* Members' own CSS is scoped under this, never applied to the page chrome. */
+.profile-custom{ }
