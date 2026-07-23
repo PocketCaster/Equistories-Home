@@ -23,13 +23,12 @@
     --brass-light:#e8c97a; --brass-mid:#c9a84c; --brass-dark:#8a6820;
     --gold-shine:linear-gradient(135deg,#e8c97a 0%,#c9a84c 30%,#f2d97e 50%,#c9a84c 70%,#8a6820 100%);
   }
-  *{box-sizing:border-box;}
+  /* box-sizing reset lives in equi-shell.css */
   body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--equi-serif); line-height:1.6; }
   a{ color:var(--accent); }
 
   /* header styling lives in equi-shell.css (.equi-hd) — one definition only */
-
-  .wrap{ width:100%; max-width:1700px; margin:0 auto; padding:0 clamp(16px,2vw,32px); }
+  /* .wrap geometry lives in equi-shell.css, shared by all pages */
   #view h1{ margin:0; font-family:var(--equi-display); font-weight:700; font-size:clamp(1.8rem,4vw,2.6rem);
       background:var(--gold-shine); -webkit-background-clip:text; background-clip:text; color:transparent; letter-spacing:.5px; }
   #view .tagline{ color:var(--dim); margin:2px 0 0; font-family:'Caveat',cursive; font-size:1.3rem; }

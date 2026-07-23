@@ -128,6 +128,40 @@ html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); lett
    boxed tab row with your name and Sign out at the right-hand end. The crest
    from the tracker now sits beside the wordmark.
    ========================================================================== */
+/* ==========================================================================
+   BOX MODEL + PAGE CONTAINERS — the thing that kept the pages misaligned.
+
+   The Hub and Shows declared `* { box-sizing:border-box }` globally. The Stable
+   Manager declared only `#app * { ... }` — which matches the DESCENDANTS of
+   #app but not #app itself, and not the header, which sits outside it. So the
+   identical rule `max-width:1700px; padding:0 32px` produced a 1700px box on
+   two pages and a 1764px box on the third (1700 of content PLUS 64 of padding).
+   That is why the tracker's margins looked wider and nothing lined up.
+
+   Below: one box model for everything, and one geometry for every page
+   container, stated in the file all three pages load.
+   ========================================================================== */
+html, body{ box-sizing: border-box; }
+html body *,
+html body *::before,
+html body *::after{ box-sizing: border-box; }
+
+/* Every page-level container — the header, the Hub's and Shows' .wrap, and the
+   tracker's #app — is now the same width with the same gutters, so content
+   starts at the same x on all three pages. Vertical padding is left to each
+   page; only the horizontal geometry is unified. */
+html body .equi-hd__wrap,
+html body .wrap,
+html body #app{
+  width: 100%;
+  max-width: 1700px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: clamp(16px, 2vw, 32px);
+  padding-right: clamp(16px, 2vw, 32px);
+  box-sizing: border-box;
+}
+
 html body .equi-hd{
   font-family: var(--equi-serif);
   font-size: 16px;          /* fixed base for the header, independent of :root */

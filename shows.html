@@ -16,12 +16,12 @@
     --amber:var(--equi-accent); --parchment:var(--equi-text); --dim:var(--equi-dim); --moss:var(--equi-good); --rust:var(--equi-rust);
     --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--parchment);font:1rem/1.6 Georgia,'Palatino Linotype',serif}
+  /* box-sizing reset lives in equi-shell.css */
+  body{margin:0;background:var(--bg);color:var(--parchment);font:1rem/1.6 var(--equi-serif)}
   /* Same content width as the Hub, so the apps fill the screen consistently. */
-  .wrap{width:100%;max-width:1700px;margin:0 auto;padding:32px clamp(16px,2vw,32px) 80px}
+  .wrap{padding-top:32px;padding-bottom:80px}  /* width/gutters: equi-shell.css */
 
-  header{border-bottom:1px solid var(--line);background:linear-gradient(180deg,#2c1f16,var(--equi-bg))}
+  /* header styling lives in equi-shell.css (.equi-hd) */
   header .wrap{padding:22px 20px 18px}
   h1{font-size:clamp(1.6rem,4vw,2.4rem);margin:0;color:var(--amber);letter-spacing:.5px}
   h1 em{font-style:normal;color:var(--parchment)}

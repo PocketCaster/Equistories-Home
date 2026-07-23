@@ -39,15 +39,10 @@ html, body{
   font-family: var(--equi-serif);
   line-height:1.6;
 }
-#app *, #app *::before, #app *::after{ box-sizing:border-box; }
+/* box-sizing is a global reset in equi-shell.css now */
 
 /* Page frame — identical to the Hub's .wrap */
-#app{
-  width: 100%;
-  max-width: 1700px;
-  margin: 0 auto;
-  padding: 0 clamp(16px,2vw,32px);
-}
+/* #app geometry is set in equi-shell.css, shared with the Hub and Shows */
 
 /* Headings — Playfair brass, exactly as the Hub */
 #app h1{
