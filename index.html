@@ -271,6 +271,23 @@ window.EquiDB = {
     try{ return JSON.parse(s.data().json); }catch(e){ return null; }
   },
   async remove(col,id){ if(!db) return false; await deleteDoc(doc(db,col,String(id))); return true; },
+  // Like put(), but keeps one field OUTSIDE the json blob so security rules and
+  // queries can see it. Firestore can't read inside the blob — a private message
+  // needs `to` hoisted here so a rule can restrict reads to the recipient.
+  async putWithField(col,id,owner,obj,field,value){
+    if(!db) return false;
+    const rec={ owner:String(owner), id:String(id),
+      json:JSON.stringify(obj), updatedAt:new Date().toISOString() };
+    rec[field]=String(value);
+    await setDoc(doc(db,col,String(id)), rec);
+    return true;
+  },
+  async listByField(col,field,value){
+    if(!db) return [];
+    const snap=await getDocs(query(collection(db,col), where(field,'==',String(value))));
+    const out=[]; snap.forEach(d=>{ try{ const o=JSON.parse(d.data().json); o.__owner=d.data().owner; o.__id=d.id; out.push(o); }catch(e){} });
+    return out;
+  },
   async listByOwner(col,owner){
     if(!db) return [];
     const snap=await getDocs(query(collection(db,col), where('owner','==',String(owner))));
@@ -337,7 +354,7 @@ const STAT_LABELS = {stamina:"Stamina",strength:"Strength",scope:"Scope",speed:"
   handiness:"Handiness",boldness:"Boldness",balance:"Balance",gaits:"Gaits",harmony:"Harmony"};
 const statTotal = h => STATS.reduce((n,k)=>n+(Number(h.stats&&h.stats[k])||0), 0);
 const imgOk = u => typeof u==='string' && u && !u.startsWith('data:');
-const TABS = ["Home","Bank","Shops","Breeds","Members","Community","Forum"];
+const TABS = ["Home","Bank","Shops","Breeds","Members","Community","Messages","Forum"];
 let tab = "Home";
 
 async function waitForDB(ms=8000){
@@ -1574,12 +1591,212 @@ async function renderShowBoard(v){
   }
 }
 
+// ============================================================
+//  MESSAGES — member-to-member private notes.
+//
+//  A message is ONE document in `messages`, written by the sender:
+//    owner = sender's userId   (so the sender can list what they sent)
+//    to    = recipient, hoisted OUTSIDE the json blob so a security rule and a
+//            query can both see it (Firestore can't read inside the blob)
+//
+//  Privacy is enforced by the RULES, not by this file. Because the hub upgrades
+//  its session to a token whose uid IS the bank userId (see upgradeToOwnerSession),
+//  a rule can compare request.auth.uid against owner/to and genuinely restrict
+//  reads to the two people involved. Without those rules published this tab
+//  fails CLOSED — reads are refused — rather than exposing anyone's mail.
+//  See the MESSAGES_RULES note below for the exact rule to publish.
+// ============================================================
+let __msgCache = { inbox:[], sent:[], loadedAt:0, loading:false };
+let __msgView = { mode:"inbox", to:"", replyTo:null };
+
+function msgId(){ return 'm_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+
+// People I've blocked — kept on my own profile, so it travels with my account.
+function myBlocked(){
+  const p = window.__myProfile || {};
+  return Array.isArray(p.blocked) ? p.blocked.map(String) : [];
+}
+async function setBlocked(list){
+  const who=me(); if(!who) return false;
+  const DB=await waitForDB(); if(!DB) return false;
+  const prof = (await DB.get('profiles', who.userId)) || {};
+  prof.blocked = list;
+  window.__myProfile = prof;
+  return await DB.put('profiles', who.userId, who.userId, prof);
+}
+
+async function loadMessages(force){
+  const who=me(); if(!who) return __msgCache;
+  if(__msgCache.loading) return __msgCache;
+  if(!force && __msgCache.loadedAt && Date.now()-__msgCache.loadedAt<45000) return __msgCache;
+  const DB=await waitForDB(); if(!DB || !DB.listByField) return __msgCache;
+  __msgCache.loading=true;
+  try{
+    const [inbox, sent, prof] = await Promise.all([
+      DB.listByField('messages','to',who.userId),
+      DB.listByOwner('messages', who.userId),
+      DB.get('profiles', who.userId).catch(()=>null),
+    ]);
+    if(prof) window.__myProfile = prof;
+    const blocked = myBlocked();
+    const bySent = (a,b)=> String(b.sentAt||"").localeCompare(String(a.sentAt||""));
+    __msgCache.inbox = (inbox||[]).filter(m=>!blocked.includes(String(m.from))).sort(bySent);
+    __msgCache.sent  = (sent||[]).sort(bySent);
+    __msgCache.loadedAt = Date.now();
+    __msgCache.error = null;
+  }catch(e){
+    const t=String((e&&e.message)||e);
+    __msgCache.error = /permission|insufficient/i.test(t)
+      ? "The database refused to read messages. The <b>messages</b> rules haven't been published yet — until they are, no one can send or read mail."
+      : "Couldn't load messages: "+esc(t);
+  }finally{ __msgCache.loading=false; }
+  return __msgCache;
+}
+function msgUnread(){ return __msgCache.inbox.filter(m=>!m.read).length; }
+
+async function sendMessage(toId, subject, body){
+  const who=me(); if(!who) return {ok:false, msg:"Sign in first."};
+  if(!toId) return {ok:false, msg:"Pick who you're writing to."};
+  if(String(toId)===String(who.userId)) return {ok:false, msg:"That's your own account."};
+  if(!body.trim()) return {ok:false, msg:"Write something first."};
+  const DB=await waitForDB(); if(!DB || !DB.putWithField) return {ok:false, msg:"Database unavailable."};
+  const id=msgId();
+  const rec={ id, from:who.userId, to:String(toId), subject:(subject||"").trim().slice(0,120),
+              body:body.trim().slice(0,4000), sentAt:new Date().toISOString(), read:false };
+  try{
+    await DB.putWithField('messages', id, who.userId, rec, 'to', String(toId));
+    __msgCache.loadedAt=0;
+    return {ok:true, msg:"Sent to "+esc(toId)+"."};
+  }catch(e){
+    const t=String((e&&e.message)||e);
+    return {ok:false, msg: /permission|insufficient/i.test(t)
+      ? "The database refused to send. The messages rules haven't been published yet."
+      : "Couldn't send: "+esc(t) };
+  }
+}
+async function markMessageRead(m){
+  const who=me(); if(!who || m.read) return;
+  const DB=await waitForDB(); if(!DB) return;
+  m.read=true;
+  try{ await DB.putWithField('messages', m.id, m.from, m, 'to', m.to); }
+  catch(e){ /* recipient may not be allowed to update; harmless either way */ }
+}
+async function deleteMessage(m){
+  const DB=await waitForDB(); if(!DB) return false;
+  try{ await DB.remove('messages', m.id); __msgCache.loadedAt=0; return true; }
+  catch(e){ return false; }
+}
+
+function renderMessages(v){
+  const who=me();
+  v.innerHTML=`<div class="card"><div class="small">Loading messages…</div></div>`;
+  loadMessages(true).then(async()=>{
+    const DB=await waitForDB();
+    const profiles = DB ? await DB.listAll('profiles').catch(()=>[]) : [];
+    const names = profiles.map(p=>String(p.userId||p.__owner||p.__id||'')).filter(Boolean).sort();
+    const blocked = myBlocked();
+    const mode=__msgView.mode;
+    const list = mode==="sent" ? __msgCache.sent : __msgCache.inbox;
+
+    const rows = list.length ? list.map((m,i)=>`
+      <div class="card" style="margin-bottom:8px;${(!m.read&&mode==='inbox')?'border-left:3px solid var(--accent,#c9a84c);':''}">
+        <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">
+          <b>${esc(m.subject||'(no subject)')}</b>
+          <span class="small muted">${mode==='sent'?'to '+esc(m.to):'from '+esc(m.from)} · ${esc(String(m.sentAt||'').slice(0,10))}</span>
+          <span style="flex:1"></span>
+          ${mode==='inbox'?`<button class="ghost" data-mreply="${i}" style="padding:2px 9px;font-size:.85em;">Reply</button>`:''}
+          <button class="ghost" data-mdel="${i}" style="padding:2px 9px;font-size:.85em;">Delete</button>
+        </div>
+        <div style="margin-top:6px;white-space:pre-wrap;">${esc(m.body||'')}</div>
+      </div>`).join("") : `<div class="card"><div class="small muted">${mode==='sent'?'Nothing sent yet.':'No messages.'}</div></div>`;
+
+    v.innerHTML=`
+      <div class="card">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <button class="ghost" data-mtab="inbox" style="${mode==='inbox'?'font-weight:bold;':''}">Inbox${msgUnread()?' ('+msgUnread()+')':''}</button>
+          <button class="ghost" data-mtab="sent" style="${mode==='sent'?'font-weight:bold;':''}">Sent</button>
+          <span style="flex:1"></span>
+          <button class="ghost" data-mtab="compose" style="${mode==='compose'?'font-weight:bold;':''}">Write a message</button>
+        </div>
+        ${__msgCache.error?`<div class="small" style="color:#e0906a;margin-top:8px;">${__msgCache.error}</div>`:''}
+      </div>
+
+      ${mode==='compose' ? `
+      <div class="card">
+        <h3 style="margin-top:0;">New message</h3>
+        <label>To</label>
+        <input id="m_to" list="m_members" value="${esc(__msgView.to||'')}" placeholder="member username" />
+        <datalist id="m_members">${names.map(n=>`<option value="${esc(n)}"></option>`).join("")}</datalist>
+        <label style="margin-top:8px;display:block;">Subject <span class="small muted">(optional)</span></label>
+        <input id="m_subj" placeholder="What's this about?" />
+        <label style="margin-top:8px;display:block;">Message</label>
+        <textarea id="m_body" style="min-height:130px;width:100%;" placeholder="Write your message…"></textarea>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="btn" id="m_send">Send</button>
+          <span class="small" id="m_msg"></span>
+        </div>
+        <div class="small muted" style="margin-top:8px;">Messages are visible to you and the person you write to. Site admins can access them if they need to investigate a report — don't treat them as secret.</div>
+      </div>` : rows}
+
+      <div class="card">
+        <b>Blocked members</b>
+        <div class="small muted" style="margin:4px 0 8px;">Blocked members' messages won't appear in your inbox.</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <input id="m_block" list="m_members" placeholder="username to block" style="max-width:220px;" />
+          <button class="ghost" id="m_blockadd">Block</button>
+        </div>
+        <div style="margin-top:8px;">${blocked.length?blocked.map(b=>`<span class="tag" style="margin-right:6px;">${esc(b)} <span data-munblock="${esc(b)}" style="cursor:pointer;color:#e0906a;">✕</span></span>`).join(""):'<span class="small muted">No one blocked.</span>'}</div>
+      </div>`;
+
+    v.querySelectorAll('[data-mtab]').forEach(b=>b.onclick=()=>{ __msgView.mode=b.dataset.mtab; renderMessages(v); });
+    v.querySelectorAll('[data-mreply]').forEach(b=>b.onclick=()=>{
+      const m=list[Number(b.dataset.mreply)];
+      __msgView.mode="compose"; __msgView.to=m.from; renderMessages(v);
+    });
+    v.querySelectorAll('[data-mdel]').forEach(b=>b.onclick=async()=>{
+      const m=list[Number(b.dataset.mdel)];
+      if(!confirm('Delete this message?')) return;
+      b.disabled=true; await deleteMessage(m); renderMessages(v);
+    });
+    const sendBtn=v.querySelector('#m_send');
+    if(sendBtn) sendBtn.onclick=async()=>{
+      const out=v.querySelector('#m_msg');
+      sendBtn.disabled=true; out.textContent='Sending…';
+      const r=await sendMessage(v.querySelector('#m_to').value.trim(),
+                                v.querySelector('#m_subj').value,
+                                v.querySelector('#m_body').value);
+      sendBtn.disabled=false;
+      out.innerHTML=r.msg;
+      if(r.ok){ __msgView={mode:"sent",to:"",replyTo:null}; renderMessages(v); renderNav(); }
+    };
+    const blockAdd=v.querySelector('#m_blockadd');
+    if(blockAdd) blockAdd.onclick=async()=>{
+      const n=v.querySelector('#m_block').value.trim(); if(!n) return;
+      const next=Array.from(new Set(myBlocked().concat([n])));
+      await setBlocked(next); __msgCache.loadedAt=0; renderMessages(v);
+    };
+    v.querySelectorAll('[data-munblock]').forEach(x=>x.onclick=async()=>{
+      await setBlocked(myBlocked().filter(b=>b!==x.dataset.munblock));
+      __msgCache.loadedAt=0; renderMessages(v);
+    });
+
+    // Opening the inbox marks what's on screen as read.
+    if(mode==='inbox'){
+      const unread=list.filter(m=>!m.read);
+      if(unread.length){ Promise.all(unread.map(markMessageRead)).then(()=>renderNav()); }
+    }
+  });
+}
+
 function renderNav(){
   const who=me();
   // Admin tab is appended ONLY for admins, so it never appears in the nav for
   // regular members.
   const visibleTabs = (who && isAdminMember(who.userId)) ? TABS.concat(["Admin"]) : TABS;
-  $("nav").innerHTML = visibleTabs.map(t=>`<div class="tab ${t===tab?'active':''}" data-tab="${t}">${t}</div>`).join("")
+  $("nav").innerHTML = visibleTabs.map(t=>{
+    const badge = (t==="Messages" && msgUnread()) ? ` <span style="background:#c9a84c;color:#140e07;border-radius:9px;padding:0 6px;font-size:.82em;font-weight:bold;">${msgUnread()}</span>` : "";
+    return `<div class="tab ${t===tab?'active':''}" data-tab="${t}">${t}${badge}</div>`;
+  }).join("")
     + `<span style="margin-left:auto;display:flex;align-items:center;gap:10px;padding:0 4px;">
          <span class="small">${esc(who?who.userId:'')}</span>
          <button class="ghost" id="navOut" style="padding:4px 12px;font-size:.9em;">Sign out</button>
@@ -1778,12 +1995,17 @@ async function adoptSharedSession(){
 function render(){
   if(!me()){ renderGate(); adoptSharedSession(); return; }
   renderNav();
+  // Quietly check for new mail so the badge is right on every tab (cached ~45s).
+  if(!__msgCache.loadedAt && !__msgCache.loading){
+    loadMessages().then(c=>{ if(c && c.inbox && c.inbox.length) renderNav(); });
+  }
   const v=$("view");
   v.innerHTML = `<div class="card"><div class="small">Loading…</div></div>`;
   if(tab==="Home") renderHome(v);
   else if(tab==="Bank") renderBank(v);
   else if(tab==="Members") renderMembers(v);
   else if(tab==="Community") renderCommunity(v);
+  else if(tab==="Messages") renderMessages(v);
   else if(tab==="Forum") renderForum(v);
   else if(tab==="Admin"){ const w=me(); if(w && isAdminMember(w.userId)) renderAdminPanel(v); else { tab="Home"; renderHome(v); } }
   else if(tab==="Shops") renderShops(v);
