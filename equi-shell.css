@@ -1,0 +1,124 @@
+/* ==========================================================================
+   EquiStories — shared shell
+   One palette, one typeface, one top bar for every page on the site.
+
+   HOW THIS WORKS WITHOUT REWRITING ANYTHING
+   -----------------------------------------
+   The three apps grew their own names for the same colours: the manager says
+   --accent, Shows says --amber, the Hub says --accent and --honey. Rather than
+   find-and-replace across ~16,000 lines of existing markup, this file defines
+   ONE canonical palette and then ALIASES every historical name onto it. Existing
+   var(--amber) / var(--accent) / var(--parchment) keep working untouched — they
+   just resolve to the same colour now.
+
+   The variable block uses `html:root` and the type rules use `html body`. Those
+   are one notch more specific than the plain `:root` / `body` the apps declare,
+   so this file wins WHEREVER it is loaded — including on the Stable Manager,
+   whose <style> block lives down in the body. That means a single, ordinary
+   <link> in <head> on every page. Everything else is prefixed .equi- so it
+   cannot collide with app CSS.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
+
+html:root{
+  /* ---- canonical palette -------------------------------------------------
+     Manager and Shows were already byte-identical; the Hub had drifted a few
+     shades. These are the Manager/Shows values, so two of the three apps are
+     unchanged and the Hub comes into line.                                   */
+  --equi-bg:        #1b1410;
+  --equi-ink:       #15100c;   /* deepest — page chrome, top bar             */
+  --equi-panel:     #241a14;   /* cards                                       */
+  --equi-raised:    #2c2118;   /* inputs, raised rows                         */
+  --equi-line:      #4a392a;   /* borders                                     */
+  --equi-text:      #f1e6d8;
+  --equi-dim:       #b5a392;   /* secondary text                              */
+  --equi-accent:    #c98a3a;   /* brass — primary accent                      */
+  --equi-accent-2:  #c9a8e8;   /* orchid — prestige / rider                   */
+  --equi-good:      #7a9b6e;
+  --equi-warn:      #c9a23a;
+  --equi-bad:       #b1473f;
+  --equi-rust:      #c96a3a;
+
+  --equi-serif: 'Lora', 'Palatino Linotype', Georgia, serif;
+  --equi-display: 'Cinzel', Georgia, serif;
+  --equi-mono: 'Courier New', ui-monospace, monospace;
+
+  --equi-radius: 8px;
+
+  /* ---- aliases: Stable Manager ---- */
+  --bg: var(--equi-bg);
+  --panel: var(--equi-panel);
+  --panel2: var(--equi-raised);
+  --text: var(--equi-text);
+  --dim: var(--equi-dim);
+  --accent: var(--equi-accent);
+  --accent2: var(--equi-good);
+  --good: var(--equi-good);
+  --warn: var(--equi-warn);
+  --danger: var(--equi-bad);
+
+  /* ---- aliases: Shows ---- */
+  --amber: var(--equi-accent);
+  --parchment: var(--equi-text);
+  --raised: var(--equi-raised);
+  --ink: var(--equi-ink);
+  --line: var(--equi-line);
+  --moss: var(--equi-good);
+  --rust: var(--equi-rust);
+  --mono: var(--equi-mono);
+
+  /* ---- aliases: Community Hub ---- */
+  --deep: var(--equi-ink);
+  --honey: var(--equi-accent);
+  --bad: var(--equi-bad);
+}
+
+/* Hub-only tokens keep their own meaning but follow the shared accent. */
+html:root{ --sf-accent: var(--equi-accent); --sf-bg: var(--equi-panel);
+       --sf-panel: var(--equi-ink); --sf-text: var(--equi-text); }
+
+html body{ font-family: var(--equi-serif); }
+html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); letter-spacing:.01em; }
+
+/* ==========================================================================
+   Top bar — identical on every page, so moving between apps reads as
+   switching tabs rather than leaving the site.
+   ========================================================================== */
+.equi-topbar{
+  background: var(--equi-ink);
+  border-bottom: 1px solid var(--equi-line);
+  font-family: var(--equi-serif);
+  padding: 0 14px;
+  display: flex; align-items: center; gap: 2px; flex-wrap: wrap;
+  position: relative; z-index: 40;
+}
+.equi-topbar__brand{
+  font-family: var(--equi-display);
+  color: var(--equi-accent);
+  font-size: 1.05rem; font-weight: 600;
+  padding: 10px 14px 10px 4px; margin-right: 4px;
+  text-decoration: none; white-space: nowrap;
+}
+.equi-topbar__link{
+  color: var(--equi-dim); text-decoration: none;
+  padding: 11px 13px; font-size: .97rem; white-space: nowrap;
+  border-bottom: 2px solid transparent;
+}
+.equi-topbar__link:hover{ color: var(--equi-text); background: rgba(201,138,58,.07); }
+.equi-topbar__link[aria-current="page"]{
+  color: var(--equi-accent); border-bottom-color: var(--equi-accent); font-weight: 600;
+}
+.equi-topbar__spacer{ flex: 1 1 auto; }
+.equi-topbar__who{ color: var(--equi-dim); font-size: .86rem; padding: 0 10px; white-space: nowrap; }
+.equi-topbar__badge{
+  display: inline-block; min-width: 17px; text-align: center;
+  background: var(--equi-accent); color: var(--equi-ink);
+  border-radius: 9px; padding: 0 5px; margin-left: 5px;
+  font-size: .76rem; font-weight: 700; line-height: 1.5;
+}
+@media (max-width: 620px){
+  .equi-topbar{ padding: 0 6px; }
+  .equi-topbar__link{ padding: 9px 9px; font-size: .9rem; }
+  .equi-topbar__who{ display: none; }
+}

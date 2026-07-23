@@ -164,8 +164,12 @@
   .bk-idbox .val{ font-family:'Caveat',cursive; font-size:1.7rem; font-weight:700; color:#241a14; word-break:break-all; line-height:1.15; }
   .bk-idbox .hint{ font-size:.78rem; color:#3e2b15; font-style:italic; opacity:.85; margin-top:4px; }
 </style>
+  <link rel="stylesheet" href="style/equi-shell.css" />
+  <script src="core/equi-nav.js" data-app="hub" defer></script>
 </head>
 <body>
+<div id="equi-nav"></div>
+
 
 <script>
 window.__equiDBReady = new Promise(r => { window.__equiDBResolve = r; });
@@ -1997,7 +2001,10 @@ function render(){
   renderNav();
   // Quietly check for new mail so the badge is right on every tab (cached ~45s).
   if(!__msgCache.loadedAt && !__msgCache.loading){
-    loadMessages().then(c=>{ if(c && c.inbox && c.inbox.length) renderNav(); });
+    loadMessages().then(c=>{
+      if(c && c.inbox && c.inbox.length) renderNav();
+      if(window.EquiNav) window.EquiNav.setBadge('hub', msgUnread());
+    });
   }
   const v=$("view");
   v.innerHTML = `<div class="card"><div class="small">Loading…</div></div>`;
