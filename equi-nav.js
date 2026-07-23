@@ -54,7 +54,7 @@
       }).join("") +
       '<span class="equi-hd__user">' +
         (who
-          ? '<a class="small member-link" href="index.html?player=' + encodeURIComponent(who.userId) + '">' + esc(who.userId) + "</a>" +
+          ? '<span class="small">' + esc(who.userId) + "</span>" +
             '<a class="ghost" href="index.html?player=' + encodeURIComponent(who.userId) + '">My Profile</a>' +
             '<button class="ghost" id="equiOut">Sign out</button>'
           : '<span class="small"></span>') +

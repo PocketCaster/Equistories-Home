@@ -29,14 +29,14 @@
 
   /* header styling lives in equi-shell.css (.equi-hd) — one definition only */
   /* .wrap geometry lives in equi-shell.css, shared by all pages */
-  #view h1{ margin:0; font-family:var(--equi-display); font-weight:700; font-size:clamp(1.8rem,4vw,2.6rem);
+  h1{ margin:0; font-family:var(--equi-display); font-weight:700; font-size:clamp(1.8rem,4vw,2.6rem);
       background:var(--gold-shine); -webkit-background-clip:text; background-clip:text; color:transparent; letter-spacing:.5px; }
-  #view .tagline{ color:var(--dim); margin:2px 0 0; font-family:'Caveat',cursive; font-size:1.3rem; }
-  /* nav layout lives in equi-shell.css (.equi-hd__nav) */
-  #nav .tab, #view .tab{ padding:9px 18px; border:1px solid var(--line); border-bottom:none;
+  .tagline{ color:var(--dim); margin:2px 0 0; font-family:'Caveat',cursive; font-size:1.3rem; }
+  nav{ display:flex; gap:4px; flex-wrap:wrap; margin-top:14px; }
+  .tab{ padding:9px 18px; border:1px solid var(--line); border-bottom:none;
         border-radius:8px 8px 0 0; cursor:pointer; background:#1e1610; color:var(--dim);
         font-family:var(--equi-display); font-size:.98em; letter-spacing:.02em; }
-  #nav .tab.active, #view .tab.active{ background:var(--gold-shine); color:#241a14; font-weight:700; }
+  .tab.active{ background:var(--gold-shine); color:#241a14; font-weight:700; }
 
   .card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px; margin:16px 0;
          box-shadow:0 2px 14px rgba(0,0,0,.25), inset 0 0 0 1px rgba(201,168,76,.07); }
@@ -952,8 +952,29 @@ function memberHref(uid){ return "?player=" + encodeURIComponent(uid); }
 // existing profiles load unchanged.
 let __memberEdit = { on:false, links:null };
 
+// The frames members can pick for their avatar / portraits. Styles live in
+// equi-shell.css so the tracker can offer exactly the same set.
+const EQUI_FRAMES = [
+  ["none","No frame"], ["brass","Brass"], ["rope","Rope"], ["ribbon","Ribbon"],
+  ["rosette","Rosette"], ["plaque","Plaque"], ["moss","Moss"], ["plum","Plum"],
+  ["vignette","Vignette"], ["polaroid","Polaroid"],
+];
+function frameClass(name){
+  const ok = EQUI_FRAMES.some(f=>f[0]===name);
+  return "equi-frame equi-frame--" + (ok ? name : "none");
+}
+// Wrap an image in the member's chosen frame.
+function framedImg(url, frame, size, caption){
+  const px = size || 160;
+  if(!url) return `<div class="${frameClass(frame)}" style="width:${px}px;height:${px}px;">
+      <div style="width:100%;height:100%;border-radius:inherit;background:var(--deep);display:flex;align-items:center;justify-content:center;font-size:2.6em;">&#128100;</div></div>`;
+  return `<div class="${frameClass(frame)}" style="width:${px}px;height:${px}px;"${caption?` data-caption="${__esc(caption)}"`:''}>
+    <img src="${__esc(url)}" referrerpolicy="no-referrer" alt="" onerror="this.style.visibility='hidden'" /></div>`;
+}
+
 function newHubProfile(){
-  return { displayName:"", pronouns:"", avatar:"", discord:"", bio:"", links:[], joinedAt:"" };
+  return { displayName:"", pronouns:"", avatar:"", discord:"", bio:"", about:"",
+           frame:"none", customCss:"", links:[], joinedAt:"" };
 }
 
 async function saveMemberProfile(uid, prof){
@@ -987,12 +1008,42 @@ function renderMemberEditor(v, uid, p){
       <label for="mp_discord">Discord (username or invite/profile link)</label>
       <input id="mp_discord" value="${__esc(p.discord||'')}" placeholder="yourname" />
 
-      <label for="mp_bio">Bio (optional)</label>
-      <textarea id="mp_bio" style="min-height:110px;">${__esc(p.bio||'')}</textarea>
+      <label for="mp_frame">Portrait frame</label>
+      <select id="mp_frame">${EQUI_FRAMES.map(f=>`<option value="${f[0]}"${(p.frame||'none')===f[0]?' selected':''}>${f[1]}</option>`).join("")}</select>
+      <div id="mp_frame_prev" style="margin-top:8px;"></div>
 
-      <label>Links (DeviantArt, Toyhouse, etc.)</label>
+      <label for="mp_bio">Tagline <span class="small muted">(one line, shown under your name)</span></label>
+      <input id="mp_bio" value="${__esc(p.bio||'')}" placeholder="Artist, horse hoarder, perpetual WIP" />
+
+      <label for="mp_about">About me <span class="small muted">(the long version — basic HTML and images allowed)</span></label>
+      <textarea id="mp_about" style="min-height:200px;font-family:var(--equi-mono);font-size:.9em;" placeholder="Write about yourself…
+
+You can use simple HTML:
+  &lt;p&gt;a paragraph&lt;/p&gt;
+  &lt;b&gt;bold&lt;/b&gt;  &lt;i&gt;italic&lt;/i&gt;
+  &lt;img src=&quot;https://…/picture.png&quot;&gt;
+  &lt;h3&gt;a heading&lt;/h3&gt;
+
+Scripts, iframes and forms are stripped for everyone's safety.">${__esc(p.about||'')}</textarea>
+      <div class="small muted" style="margin-top:4px;">Images need a <b>direct link</b> to the file (ending .png/.jpg/.gif), same as everywhere else on the site.</div>
+
+      <label>Links (DeviantArt, Toyhouse, Instagram, Bluesky, etc.)</label>
       <div id="mp_links"></div>
       <button class="ghost" id="mp_addlink" style="margin-top:6px;">+ Add link</button>
+
+      ${isPremiumMember(uid) ? `
+      <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px;">
+        <label for="mp_css">Custom CSS <span class="small" style="color:var(--accent);">&#9733; Premium</span></label>
+        <div class="small muted" style="margin:2px 0 6px;">Prefix your selectors with <code>.profile-custom</code> — the same way
+          shop CSS works — so your styling stays on your profile and can't reach the rest of the site. Google Fonts
+          <code>@import</code> is allowed; scripts and other imports are stripped.
+          <br>Hooks you can target: <code>.profile-head</code>, <code>.profile-tagline</code>,
+          <code>.profile-links</code>, <code>.profile-about</code>, <code>.profile-about-body</code>, <code>.card</code>.</div>
+        <textarea id="mp_css" rows="10" style="font-family:var(--equi-mono);font-size:.9em;" placeholder=".profile-custom .profile-head{ background:#20160f; }&#10;.profile-custom .profile-tagline{ color:#e8c97a; }&#10;.profile-custom .profile-about-body{ line-height:1.8; }">${__esc(p.customCss||'')}</textarea>
+      </div>` : `
+      <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px;">
+        <div class="small muted">&#9733; <b>Custom CSS</b> is a premium perk — premium members can restyle their profile page.</div>
+      </div>`}
 
       <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <button class="btn" id="mp_save">Save profile</button>
@@ -1001,7 +1052,14 @@ function renderMemberEditor(v, uid, p){
       </div>
     </div>`;
 
+  function drawFramePreview(){
+    const host=v.querySelector('#mp_frame_prev'); if(!host) return;
+    const url=(v.querySelector('#mp_avatar')||{value:''}).value.trim();
+    const fr=(v.querySelector('#mp_frame')||{value:'none'}).value;
+    host.innerHTML = framedImg(url, fr, 140, (v.querySelector('#mp_name')||{value:''}).value.trim() || uid);
+  }
   function drawPreview(){
+    drawFramePreview();
     const url=v.querySelector('#mp_avatar').value.trim();
     v.querySelector('#mp_avatar_prev').innerHTML = url
       ? `<img src="${__esc(url)}" referrerpolicy="no-referrer" onerror="this.style.display='none'"
@@ -1021,6 +1079,7 @@ function renderMemberEditor(v, uid, p){
   }
   drawPreview(); drawLinks();
   v.querySelector('#mp_avatar').oninput = drawPreview;
+  const fsel=v.querySelector('#mp_frame'); if(fsel) fsel.onchange = drawFramePreview;
   v.querySelector('#mp_addlink').onclick = ()=>{ links.push({label:"",url:""}); drawLinks(); };
   v.querySelector('#mp_cancel').onclick  = ()=>{ __memberEdit={on:false,links:null}; renderMemberProfile(v, uid); };
 
@@ -1033,6 +1092,9 @@ function renderMemberEditor(v, uid, p){
       avatar:      v.querySelector('#mp_avatar').value.trim(),
       discord:     v.querySelector('#mp_discord').value.trim(),
       bio:         v.querySelector('#mp_bio').value.trim(),
+      about:       (v.querySelector('#mp_about')||{value:p.about||''}).value,
+      frame:       (v.querySelector('#mp_frame')||{value:p.frame||'none'}).value,
+      customCss:   isPremiumMember(uid) ? (v.querySelector('#mp_css')||{value:''}).value : (p.customCss||''),
       links: links.filter(l=>(l.label||l.url)).map(l=>({label:(l.label||'').trim(), url:(l.url||'').trim()})),
       joinedAt: p.joinedAt || new Date().toISOString(),
     };
@@ -1089,18 +1151,26 @@ async function renderMemberProfile(v, uid){
        <span class="small muted">${r.pp?`${r.pp} PP`:''}</span></span>
      </a>`).join("") : '<span class="small muted">No riders yet.</span>';
 
+  const premium = isPremiumMember(uid);
+  const customCss = (premium && p.customCss) ? sanitizeShopCss(p.customCss) : "";
+  const aboutHtml = p.about ? sanitizeShopHtml(p.about) : "";
+
   v.innerHTML = `
-    <div class="card">
-      <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;">
-        ${avatar}
-        <div style="flex:1;min-width:240px;">
+    ${customCss ? `<style>${customCss}</style>` : ""}
+    <div class="profile-custom">
+
+    <div class="card profile-head">
+      <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
+        ${framedImg(p.avatar, p.frame, 190, name)}
+        <div style="flex:1;min-width:250px;">
           <h2 style="margin:0;">${__esc(name)}${premiumBadge(uid)}</h2>
-          <div class="small muted">${__esc(uid)}${p.pronouns?` · ${__esc(p.pronouns)}`:''}</div>
-          ${p.bio?`<p style="white-space:pre-wrap;margin:10px 0 0;">${__esc(p.bio)}</p>`:''}
-          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            ${discord} ${links}
+          <div class="small muted">${__esc(uid)}${p.pronouns?` &middot; ${__esc(p.pronouns)}`:''}</div>
+          ${p.bio?`<p class="profile-tagline" style="margin:8px 0 0;font-family:'Caveat',cursive;font-size:1.25rem;color:var(--dim);">${__esc(p.bio)}</p>`:''}
+          <div class="profile-links" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            ${discord}
+            ${links}
           </div>
-          <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+          <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
             ${isSelf
               ? `<button class="btn" data-member-edit>Edit my profile</button>`
               : `<button class="btn" data-msg-to="${__esc(uid)}">Send a message</button>`}
@@ -1118,6 +1188,15 @@ async function renderMemberProfile(v, uid){
     <div class="card">
       <h3 style="margin-top:0;">Riders <span class="small muted">(${theirs.length})</span></h3>
       <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">${riderList}</div>
+    </div>
+
+    <div class="card profile-about">
+      <h3 style="margin-top:0;">About ${__esc(name)}</h3>
+      ${aboutHtml
+        ? `<div class="profile-about-body">${aboutHtml}</div>`
+        : `<div class="small muted">${isSelf ? "Nothing here yet — use <b>Edit my profile</b> to write about yourself. You can embed images." : "This member hasn't written anything yet."}</div>`}
+    </div>
+
     </div>`;
 
   const ed = v.querySelector('[data-member-edit]');
@@ -2122,7 +2201,7 @@ function renderNav(){
     return `<div class="tab ${t===tab?'active':''}" data-tab="${t}">${t}${badge}</div>`;
   }).join("")
     + `<span class="equi-hd__user">
-         <a class="small member-link" href="?player=${encodeURIComponent(who?who.userId:'')}">${esc(who?who.userId:'')}</a>
+         <span class="small">${esc(who?who.userId:'')}</span>
          <a class="ghost" href="?player=${encodeURIComponent(who?who.userId:'')}">My Profile</a>
          <button class="ghost" id="navOut">Sign out</button>
        </span>`;

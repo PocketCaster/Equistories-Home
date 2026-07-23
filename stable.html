@@ -1984,6 +1984,46 @@ async function editArtLogImage(h, entryId){
   if(!ok) alert("The entry updated here, but saving to the database failed. Try again — if it keeps happening, sign out and sign back in.");
 }
 
+// ---- editing an existing log entry ----------------------------------------
+// The old "Edit Training Entry" modal only exposed a handful of fields (and
+// still carried the pre-Rider-PP checkbox), so a mistake in the stats, the
+// training type or the Prestige meant deleting and re-logging. Instead, Edit
+// now reopens the ENTRY in the real form — Training or Competitions — with
+// everything filled in. Saving removes the original (reversing its EXP, stats
+// and rider PP through the same path Delete uses) and logs the corrected one.
+let editingLogEntry = null;   // { horseId, entryId, type }
+
+function beginEditLogEntry(horseId, entryId){
+  const h = state.horses.find(x=>x.id===horseId);
+  const e = h && (h.artLog||[]).find(x=>x.id===entryId);
+  if(!h || !e){ alert("Couldn't find that entry."); return; }
+  editingLogEntry = { horseId, entryId, type: e.type || 'training' };
+  activeTab = (e.type === 'competition') ? 'compete' : 'train';
+  render();
+  setTimeout(()=>{ const c=document.querySelector('#tr_go, #cs_go'); if(c) c.scrollIntoView({behavior:'smooth', block:'center'}); }, 60);
+}
+function cancelEditLogEntry(){ editingLogEntry = null; render(); }
+
+// Strip the original before re-logging. Same reversal Delete performs, minus
+// the save/render (the caller is mid-save and will do both).
+function consumeEditedEntry(){
+  if(!editingLogEntry) return null;
+  const {horseId, entryId} = editingLogEntry;
+  const h = state.horses.find(x=>x.id===horseId);
+  if(h){
+    const idx=(h.artLog||[]).findIndex(e=>e.id===entryId);
+    if(idx>-1){
+      removeRiderPPForSource(entryId);
+      h.artLog.splice(idx,1);
+      if(h.compHistory) h.compHistory = h.compHistory.filter(r=>r.artLogId!==entryId);
+      recomputeHorse(h);
+    }
+  }
+  const was = editingLogEntry;
+  editingLogEntry = null;
+  return was;
+}
+
 function deleteArtLogEntry(h, entryId){
   const idx=(h.artLog||[]).findIndex(e=>e.id===entryId);
   if(idx===-1) return;
@@ -3324,6 +3364,10 @@ function bindRiderEntryForm(scope){
 // pre-filled. Updates the entry in place (the stable now saves by id, so no
 // duplicate row), recomputes its EXP from art type + bonuses + lit, and lets you
 // toggle whether the horse's rider is featured (grants/removes PP).
+// NO LONGER USED — Edit now reopens the entry in the real Training /
+// Competitions form (see beginEditLogEntry). Kept only so nothing that might
+// still reference it breaks; safe to delete once you're happy with the new
+// flow. This is where the outdated "Rider featured here (+1)" checkbox lived.
 function showTrainingEditModal(horse, entryId){
   const e=(horse.artLog||[]).find(x=>x.id===entryId);
   if(!e) return;
@@ -3696,9 +3740,29 @@ function renderRoster(){
             ${r.venue?`<span class="small" style="margin-left:6px;">${r.venue}${r.date?` · ${r.date}`:""}</span>`:(r.date?`<span class="small" style="margin-left:6px;">${r.date}</span>`:"")}
             ${r.note?`<div class="small" style="margin-top:2px;opacity:.8;">${r.note}</div>`:""}
           </div>`).join("");
+    // Gallery view: images keep their own aspect ratio in a masonry column
+    // layout instead of being cropped to a fixed thumbnail.
+    const galleryItems = (h.artLog||[]).filter(e=>e.image).map(e=>`
+      <div class="equi-gitem">
+        <img src="${escAttr(e.image)}" loading="lazy" referrerpolicy="no-referrer"
+             data-lightbox="${escAttr(e.image)}" data-caption="${escAttr(e.label||'')}"
+             style="cursor:zoom-in;" onerror="this.closest('.equi-gitem').style.display='none'" />
+        <div class="equi-gcap">
+          <b>${escAttr(e.label||'Untitled')}</b>
+          ${e.type==='competition'&&e.placement?` <span class="tag">${["1st","2nd","3rd","4th","5th","6th"][e.placement-1]||e.placement+"th"}</span>`:''}
+          <span class="tag">+${e.exp||0} EXP</span>
+          ${e.featuredRiderId?' <span class="tag">\u2605 rider</span>':''}
+          <div style="margin-top:4px;">
+            <span data-act="edit-training" data-id="${h.id}" data-entry="${e.id}" style="cursor:pointer;color:var(--equi-accent);font-weight:bold;">Edit</span>
+            <span data-act="delete-artlog" data-id="${h.id}" data-entry="${e.id}" style="cursor:pointer;color:var(--equi-rust);font-weight:bold;margin-left:8px;">&#10005; Delete</span>
+          </div>
+        </div>
+      </div>`).join("");
+
     const artLogHtml = open ? `
+      ${galleryItems ? `<div class="equi-gallery" style="margin-top:10px;">${galleryItems}</div>` : ''}
       <div class="artlog-panel">
-        ${(h.artLog.length || showOnly.length) ? (h.artLog.map(e=>`
+        ${(h.artLog.length || showOnly.length) ? (h.artLog.filter(e=>!e.image).map(e=>`
           <div class="artlog-entry">
             ${e.image?`<img src="${e.image}" class="artlog-thumb" data-lightbox="${e.image}" data-caption="${e.label}" style="cursor:zoom-in;" />`:""}
             <b>${e.label}</b> ${e.type==="competition"&&e.placement?`<span class="tag">${["1st","2nd","3rd","4th","5th","6th"][e.placement-1]||e.placement+"th"}</span>`:""}
@@ -3830,8 +3894,7 @@ function renderRoster(){
   });
   wrap.querySelectorAll('[data-act="view-profile"]').forEach(b=>b.onclick=()=>goToProfile(b.dataset.id));
   wrap.querySelectorAll('[data-act="edit-training"]').forEach(b=>b.onclick=()=>{
-    const h=state.horses.find(x=>x.id===b.dataset.id);
-    if(h) showTrainingEditModal(h, b.dataset.entry);
+    beginEditLogEntry(b.dataset.id, b.dataset.entry);
   });
   wrap.querySelectorAll('[data-act="delete-artlog"]').forEach(b=>b.onclick=()=>{
     const h=state.horses.find(x=>x.id===b.dataset.id);
@@ -5147,6 +5210,52 @@ function renderTraining(){
     }catch(err){ box.textContent=''; }
   };
   // Add / remove rows of the sheet breakdown.
+  // If we arrived here via Edit, load the entry into this form.
+  (function prefillFromEdit(){
+    if(!editingLogEntry || editingLogEntry.type==='competition') return;
+    const h = state.horses.find(x=>x.id===editingLogEntry.horseId);
+    const e = h && (h.artLog||[]).find(x=>x.id===editingLogEntry.entryId);
+    if(!h || !e) { editingLogEntry=null; return; }
+
+    const set=(sel,val)=>{ const el=card.querySelector(sel); if(el && val!=null) el.value=val; };
+    set('#tr_horse', h.id);
+    set('#tr_image_url', e.image||'');
+    set('#tr_link', e.link||'');
+    set('#tr_lit', (e.lit||'').replace(/[^0-9]/g,'') || '');
+    if(e.label) set('#tr_cb_label', e.label);
+
+    // rebuild the sheet breakdown
+    const rowsHost=card.querySelector('#tr_artrows');
+    if(rowsHost){
+      const rows = (e.artMix && e.artMix.length) ? e.artMix
+                 : (e.art ? [{art:e.art, n:1}] : []);
+      rowsHost.innerHTML = rows.length
+        ? rows.map((r,i)=>artRowHTML(r.art, r.n, i>0)).join("")
+        : artRowHTML("",1,false);
+    }
+    // bonus pills
+    selectedBonuses = new Set(e.bonuses||[]);
+    card.querySelectorAll('[data-bonus]').forEach(p=>{
+      p.classList.toggle('active', selectedBonuses.has(p.dataset.bonus));
+    });
+    // featured rider
+    const rsel=card.querySelector('.rpp_rider');
+    if(rsel && e.featuredRiderId) rsel.value = e.featuredRiderId;
+
+    // make it obvious this is an edit, and offer a way out
+    const btn=card.querySelector('#tr_go');
+    if(btn) btn.textContent = '\u2713 Save changes to this entry';
+    const banner=document.createElement('div');
+    banner.className='result';
+    banner.style.cssText='margin-top:10px;border-color:var(--equi-accent);color:var(--equi-accent);display:flex;gap:10px;align-items:center;flex-wrap:wrap;';
+    banner.innerHTML = `<span style="flex:1;">Editing an existing entry for <b>${escAttr(h.name)}</b>${e.label?` — ${escAttr(e.label)}`:''}. Saving replaces it and recalculates EXP, stats and Prestige.</span>
+      <button type="button" class="secondary" id="tr_cancel_edit" style="margin:0;padding:4px 12px;">Cancel edit</button>`;
+    card.insertBefore(banner, card.firstChild.nextSibling);
+    const cx=banner.querySelector('#tr_cancel_edit');
+    if(cx) cx.onclick=()=>cancelEditLogEntry();
+    setTimeout(()=>{ try{ recalcTrTotal(); }catch(err){} }, 0);
+  })();
+
   const addArtBtn=card.querySelector('#tr_add_art');
   if(addArtBtn) addArtBtn.onclick=()=>{
     const rows=card.querySelector('#tr_artrows');
@@ -5167,6 +5276,9 @@ function renderTraining(){
   recalcTrTotal();
 
   card.querySelector('#tr_go').onclick=async()=>{
+    // Replacing an entry: reverse the original before logging the new one, so
+    // EXP, stats and rider Prestige are recalculated rather than stacked.
+    const wasEditing = consumeEditedEntry();
     const hId=card.querySelector('#tr_horse').value;
     const h=state.horses.find(x=>x.id===hId);
     const tId=card.querySelector('#tr_type').value;
@@ -5577,6 +5689,46 @@ function buildShowLogForm(){
       }
     }catch(err){ box.textContent=''; }
   };
+  // Arrived here via Edit on a show entry — load it into this form.
+  (function prefillShowFromEdit(){
+    if(!editingLogEntry || editingLogEntry.type!=='competition') return;
+    const h = state.horses.find(x=>x.id===editingLogEntry.horseId);
+    const e = h && (h.artLog||[]).find(x=>x.id===editingLogEntry.entryId);
+    if(!h || !e){ editingLogEntry=null; return; }
+    const rec = (h.compHistory||[]).find(r=>r.artLogId===e.id) || {};
+
+    const set=(sel,val)=>{ const el=card.querySelector(sel); if(el && val!=null && val!=='') el.value=val; };
+    set('#cs_horse', h.id);
+    set('#cs_disc',  rec.discipline || e.discipline || '');
+    set('#cs_venue', rec.venue || '');
+    set('#cs_date',  rec.date || '');
+    set('#cs_place', rec.placement || e.placement || '');
+    set('#cs_note',  rec.note || '');
+    set('#cs_art_url', e.image || '');
+    set('#cs_lit', (e.lit||'').replace(/[^0-9]/g,'') || '');
+    if(e.label) set('#cs_cb_label', e.label);
+
+    const rowsHost=card.querySelector('#cs_artrows');
+    if(rowsHost){
+      const rows = (e.artMix && e.artMix.length) ? e.artMix : (e.art ? [{art:e.art, n:1}] : []);
+      rowsHost.innerHTML = rows.length ? rows.map((r,i)=>artRowHTML(r.art, r.n, i>0)).join("")
+                                       : artRowHTML("",1,false);
+    }
+    const rsel=card.querySelector('.rpp_rider');
+    if(rsel && e.featuredRiderId) rsel.value = e.featuredRiderId;
+
+    const btn=card.querySelector('#cs_go');
+    if(btn) btn.textContent = '\u2713 Save changes to this show';
+    const banner=document.createElement('div');
+    banner.className='result';
+    banner.style.cssText='margin-top:10px;border-color:var(--equi-accent);color:var(--equi-accent);display:flex;gap:10px;align-items:center;flex-wrap:wrap;';
+    banner.innerHTML = `<span style="flex:1;">Editing a logged show for <b>${escAttr(h.name)}</b>${rec.venue?` — ${escAttr(rec.venue)}`:''}. Saving replaces it and recalculates EXP and Prestige.</span>
+      <button type="button" class="secondary" id="cs_cancel_edit" style="margin:0;padding:4px 12px;">Cancel edit</button>`;
+    card.insertBefore(banner, card.firstChild.nextSibling);
+    const cx=banner.querySelector('#cs_cancel_edit');
+    if(cx) cx.onclick=()=>cancelEditLogEntry();
+  })();
+
   const csAddArt=card.querySelector('#cs_add_art');
   if(csAddArt) csAddArt.onclick=()=>{
     card.querySelector('#cs_artrows').insertAdjacentHTML('beforeend', artRowHTML("",1,true));
@@ -5594,6 +5746,8 @@ function buildShowLogForm(){
   recalcCsTotal();
 
   card.querySelector('#cs_go').onclick=async()=>{
+    // Replacing a logged show: reverse the original first.
+    consumeEditedEntry();
     const hId=card.querySelector('#cs_horse').value;
     const h=state.horses.find(x=>x.id===hId);
     const disc=card.querySelector('#cs_disc').value;
@@ -6049,8 +6203,7 @@ function renderArtLog(){
     img.onclick=e=>{ e.stopPropagation(); openLightbox(img.dataset.lightbox, img.dataset.caption); };
   });
   wrap.querySelectorAll('[data-act="edit-training"]').forEach(b=>b.onclick=()=>{
-    const h=state.horses.find(x=>x.id===b.dataset.id);
-    if(h) showTrainingEditModal(h, b.dataset.entry);
+    beginEditLogEntry(b.dataset.id, b.dataset.entry);
   });
   wrap.querySelectorAll('[data-act="delete-artlog"]').forEach(b=>b.onclick=()=>{
     const h=state.horses.find(x=>x.id===b.dataset.id);
