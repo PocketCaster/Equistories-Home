@@ -26,7 +26,6 @@
       <div class="equi-hd__words">
         <h1 class="equi-hd__title">EquiStories</h1>
         <p class="equi-hd__tagline">Your horses, riders, training, shows and inventory.</p>
-        <div class="equi-hd__apps"><a class="equi-hd__app" href="index.html">Community</a><a class="equi-hd__app is-here" href="stable.html">Stable Manager</a><a class="equi-hd__app" href="shows.html">Shows</a></div>
       </div>
     </div>
     <nav id="nav" class="equi-hd__nav"></nav>
@@ -259,7 +258,7 @@ window.addEventListener('error', function(ev){
     if(app && !app.hasChildNodes()){
       app.innerHTML='<div style="font-family:var(--equi-serif);color:var(--equi-text);background:var(--equi-panel);border:1px solid var(--equi-accent);border-radius:8px;max-width:640px;margin:40px auto;padding:20px;">'
         +'<h3 style="color:var(--equi-accent);margin-top:0;">The app hit an error while starting</h3>'
-        +'<div style="font-family:monospace;font-size:.9em;background:var(--equi-ink);padding:10px;border-radius:6px;overflow:auto;">'+String(ev.message||ev.error||'Unknown error')+'</div>'
+        +'<div style="font-family:var(--equi-mono);font-size:.9em;background:var(--equi-ink);padding:10px;border-radius:6px;overflow:auto;">'+String(ev.message||ev.error||'Unknown error')+'</div>'
         +'<p>Try reloading the page. If it keeps happening, send the error above to the admin.</p>'
         +'<p><a href="javascript:location.reload()" style="color:var(--equi-accent);font-weight:bold;">↻ Reload the page</a></p></div>';
     }
@@ -458,7 +457,7 @@ function riderPPBlockHtml(prefix, mode, horse){
         <div class="pill-select rpp_opts">${pills(RIDER_PP_ART_ADDON)}</div>
       </div>
       <div style="margin-top:12px;">
-        <div class="small" style="font-weight:bold;color:#8ec98e;">📖 Literature-Based PP <span style="font-weight:normal;opacity:.75;">— counted per submission</span></div>
+        <div class="small" style="font-weight:bold;color:var(--equi-good-soft);">📖 Literature-Based PP <span style="font-weight:normal;opacity:.75;">— counted per submission</span></div>
         <div class="small" style="opacity:.7;margin:2px 0 4px;">Anything written about your rider's life — solo pieces or lit attached to an image.</div>
         <div class="small" style="opacity:.85;">Base:</div>
         <div class="pill-select rpp_opts">${pills(RIDER_PP_LIT_BASE)}</div>
@@ -466,7 +465,7 @@ function riderPPBlockHtml(prefix, mode, horse){
         <div class="pill-select rpp_opts">${pills(RIDER_PP_LIT_ADDON)}</div>
       </div>
       ${mode==='competition' ? `<div style="margin-top:12px;">
-        <div class="small" style="font-weight:bold;color:#d2b25a;">🏆 Show results:</div>
+        <div class="small" style="font-weight:bold;color:var(--equi-warn);">🏆 Show results:</div>
         <div class="pill-select rpp_opts">${pills(RIDER_PP_SHOW)}</div>
       </div>` : ``}
       <div style="margin-top:12px;">
@@ -833,13 +832,13 @@ function escAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/
 function imgUrlLoadError(img){
   const div=document.createElement('div');
   div.className='small';
-  div.style.cssText='color:#c9605a;padding:6px;border:1px dashed #c9605a;border-radius:6px;';
+  div.style.cssText='color:var(--equi-bad);padding:6px;border:1px dashed var(--equi-bad);border-radius:6px;';
   div.textContent="⚠ Couldn't load this as an image — you likely copied the artwork's page link rather than the direct image file link. See the note at the top of the app for how to get the right one.";
   img.replaceWith(div);
 }
 function imgUrlLoadErrorCompact(img){
   const div=document.createElement('div');
-  div.style.cssText='width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:1.3em;border:1px dashed #c9605a;border-radius:5px;flex:none;';
+  div.style.cssText='width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:1.3em;border:1px dashed var(--equi-bad);border-radius:5px;flex:none;';
   div.title="Couldn't load — this looks like a page link, not a direct image link.";
   div.textContent='⚠';
   img.replaceWith(div);
@@ -2140,13 +2139,12 @@ function render(){
   }
 
   app.innerHTML=`
-    <div style="text-align:center;margin-bottom:8px;">
-      <img src="${LOGO_DATA_URL}" alt="EquiStories" style="max-width:min(320px,70vw);height:auto;" />
-    </div>
-    <h1 style="text-align:center;border-bottom:none;">EquiStories Art Tracker</h1>
+    <!-- Crest and wordmark live in the site header now, so they are not
+         repeated here. The signed-out login screen below still shows the
+         large logo, since that page is the front door. -->
     <details ${imageLinkHelpOpen?"open":""} id="imgHelpBox" style="background:var(--equi-panel);border:1px solid var(--equi-line);border-radius:8px;padding:10px 14px;margin-bottom:14px;">
-      <summary style="cursor:pointer;color:var(--equi-accent);font-weight:bold;">How to add show art, prize photos & art log images (click to expand)</summary>
-      <div class="small" style="margin-top:10px;line-height:1.5;color:#d8c8b8;">
+      <summary style="cursor:pointer;color:var(--equi-accent);font-family:var(--equi-display);font-weight:600;">How to add show art, prize photos & art log images (click to expand)</summary>
+      <div style="margin-top:10px;line-height:1.65;color:var(--equi-text);font-size:.96em;">
         Show art, prize/ribbon photos, art log images, profile photos, reference sheets, and tack item photos are all added by <b>pasting a direct link to the image</b> — not by uploading a file.
         <br><br>
         <b>The link has to point straight at the image file itself, not the page it's posted on.</b> A page link like <code>deviantart.com/user/art/Title-12345</code> won't preview or save correctly — you need the actual image address, which usually ends in <code>.jpg</code>, <code>.png</code>, or <code>.gif</code>.
@@ -2163,10 +2161,7 @@ function render(){
         <div class="tab${activeTab===t?' active':''}" data-tab="${t}">
           ${t==="roster"?"Stable Roster":t==="riders"?"Riders":t==="prestige"?"Rider Prestige":t==="train"?"Training":t==="compete"?"Competitions":t==="tack"?"Inventory":t==="breeding"?"Breeding":"Admin"}
         </div>`).join("")}
-      <div style="flex:1;"></div>
-      <span class="small" style="color:var(--dim);margin-right:6px;">${memberLink(bankAccount.userId)}</span>
-      <button id="btn_myprofile" class="secondary" style="font-size:.98em;padding:4px 10px;margin-top:0;">My Profile${inboxUnreadCount()?` <span style="background:var(--equi-accent);color:#1c1510;border-radius:9px;padding:0 6px;font-weight:bold;font-size:.85em;">${inboxUnreadCount()}</span>`:''}</button>
-      <button id="btn_signout" class="secondary" style="font-size:.98em;padding:4px 10px;margin-top:0;">Sign Out</button>
+      <!-- Name, My Profile and Sign out live in the site header now. -->
     </div>
     <div id="tab-content"></div>
   `;
@@ -2285,7 +2280,7 @@ function renderLoginScreen(app){
     </div>
     <h1 style="text-align:center;border-bottom:none;">EquiStories Art Tracker</h1>
     <div style="max-width:460px;margin:clamp(16px,6vh,40px) auto;background:var(--equi-panel);border:1px solid var(--equi-line);border-radius:8px;padding:clamp(16px,4vw,20px);">
-      ${!stableSet?'<div style="background:rgba(177,71,63,.15);border:1px solid var(--equi-bad);border-radius:6px;padding:8px;margin-bottom:10px;font-size:1.02em;color:#e08080;">&#9888; Stable Data URL not configured — expand Admin section below first.</div>':""}
+      ${!stableSet?'<div style="background:rgba(177,71,63,.15);border:1px solid var(--equi-bad);border-radius:6px;padding:8px;margin-bottom:10px;font-size:1.02em;color:var(--equi-bad-soft);">&#9888; Stable Data URL not configured — expand Admin section below first.</div>':""}
       ${body}
       <div id="li_result" style="margin-top:8px;"></div>
       <hr style="border:none;border-top:1px solid var(--equi-line);margin:16px 0;" />
@@ -2337,22 +2332,22 @@ function renderLoginScreen(app){
 
     if(mode==='forgot'){
       const email=app.querySelector('#li_email').value.trim();
-      if(!email){ say('Enter your email.','#e08080'); go.disabled=false; return; }
+      if(!email){ say('Enter your email.','var(--equi-bad-soft)'); go.disabled=false; return; }
       say('Sending…','var(--equi-dim)');
       const r = await window.EquiAuth.resetPassword(email);
       go.disabled=false;
       if(r.success) say('✓ Check your email for a reset link. It may take a minute, and check spam.','var(--equi-good)');
-      else say('✗ '+r.error,'#e08080');
+      else say('✗ '+r.error,'var(--equi-bad-soft)');
       return;
     }
 
     const email=app.querySelector('#li_email').value.trim();
     const pass =app.querySelector('#li_pass').value;
-    if(!email||!pass){ say('Enter your email and password.','#e08080'); go.disabled=false; return; }
+    if(!email||!pass){ say('Enter your email and password.','var(--equi-bad-soft)'); go.disabled=false; return; }
     say(mode==='signup'?'Creating your account…':'Signing in…','var(--equi-dim)');
     const r = mode==='signup' ? await window.EquiAuth.signUp(email,pass) : await window.EquiAuth.signIn(email,pass);
     go.disabled=false;
-    if(!r.success){ say('✗ '+r.error,'#e08080'); return; }
+    if(!r.success){ say('✗ '+r.error,'var(--equi-bad-soft)'); return; }
     await afterAuth();
   };
 
@@ -2361,7 +2356,7 @@ function renderLoginScreen(app){
   if(mode==='link' && linkBtn) linkBtn.onclick = async()=>{
     const userId=app.querySelector('#li_user').value.trim();
     const oldPass=app.querySelector('#li_oldpass').value;
-    if(!userId||!oldPass){ say('Enter your old User ID and password.','#e08080'); return; }
+    if(!userId||!oldPass){ say('Enter your old User ID and password.','var(--equi-bad-soft)'); return; }
     linkBtn.disabled=true; say('Linking…','var(--equi-dim)');
     const token = await window.EquiAuth.token();
     const r = await gasPost({ action:'linkFirebaseAccount', idToken:token, userId, password:oldPass });
@@ -2372,13 +2367,13 @@ function renderLoginScreen(app){
       await upgradeToOwnerSession();
       say(`✓ Linked! Welcome back, ${r.data.displayName} — ฿${r.data.balance} intact. Loading…`,'var(--equi-good)');
       await loadFromSheets(); render();
-    } else say('✗ '+(r?.error||'Could not link that account.'),'#e08080');
+    } else say('✗ '+(r?.error||'Could not link that account.'),'var(--equi-bad-soft)');
   };
 
   const newBtn = app.querySelector('#li_new');
   if(newBtn) newBtn.onclick = async()=>{
     const userId=app.querySelector('#li_newid').value.trim();
-    if(!userId){ say('Pick a User ID.','#e08080'); return; }
+    if(!userId){ say('Pick a User ID.','var(--equi-bad-soft)'); return; }
     newBtn.disabled=true; say('Creating your stable…','var(--equi-dim)');
     const token = await window.EquiAuth.token();
     const r = await gasPost({ action:'registerFirebaseAccount', idToken:token, userId, displayName:userId });
@@ -2388,7 +2383,7 @@ function renderLoginScreen(app){
       saveBankAccount();
       say(`✓ Welcome to EquiStories, ${r.data.displayName}! You start with ฿${r.data.balance}.`,'var(--equi-good)');
       await loadFromSheets(); render();
-    } else say('✗ '+(r?.error||'Could not create that account.'),'#e08080');
+    } else say('✗ '+(r?.error||'Could not create that account.'),'var(--equi-bad-soft)');
   };
 
   const adminUnlockBtn = app.querySelector('#li_admin_unlock');
@@ -2400,7 +2395,7 @@ function renderLoginScreen(app){
         adminPanelUnlocked = true;
         renderLoginScreen(app);
       } else {
-        res.innerHTML='<span style="color:#e08080;">Incorrect admin passcode.</span>';
+        res.innerHTML='<span style="color:var(--equi-bad-soft);">Incorrect admin passcode.</span>';
       }
     };
     adminUnlockBtn.onclick = doUnlock;
@@ -2555,13 +2550,13 @@ function attireHtml(rider){
     const cap=`${item.name} · ${item.category}`;
     if(item.image){
       return `<div style="display:inline-flex;flex-direction:column;align-items:center;gap:4px;width:96px;">
-        <img src="${item.image}" style="width:96px;height:96px;object-fit:contain;cursor:zoom-in;border:1px solid #6a4a8a;border-radius:6px;background:var(--equi-ink);"
+        <img src="${item.image}" style="width:96px;height:96px;object-fit:contain;cursor:zoom-in;border:1px solid var(--equi-plum);border-radius:6px;background:var(--equi-ink);"
              onclick="openLightbox('${jsStr(item.image)}','${jsStr(item.name)}')" />
         <div class="small" style="text-align:center;color:var(--equi-accent-2);">${item.name}</div>
         <span data-ract="unequip-attire" data-id="${rider.id}" data-attire="${item.id}" style="cursor:pointer;color:var(--equi-rust);font-size:.85em;">remove</span>
       </div>`;
     }
-    return `<span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:#6a4a8a;">${cap} <span data-ract="unequip-attire" data-id="${rider.id}" data-attire="${item.id}" style="cursor:pointer;">✕</span></span>`;
+    return `<span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:var(--equi-plum);">${cap} <span data-ract="unequip-attire" data-id="${rider.id}" data-attire="${item.id}" style="cursor:pointer;">✕</span></span>`;
   }).join(" ");
 }
 function attireAvailable(rider){
@@ -2853,7 +2848,7 @@ function renderPlayerProfilePage(app, data){
     </div>`).join("") : `<span class="small">No horses yet.</span>`;
 
   const riderCards = riders.length ? riders.map(r=>`
-    <div class="tag" data-act="pp-open-rider" data-id="${r.id}" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;margin:4px;padding:6px 10px;background:#2a1a3a;color:var(--equi-accent-2);border-color:#6a4a8a;">
+    <div class="tag" data-act="pp-open-rider" data-id="${r.id}" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;margin:4px;padding:6px 10px;background:#2a1a3a;color:var(--equi-accent-2);border-color:var(--equi-plum);">
       ${r.image?`<img src="${r.image}" style="width:34px;height:34px;object-fit:cover;border-radius:5px;" />`:''}
       <span><b>${(r.name||'Rider').replace(/</g,'&lt;')}</b> · ${riderTitle(r.pp||0).name} · ${r.pp||0} PP</span>
     </div>`).join("") : `<span class="small">No riders yet.</span>`;
@@ -2875,7 +2870,7 @@ function renderPlayerProfilePage(app, data){
         <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
           <div style="flex:none;">${avatar}</div>
           <div style="flex:1;min-width:220px;">
-            <h1 style="margin:0;color:var(--equi-accent);font-size:1.9em;">${name.replace(/</g,'&lt;')} ${prof.pronouns?`<span class="small" style="color:#8a7a6a;font-weight:normal;">${prof.pronouns.replace(/</g,'&lt;')}</span>`:''}</h1>
+            <h1 style="margin:0;color:var(--equi-accent);font-size:1.9em;">${name.replace(/</g,'&lt;')} ${prof.pronouns?`<span class="small" style="color:var(--equi-faint);font-weight:normal;">${prof.pronouns.replace(/</g,'&lt;')}</span>`:''}</h1>
             <div class="small" style="margin-top:2px;">Account: ${data.userId}</div>
             <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">${discordHtml?`<span class="tag">${discordHtml}</span>`:''} ${linksHtml}</div>
             ${prof.bio?`<div style="margin-top:12px;line-height:1.6;white-space:pre-wrap;">${prof.bio.replace(/</g,'&lt;')}</div>`:''}
@@ -2892,7 +2887,7 @@ function renderPlayerProfilePage(app, data){
       </div>
       <div style="text-align:center;margin:20px 0;">
         <div class="small" style="margin-bottom:6px;">Shareable link to this profile:</div>
-        <input readonly value="${shareUrl.toString()}" onclick="this.select()" style="max-width:480px;width:100%;text-align:center;padding:8px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:6px;font-family:monospace;" />
+        <input readonly value="${shareUrl.toString()}" onclick="this.select()" style="max-width:480px;width:100%;text-align:center;padding:8px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:6px;font-family:var(--equi-mono);" />
       </div>
     </div>`;
 
@@ -2980,13 +2975,13 @@ function renderRiderProfilePage(app, rider){
   const attireHtml = eq.length ? eq.map(item=>{
     if(item.image){
       return `<div style="display:inline-flex;flex-direction:column;align-items:center;gap:4px;width:150px;">
-        <img src="${item.image}" style="width:150px;height:150px;object-fit:contain;cursor:zoom-in;border:1px solid #6a4a8a;border-radius:6px;background:var(--equi-ink);"
+        <img src="${item.image}" style="width:150px;height:150px;object-fit:contain;cursor:zoom-in;border:1px solid var(--equi-plum);border-radius:6px;background:var(--equi-ink);"
              onclick="openLightbox('${jsStr(item.image)}','${jsStr(item.name)}')" onerror="this.style.display='none';this.nextElementSibling.style.display='block';" />
-        <span class="tag" style="display:none;background:#2a1a3a;color:var(--equi-accent-2);border-color:#6a4a8a;">${item.name}</span>
-        <div class="small" style="text-align:center;color:var(--equi-accent-2);">${item.name}<br><span style="color:#8a7a6a;">${item.category||""}</span></div>
+        <span class="tag" style="display:none;background:#2a1a3a;color:var(--equi-accent-2);border-color:var(--equi-plum);">${item.name}</span>
+        <div class="small" style="text-align:center;color:var(--equi-accent-2);">${item.name}<br><span style="color:var(--equi-faint);">${item.category||""}</span></div>
       </div>`;
     }
-    return `<span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:#6a4a8a;">${item.name}${item.category?` (${item.category})`:""}</span>`;
+    return `<span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:var(--equi-plum);">${item.name}${item.category?` (${item.category})`:""}</span>`;
   }).join(" ") : `<span class="small">Nothing equipped.</span>`;
 
   const log=(rider.artLog||[]);
@@ -3030,7 +3025,7 @@ function renderRiderProfilePage(app, rider){
           </div>
           <div style="flex:1;min-width:220px;">
             <h1 style="margin:0 0 4px;color:var(--equi-accent);font-size:1.9em;">${rider.name}</h1>
-            <div style="margin-bottom:6px;"><span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:#6a4a8a;font-size:1.05em;">${showTitle}</span></div>
+            <div style="margin-bottom:6px;"><span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:var(--equi-plum);font-size:1.05em;">${showTitle}</span></div>
             <div style="margin-top:8px;"><span class="tag" style="font-size:1.02em;">${pp} PP</span> <span class="tag" style="font-size:1.02em;">${prog.next?`${prog.toNext} to ${prog.next.name}`:"Top tier"}</span></div>
             <div class="expbar-bg" style="margin-top:6px;max-width:260px;"><div class="expbar-fill" style="width:${pct}%"></div></div>
             <div class="small" style="margin-top:10px;font-style:italic;">${title.note}</div>
@@ -3056,7 +3051,7 @@ function renderRiderProfilePage(app, rider){
 
       <div style="text-align:center;margin:20px 0;">
         <div class="small" style="margin-bottom:6px;">Shareable link to this profile:</div>
-        <input readonly value="${shareUrl.toString()}" onclick="this.select()" style="max-width:480px;width:100%;text-align:center;padding:8px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:6px;font-family:monospace;" />
+        <input readonly value="${shareUrl.toString()}" onclick="this.select()" style="max-width:480px;width:100%;text-align:center;padding:8px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:6px;font-family:var(--equi-mono);" />
       </div>
     </div>
   `;
@@ -3117,7 +3112,7 @@ function renderRiders(){
 
 
   if(!state.riders.length){
-    wrap.appendChild(el('div','small','<div style="padding:12px;color:#5a4a3a;">No riders yet — add one above to start earning Prestige.</div>'));
+    wrap.appendChild(el('div','small','<div style="padding:12px;color:var(--equi-faint);">No riders yet — add one above to start earning Prestige.</div>'));
     return wrap;
   }
 
@@ -3137,7 +3132,7 @@ function renderRiders(){
     const ridden = state.horses.filter(h=>h.riderId===rider.id);
     const riddenHtml = ridden.length
       ? ridden.map(h=>`<span data-act="open-horse" data-id="${h.id}" style="color:var(--accent);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;">${h.name}</span>`).join(", ")
-      : `<span style="color:#8a7a6a;">None yet</span>`;
+      : `<span style="color:var(--equi-faint);">None yet</span>`;
 
     const card=el('div','horse-card');
     card.innerHTML=`
@@ -3146,10 +3141,10 @@ function renderRiders(){
         <div style="flex:1;min-width:0;">
           <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;">
             <span data-ract="open-rider" data-id="${rider.id}" style="font-size:1.25em;color:var(--accent);font-weight:bold;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;" title="Open profile">${rider.name}</span>
-            ${rider.pronouns?`<span class="small" style="color:#8a7a6a;">${rider.pronouns}</span>`:""}
-            <span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:#6a4a8a;">${showTitle}</span>
+            ${rider.pronouns?`<span class="small" style="color:var(--equi-faint);">${rider.pronouns}</span>`:""}
+            <span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:var(--equi-plum);">${showTitle}</span>
           </div>
-          <div class="small" style="margin-top:4px;">Barn: ${rider.barn?rider.barn.replace(/</g,'&lt;'):`<span style="color:#8a7a6a;">—</span>`}</div>
+          <div class="small" style="margin-top:4px;">Barn: ${rider.barn?rider.barn.replace(/</g,'&lt;'):`<span style="color:var(--equi-faint);">—</span>`}</div>
           <div class="small" style="margin-top:2px;">Rides: ${riddenHtml}</div>
           <div class="small" style="margin-top:6px;"><b>${pp} PP</b>${prog.next?` · ${prog.toNext} to ${prog.next.name}`:` · top tier`}</div>
           <div class="expbar-bg" style="margin-top:5px;"><div class="expbar-fill" style="width:${prog.pct}%;background:linear-gradient(90deg,#8a6fb0,var(--equi-accent-2));"></div></div>
@@ -3222,7 +3217,7 @@ function riderLogHtml(rider){
           <span data-ract="del-rentry" data-id="${rider.id}" data-entry="${e.id}" style="cursor:pointer;color:var(--equi-rust);font-weight:bold;margin-left:8px;" title="Delete (removes its PP)">✕</span>
         </div>
       </div>
-      ${(e.sources&&e.sources.length)?`<div class="small" style="color:#8a7a6a;">${e.sources.join(" · ")}</div>`:""}
+      ${(e.sources&&e.sources.length)?`<div class="small" style="color:var(--equi-faint);">${e.sources.join(" · ")}</div>`:""}
     </div>`).join("");
   return `<div class="artlog-panel" style="margin-top:12px;">${rows}</div>`;
 }
@@ -3674,7 +3669,7 @@ function renderRoster(){
       const base=h.stats[s]||0, bonus=getEquippedStatBonus(h,s), eff=base+bonus;
       const key = dStats.includes(s);
       return `<div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:3px 8px;border-radius:5px;white-space:nowrap;${key?'background:#2a1f12;border:1px solid #4a3a1a;':'border:1px solid transparent;'}" ${key?`title="Key stat for ${h.discipline}"`:''}>
-        <span style="font-size:.92em;color:${key?'#e8c86a':'var(--dim)'};font-weight:${key?'bold':'normal'};">${key?'★ ':''}${STAT_LABELS[s]}</span>
+        <span style="font-size:.92em;color:${key?'var(--equi-brass-light)':'var(--dim)'};font-weight:${key?'bold':'normal'};">${key?'★ ':''}${STAT_LABELS[s]}</span>
         <span style="font-size:.92em;font-weight:bold;color:var(--accent);" title="${bonus?`Base ${base} + ${bonus} from tack = ${eff}`:`Base ${base}`}">${base}${bonus?` <span style="color:var(--good);font-weight:normal;">(+${bonus})</span>`:""}</span>
       </div>`;
     }).join("");
@@ -3720,7 +3715,7 @@ function renderRoster(){
           const item=inv.find(t=>t.id===tid);
           if(!item) return "";
           const statsStr=Object.entries(item.stats||{}).map(([s,v])=>`+${v} ${STAT_LABELS[s]}`).join(", ");
-          return `<span class="tag" style="background:#1a3a2a;color:#a0e8c0;border-color:#3a7a5a;">${item.name}${statsStr?` (${statsStr})`:""} <span data-act="unequip-tack" data-id="${h.id}" data-tack="${item.id}" style="cursor:pointer;">✕</span></span>`;
+          return `<span class="tag" style="background:#1a3a2a;color:var(--equi-good-soft);border-color:var(--equi-good);">${item.name}${statsStr?` (${statsStr})`:""} <span data-act="unequip-tack" data-id="${h.id}" data-tack="${item.id}" style="cursor:pointer;">✕</span></span>`;
         }).join(" ")
       : `<span class="small">Nothing equipped.</span>`;
     const availableTack = inv.filter(t=>!(h.tackEquipped||[]).includes(t.id));
@@ -3735,16 +3730,16 @@ function renderRoster(){
           <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;">
             <span data-act="view-profile" data-id="${h.id}" style="font-size:1.1em;color:var(--accent);font-weight:bold;text-decoration:none;cursor:pointer;">${h.name}</span>
             <span class="tag">Lvl ${h.level}</span>
-            ${(h.badges||[]).map(b=>`<span class="tag" title="${b} Trophy" style="background:#3a2a10;color:#e8c86a;border-color:var(--equi-accent);">${b}</span>`).join("")}
+            ${(h.badges||[]).map(b=>`<span class="tag" title="${b} Trophy" style="background:#3a2a10;color:var(--equi-brass-light);border-color:var(--equi-accent);">${b}</span>`).join("")}
           </div>
-          ${h.barnName?`<div class="small" style="color:#8a7a6a;margin-top:-2px;">"${h.barnName}"</div>`:""}
-          <div class="small">${h.breed} · Age ${h.age} (${h.stage})${h.gender?` · ${h.gender}`:""}${h.height?` · ${h.height}`:""}${h.discipline?` · <span style="color:#e8c86a;">${h.discipline}</span>`:""}</div>
+          ${h.barnName?`<div class="small" style="color:var(--equi-faint);margin-top:-2px;">"${h.barnName}"</div>`:""}
+          <div class="small">${h.breed} · Age ${h.age} (${h.stage})${h.gender?` · ${h.gender}`:""}${h.height?` · ${h.height}`:""}${h.discipline?` · <span style="color:var(--equi-brass-light);">${h.discipline}</span>`:""}</div>
           ${h.importLink?`<div class="small"><a href="${h.importLink}" target="_blank" rel="noopener" style="color:var(--accent);">Import sheet ↗</a></div>`:""}
           <div class="small" style="margin-top:2px;">Rider:
             <select data-act="assign-rider" data-id="${h.id}" style="width:auto;display:inline-block;font-size:.95em;padding:2px 6px;min-height:0;">
               <option value="">— none —</option>
               ${state.riders.map(r=>`<option value="${r.id}"${h.riderId===r.id?' selected':''}>${r.name} · ${riderTitle(riderPP(r)).name}</option>`).join("")}
-            </select>${h.riderFinalBonus?` <span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:#6a4a8a;" title="Fully-trained bonus from ${(state.riders.find(r=>r.id===h.riderId)||{}).name||'rider'}">Lvl 10 +${h.riderFinalBonus} all stats</span>`:""}
+            </select>${h.riderFinalBonus?` <span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:var(--equi-plum);" title="Fully-trained bonus from ${(state.riders.find(r=>r.id===h.riderId)||{}).name||'rider'}">Lvl 10 +${h.riderFinalBonus} all stats</span>`:""}
           </div>
           <div class="small">EXP: ${h.exp} / ${h.level<10?LEVEL_TABLE[h.level+1].exp:"MAX"}</div>
           <div class="expbar-bg"><div class="expbar-fill" style="width:${pct}%"></div></div>
@@ -3778,7 +3773,7 @@ function renderRoster(){
     wrap.appendChild(card);
   });
 
-  if(!state.horses.length) wrap.appendChild(el('div','small','<div style="padding:12px;color:#5a4a3a;">No horses yet — add one above!</div>'));
+  if(!state.horses.length) wrap.appendChild(el('div','small','<div style="padding:12px;color:var(--equi-faint);">No horses yet — add one above!</div>'));
 
   wrap.querySelectorAll('[data-act="toggle-log"]').forEach(b=>b.onclick=()=>{
     if(expandedLogs.has(b.dataset.id)) expandedLogs.delete(b.dataset.id);
@@ -3917,14 +3912,14 @@ async function diagnoseReservations(){
   const bank=bankAccount.userId||"";
   add(`<b>Signed in as:</b> bank username “${escAttr(bank||'(none)')}”, profile name “${escAttr(me||'(none)')}”`);
   if(!bank && !me){
-    add("You don't appear to be signed in — nothing can be matched to you.", "#e0906a");
+    add("You don't appear to be signed in — nothing can be matched to you.", "var(--equi-rust)");
     return L.join("");
   }
   add(`<b>Searching for reservations addressed to:</b> ${myMemberKeys().map(k=>'“'+escAttr(k)+'”').join(', ')||'(nothing)'}`);
 
   const DB=await waitForDB();
-  if(!DB){ add("Not connected to the database.", "#e0906a"); return L.join(""); }
-  add("Connected to the database. ✓", "#9bd18a");
+  if(!DB){ add("Not connected to the database.", "var(--equi-rust)"); return L.join(""); }
+  add("Connected to the database. ✓", "var(--equi-good-soft)");
 
   let rows=null;
   try{
@@ -3933,11 +3928,11 @@ async function diagnoseReservations(){
     const msg=String((e&&e.message)||e);
     if(/permission|insufficient/i.test(msg)){
       add("<b>The database refused to read reservations.</b> The <b>breedingReservations</b> rules "
-        +"have not been published yet — until they are, no reservation can be created or seen by anyone.", "#e0906a");
+        +"have not been published yet — until they are, no reservation can be created or seen by anyone.", "var(--equi-rust)");
     } else if(/timeout/i.test(msg)){
-      add("The database didn't answer in time.", "#e0906a");
+      add("The database didn't answer in time.", "var(--equi-rust)");
     } else {
-      add("Couldn't read reservations: "+escAttr(msg), "#e0906a");
+      add("Couldn't read reservations: "+escAttr(msg), "var(--equi-rust)");
     }
     return L.join("");
   }
@@ -3945,30 +3940,30 @@ async function diagnoseReservations(){
   if(!rows.length){
     add("<b>There are no reservation records at all.</b> Nobody's reservation has ever been saved. "
       +"Either the person reserving is on an older version of the Manager, or the rules weren't published "
-      +"when they tried — their slot is only a note on their own copy.", "#e0906a");
+      +"when they tried — their slot is only a note on their own copy.", "var(--equi-rust)");
     return L.join("");
   }
 
-  add(`<b>${rows.length} reservation record${rows.length===1?'':'s'} exist:</b>`, "#9bd18a");
+  add(`<b>${rows.length} reservation record${rows.length===1?'':'s'} exist:</b>`, "var(--equi-good-soft)");
   const mine=myMemberKeys();
   rows.forEach(r=>{
     const addressed=String(r.reservedFor||"(blank)");
     const hit=mine.includes(memberKey(addressed));
     add(`&nbsp;&nbsp;• <b>${escAttr(r.body.horseName||r.body.horseId||r.docId)}</b> `
       +`from ${escAttr(r.owner||'?')} → addressed to “${escAttr(addressed)}” `
-      +(hit?'<b style="color:#9bd18a;">— that\'s you ✓</b>'
-           :'<span style="color:#e0906a;">— not a match for your names</span>')
+      +(hit?'<b style="color:var(--equi-good-soft);">— that\'s you ✓</b>'
+           :'<span style="color:var(--equi-rust);">— not a match for your names</span>')
       +(r.body.status==="used"?' <span style="opacity:.7;">(already used)</span>':''));
   });
   const matches=rows.filter(r=>mine.includes(memberKey(r.reservedFor||"")));
   if(!matches.length){
     add("<b>None are addressed to you.</b> Compare the spelling above with your bank username — "
-      +"whoever reserved it should use exactly that.", "#e0906a");
+      +"whoever reserved it should use exactly that.", "var(--equi-rust)");
   } else {
     const open=matches.filter(r=>r.body.status!=="used");
     add(open.length
       ? `<b>${open.length} should be showing in your pickers.</b> If they aren't, reopen the Breeding tab.`
-      : "They're all marked as already used.", open.length?"#9bd18a":"#e0906a");
+      : "They're all marked as already used.", open.length?"var(--equi-good-soft)":"var(--equi-rust)");
   }
   return L.join("");
 }
@@ -4083,21 +4078,21 @@ function showBreedingSlotModal(horseId, slotIndex){
       <p class="small" style="color:var(--equi-dim);margin-top:0;">This slot is free. What would you like to do with it?</p>
 
       <div style="border:1px solid var(--equi-line);border-radius:8px;padding:12px;margin-top:10px;">
-        <b style="color:#e8c86a;">Breed now</b>
-        <p class="small" style="color:#a89888;margin:4px 0 0;">Roll a real foal in the Breeding tab. Genetics, stats and pedigree are worked out for you, and the slot is spent automatically.</p>
+        <b style="color:var(--equi-brass-light);">Breed now</b>
+        <p class="small" style="color:var(--equi-dim);margin:4px 0 0;">Roll a real foal in the Breeding tab. Genetics, stats and pedigree are worked out for you, and the slot is spent automatically.</p>
         ${btn('bs_go_breed','Go to Breeding','var(--equi-accent)','var(--equi-panel)')}
       </div>
 
       <div style="border:1px solid #3a4a6a;border-radius:8px;padding:12px;margin-top:10px;">
-        <b style="color:#8a9ac8;">Reserve for another member</b>
-        <p class="small" style="color:#a89888;margin:4px 0 0;">Set this slot aside for someone else. Their Breeding tab will list this horse, and the slot stops counting as free for you.</p>
+        <b style="color:var(--equi-accent-2);">Reserve for another member</b>
+        <p class="small" style="color:var(--equi-dim);margin:4px 0 0;">Set this slot aside for someone else. Their Breeding tab will list this horse, and the slot stops counting as free for you.</p>
         ${btn('bs_go_reserve','Reserve this slot','#3a4a6a','#fff')}
       </div>
 
       <div style="border:1px solid var(--equi-line);border-radius:8px;padding:12px;margin-top:10px;">
         <b style="color:var(--equi-dim);">Log a past breeding</b>
-        <p class="small" style="color:#a89888;margin:4px 0 0;">For breedings that already happened elsewhere — older foals from before the site. Records who it was with, no rolling involved.</p>
-        ${btn('bs_go_past','Log a past breeding','#5a4a3a','var(--equi-text)')}
+        <p class="small" style="color:var(--equi-dim);margin:4px 0 0;">For breedings that already happened elsewhere — older foals from before the site. Records who it was with, no rolling involved.</p>
+        ${btn('bs_go_past','Log a past breeding','var(--equi-faint)','var(--equi-text)')}
       </div>
       ${ghost('bs_cancel','Cancel')}`;
     box.querySelector('#bs_cancel').onclick=close;
@@ -4113,7 +4108,7 @@ function showBreedingSlotModal(horseId, slotIndex){
       ${field('bs_reserve_note','Note (optional)','e.g. which mare, agreed terms')}
       ${btn('bs_reserve','Reserve slot for this member','#3a4a6a','#fff')}
       <div id="bs_reserve_status" style="margin-top:6px;"></div>
-      <p class="small" style="color:#a89888;margin-top:6px;">Use their <b>bank username</b> — the one they sign in with. Capitals and a leading @ don't matter.</p>
+      <p class="small" style="color:var(--equi-dim);margin-top:6px;">Use their <b>bank username</b> — the one they sign in with. Capitals and a leading @ don't matter.</p>
       ${ghost('bs_back','← Back')}`;
     box.querySelector('#bs_back').onclick=drawChoose;
     box.querySelector('#bs_reserve').onclick=doReserve;
@@ -4139,13 +4134,13 @@ function showBreedingSlotModal(horseId, slotIndex){
 
   function drawReserved(){
     box.innerHTML = head(`Breeding Slot ${slotIndex+1} — ${escAttr(h.name)}`) + `
-      <p class="small" style="color:#8a9ac8;margin-top:0;">Reserved — this slot doesn't count as free for you until it's released or used.</p>
+      <p class="small" style="color:var(--equi-accent-2);margin-top:0;">Reserved — this slot doesn't count as free for you until it's released or used.</p>
       <div style="background:var(--equi-ink);padding:10px;border-radius:6px;margin-bottom:4px;">
         <b>Reserved for:</b> ${escAttr(existing.reservedFor)}<br>
         ${existing.date?`<b>Date:</b> ${escAttr(existing.date)}<br>`:''}
         ${existing.note?`<i>${escAttr(existing.note)}</i>`:''}
       </div>
-      <p class="small" style="color:#a89888;">If they breed with ${escAttr(h.name)}, this fills in on its own. Only record it by hand if the breeding happened somewhere else.</p>
+      <p class="small" style="color:var(--equi-dim);">If they breed with ${escAttr(h.name)}, this fills in on its own. Only record it by hand if the breeding happened somewhere else.</p>
       <label class="small" style="color:var(--equi-dim);text-transform:uppercase;display:block;margin-top:8px;">This horse's role</label>
       <select id="bs_role" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;margin-top:3px;">
         <option value="sire">Sire (this horse is the father)</option>
@@ -4177,7 +4172,7 @@ function showBreedingSlotModal(horseId, slotIndex){
         </select>
         ${btn('bs_link_foal','Link Foal','var(--equi-accent)','var(--equi-panel)')}
         <div id="bs_foal_member" style="margin-top:2px;"></div>
-        <p class="small" style="color:#a89888;margin:6px 0 0;">Foals from before the site often live on someone else's roster — use the box above to link one of theirs.</p>` : ""}
+        <p class="small" style="color:var(--equi-dim);margin:6px 0 0;">Foals from before the site often live on someone else's roster — use the box above to link one of theirs.</p>` : ""}
       ${btn('bs_clear','Clear this slot','var(--equi-bad)','#fff')}
       ${ghost('bs_cancel','Cancel')}`;
     box.querySelector('#bs_cancel').onclick=close;
@@ -4223,11 +4218,11 @@ function showBreedingSlotModal(horseId, slotIndex){
     writeReservation(h, slotIndex, reservedFor).then(ok=>{
       if(ok){ close(); render(); return; }
       if(status) status.innerHTML=
-        '<span class="small" style="color:#e0906a;">Saved on your side, but it could NOT be shared — '
+        '<span class="small" style="color:var(--equi-rust);">Saved on your side, but it could NOT be shared — '
         +escAttr(reservedFor)+' won\'t see it yet. Usually this means the site needs its database '
         +'permissions updated. The slot is still reserved for you locally.</span>';
     }).catch(()=>{
-      if(status) status.innerHTML='<span class="small" style="color:#e0906a;">Saved locally, but sharing failed.</span>';
+      if(status) status.innerHTML='<span class="small" style="color:var(--equi-rust);">Saved locally, but sharing failed.</span>';
     });
   }
   function doConvert(){
@@ -4337,14 +4332,14 @@ function renderPedigreeChart(h){
   const L2='-----------------';
   function nm(key){
     const e=pedEntry(h,key);
-    return pedName(e) ? pedLink(e,key.toUpperCase()) : '<span style="color:#6a5a4a;">Unknown</span>';
+    return pedName(e) ? pedLink(e,key.toUpperCase()) : '<span style="color:var(--equi-faint);">Unknown</span>';
   }
   const line=(lead,label,key,strong)=>`<div style="padding:1px 0;white-space:pre;overflow-x:auto;">`
-    +`<span style="color:#3a2e22;">${lead}</span>`
+    +`<span style="color:var(--equi-faint);">${lead}</span>`
     +`<span style="color:${strong?'var(--equi-accent)':'var(--equi-dim)'};font-weight:${strong?'bold':'normal'};">${lead?' ':''}${label}: </span>`
     +`${nm(key)}</div>`;
 
-  return `<div style="font-family:'Courier New',monospace;font-size:.95em;background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:8px;padding:14px;line-height:1.7;">
+  return `<div style="font-family:var(--equi-mono);font-size:.95em;background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:8px;padding:14px;line-height:1.7;">
     <div style="font-family:var(--equi-serif);color:var(--equi-accent);margin-bottom:8px;font-weight:bold;">Bloodline:</div>
     ${line(L3,'SSS','sss')}
     ${line(L2,'SS','ss')}
@@ -4403,7 +4398,7 @@ function memberHorsePicker(idPrefix, labelText, onPick){
   const box=document.createElement('div');
   box.style.cssText='border:1px solid #3a4a6a;border-radius:6px;padding:10px;margin-top:8px;';
   box.innerHTML=`
-    <div class="small" style="color:#8a9ac8;text-transform:uppercase;">${escAttr(labelText)}</div>
+    <div class="small" style="color:var(--equi-accent-2);text-transform:uppercase;">${escAttr(labelText)}</div>
     <div style="display:flex;gap:6px;margin-top:5px;">
       <input id="${idPrefix}_owner" placeholder="Their bank username" style="flex:1;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;" />
       <button id="${idPrefix}_find" class="secondary" style="white-space:nowrap;padding:7px 12px;margin:0;">Find</button>
@@ -4412,7 +4407,7 @@ function memberHorsePicker(idPrefix, labelText, onPick){
   const res=()=>box.querySelector('#'+idPrefix+'_result');
   box.querySelector('#'+idPrefix+'_find').onclick=async()=>{
     const who=box.querySelector('#'+idPrefix+'_owner').value.trim();
-    if(!who){ res().innerHTML='<span class="small" style="color:#e0906a;">Enter their username first.</span>'; return; }
+    if(!who){ res().innerHTML='<span class="small" style="color:var(--equi-rust);">Enter their username first.</span>'; return; }
     res().innerHTML='<span class="small" style="opacity:.7;">Looking…</span>';
     const r=await horsesOfMember(who);
     if(!r.ok){
@@ -4420,12 +4415,12 @@ function memberHorsePicker(idPrefix, labelText, onPick){
         : r.reason==="denied" ? "The database refused the request — the site's permissions need publishing."
         : r.reason==="timeout" ? "The database didn't answer in time. Check your connection and try again."
         : "Something went wrong reading from the database.";
-      res().innerHTML=`<span class="small" style="color:#e0906a;">${why}</span>`;
+      res().innerHTML=`<span class="small" style="color:var(--equi-rust);">${why}</span>`;
       return;
     }
     const list=r.list;
     if(!list.length){
-      res().innerHTML=`<span class="small" style="color:#e0906a;">No horses found under “${escAttr(who)}”. That's their <b>bank username</b>, not a display name — and it's case-sensitive.</span>`;
+      res().innerHTML=`<span class="small" style="color:var(--equi-rust);">No horses found under “${escAttr(who)}”. That's their <b>bank username</b>, not a display name — and it's case-sensitive.</span>`;
       return;
     }
     res().innerHTML=`
@@ -4467,7 +4462,7 @@ function showLineageModal(horseId){
           <option value="">— not in roster —</option>
           ${rosterOpts.replace(`value="${inRosterVal}"`, `value="${inRosterVal}" selected`)}
         </select>
-        ${e.ownerHandle?`<div class="small" style="color:#8a9ac8;margin-top:5px;">Linked to <b>${escAttr(e.name)}</b>, owned by ${escAttr(e.ownerHandle)}</div>`:''}
+        ${e.ownerHandle?`<div class="small" style="color:var(--equi-accent-2);margin-top:5px;">Linked to <b>${escAttr(e.name)}</b>, owned by ${escAttr(e.ownerHandle)}</div>`:''}
         <div data-memberpick="${key}" style="margin-top:4px;"></div>
       </div>`;
   }
@@ -4498,8 +4493,8 @@ function showLineageModal(horseId){
     </details>
 
     <div id="ln_basestats" style="border-top:1px solid var(--equi-line);margin-top:14px;padding-top:12px;">
-      <label class="small" style="color:#e8c86a;text-transform:uppercase;">Base stats from parents</label>
-      <p class="small" style="color:#a89888;margin:4px 0 0;">For foals bred before the site: link both parents above, then take this horse's starting stats from the average of theirs. Training it has already logged stays on top.</p>
+      <label class="small" style="color:var(--equi-brass-light);text-transform:uppercase;">Base stats from parents</label>
+      <p class="small" style="color:var(--equi-dim);margin:4px 0 0;">For foals bred before the site: link both parents above, then take this horse's starting stats from the average of theirs. Training it has already logged stays on top.</p>
       <button id="ln_bs_go" class="secondary" style="margin-top:6px;padding:6px 12px;">Set base stats from parents</button>
       <div id="ln_bs_status" style="margin-top:5px;"></div>
     </div>
@@ -4519,7 +4514,7 @@ function showLineageModal(horseId){
       h.pedigree[key].externalId=horse.id;
       h.pedigree[key].ownerHandle=who;
       slot.querySelector('#mp_'+key+'_result').innerHTML =
-        `<span class="small" style="color:#9bd18a;">Linked to <b>${escAttr(horse.name)}</b> (${escAttr(who)}). Save the pedigree to keep it.</span>`;
+        `<span class="small" style="color:var(--equi-good-soft);">Linked to <b>${escAttr(horse.name)}</b> (${escAttr(who)}). Save the pedigree to keep it.</span>`;
     }));
   });
 
@@ -4539,12 +4534,12 @@ function showLineageModal(horseId){
       return null;
     };
     const status=(msg,col)=>{ bsBox.querySelector('#ln_bs_status').innerHTML=
-      `<span class="small" style="color:${col||'#a89888'};">${msg}</span>`; };
+      `<span class="small" style="color:${col||'var(--equi-dim)'};">${msg}</span>`; };
     bsBox.querySelector('#ln_bs_go').onclick=async()=>{
       status('Reading the parents…');
       const [sire,dam]=await Promise.all([resolveParent('sire'), resolveParent('dam')]);
       if(!sire || !dam){
-        status('Both parents need to be linked first — either from your roster or another member\'s.', '#e0906a');
+        status('Both parents need to be linked first — either from your roster or another member\'s.', 'var(--equi-rust)');
         return;
       }
       const derived=foalStats(sire.stats||{}, dam.stats||{}, STATS);
@@ -4553,7 +4548,7 @@ function showLineageModal(horseId){
       saveHorse(h); save();
       status(`Set from ${escAttr(sire.name)} × ${escAttr(dam.name)} — `
         + STATS.map(k=>`${STAT_LABELS[k]||k} ${derived[k]}`).join(', ')
-        + '. Any training this horse has logged is still counted on top.', '#9bd18a');
+        + '. Any training this horse has logged is still counted on top.', 'var(--equi-good-soft)');
     };
   }
 
@@ -4809,7 +4804,7 @@ function showTraitsModal(horseId){
           : t.type==="conditional" ? ` (needs ${escAttr(t.requiresLabel||'gene')})` : '';
         return `<label style="display:flex;align-items:center;gap:8px;background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:6px;padding:8px 10px;cursor:pointer;">
           <input type="checkbox" data-trait="${escAttr(t.name)}" ${carried.has(t.name.toLowerCase())?'checked':''} style="width:auto;" />
-          <span><b>${escAttr(t.name)}</b> · ${t.chance}% <span style="color:#8a9ac8;">${t.type}</span>${detail}</span>
+          <span><b>${escAttr(t.name)}</b> · ${t.chance}% <span style="color:var(--equi-accent-2);">${t.type}</span>${detail}</span>
         </label>`;
       }).join("")}
     </div>` : `<p style="color:var(--equi-accent);">This horse's breed (<b>${escAttr(h.breed||'?')}</b>) has no breeding traits configured. An admin can set them up in the Admin tab under "Breeding traits & risks".</p>`;
@@ -4965,12 +4960,12 @@ function renderTraining(){
     // Highlight which of this training's stats matter for the horse's discipline.
     const dS=disciplineStats(h);
     const statsMarked=Object.entries(allStats).map(([s,v])=>
-      dS.includes(s) ? `<b style="color:#e8c86a;">★ +${v} ${STAT_LABELS[s]}</b>` : `+${v} ${STAT_LABELS[s]}`).join(", ");
+      dS.includes(s) ? `<b style="color:var(--equi-brass-light);">★ +${v} ${STAT_LABELS[s]}</b>` : `+${v} ${STAT_LABELS[s]}`).join(", ");
     card.querySelector('#tr_prompt').innerHTML=`<div class="prompt-box">
       ${t2?`<b>${t.name}</b> + <b>${t2.name}</b>`:`<b>${t.name}</b>`}<br>
       <span style="font-size:1.02em;">${t.prompt}${t2?`<br><span style="opacity:.8;">${t2.prompt}</span>`:""}</span><br>
       <span class="small">Stats: ${statsMarked}</span>
-      ${h.discipline?`<br><span class="small" style="color:#e8c86a;">${h.discipline} needs: ${dS.map(x=>STAT_LABELS[x]).join(", ")}</span>`
+      ${h.discipline?`<br><span class="small" style="color:var(--equi-brass-light);">${h.discipline} needs: ${dS.map(x=>STAT_LABELS[x]).join(", ")}</span>`
         :`<br><span class="small" style="opacity:.7;">No discipline chosen — set one in Edit Profile to see which stats to train.</span>`}
     </div>`;
   }
@@ -5520,7 +5515,7 @@ function buildShowLogForm(){
             style="width:100%;padding:5px;background:var(--equi-bg);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:4px;box-sizing:border-box;" />
         </div>
         <button data-remove-prize="${i}" class="danger" style="font-size:.98em;padding:3px 8px;flex:none;">✕</button>
-      </div>`).join("") : '<div class="small" style="color:#5a4a3a;padding:4px 0;">No prizes added yet.</div>';
+      </div>`).join("") : '<div class="small" style="color:var(--equi-faint);padding:4px 0;">No prizes added yet.</div>';
 
     area.querySelectorAll('[data-prize-label]').forEach(inp=>{
       inp.oninput=()=>{ prizeImages[Number(inp.dataset.prizeLabel)].label=inp.value; };
@@ -5733,7 +5728,7 @@ function buildShowHistory(){
       <input id="ribbon_claim_code" type="text" placeholder="Paste the claim code from a show" style="flex:1;min-width:220px;" />
       <button id="ribbon_claim_btn" class="btn">Add to horse</button>
     </div>
-    <div id="ribbon_claim_msg" class="small" style="margin-top:6px;color:#5a4a3a;"></div>`;
+    <div id="ribbon_claim_msg" class="small" style="margin-top:6px;color:var(--equi-faint);"></div>`;
   wrap.appendChild(claim);
   claim.querySelector('#ribbon_claim_btn').onclick=async()=>{
     const msg=claim.querySelector('#ribbon_claim_msg');
@@ -5871,7 +5866,7 @@ async function ingestShowRecord(h, incoming){
           ${allPrizeImages.map(p=>`<img src="${p.dataUrl}" style="width:280px;height:280px;object-fit:contain;cursor:zoom-in;" onclick="openLightbox('${jsStr(p.dataUrl)}','${jsStr(p.label||(p.discipline+' — '+p.placeStr))}')" onerror="this.style.display='none'" />`).join("")}
         </div>
       </div>`:
-      `<div class="small" style="color:#5a4a3a;margin-bottom:10px;">No top-3 placements yet.</div>`;
+      `<div class="small" style="color:var(--equi-faint);margin-bottom:10px;">No top-3 placements yet.</div>`;
 
     card.innerHTML=`
       <h3>${h.name}
@@ -6319,7 +6314,7 @@ function renderAdmin(){
       <p class="small">Enter the admin passcode to manage Custom/Created breeds and genes.</p>
       <input id="ad_pass" type="password" placeholder="Admin passcode" style="max-width:280px;" />
       <button id="ad_unlock" style="margin-top:8px;">Unlock</button>
-      <div id="ad_pass_err" class="small" style="color:#e08080;margin-top:6px;"></div>
+      <div id="ad_pass_err" class="small" style="color:var(--equi-bad-soft);margin-top:6px;"></div>
     `);
     wrap.appendChild(gate);
     gate.querySelector('#ad_unlock').onclick=()=>{
@@ -6336,7 +6331,7 @@ function renderAdmin(){
   // ---- Firestore backend panel (admin-only: shown after the passcode gate) ----
   const fsCard=el('div','card');
   fsCard.innerHTML=`
-    <h3 style="margin-top:0;">Database Backend <span class="tag" style="background:#1a3a1a;color:#8ae88a;border-color:#4a8a4a;">Firestore</span></h3>
+    <h3 style="margin-top:0;">Database Backend <span class="tag" style="background:#1a3a1a;color:var(--equi-good-soft);border-color:var(--equi-good);">Firestore</span></h3>
     <p class="small" style="margin-top:0;">
       EquiStories now runs entirely on Firestore — each horse is a single document, loaded with one indexed query.
       The old Google Sheets backend has been retired and is no longer read from or written to.
@@ -6350,10 +6345,10 @@ function renderAdmin(){
   (async()=>{
     const st=fsCard.querySelector('#fs_status');
     const DB = await waitForDB();
-    if(!DB){ st.innerHTML='<span style="color:#e08080;">✗ Firestore module not loaded — check the browser console.</span>'; return; }
+    if(!DB){ st.innerHTML='<span style="color:var(--equi-bad-soft);">✗ Firestore module not loaded — check the browser console.</span>'; return; }
     st.innerHTML = window.EquiDB.available
-      ? `<span style="color:#8ae88a;">✓ Connected to Firestore</span>${window.EquiDB.authed?'':' <span style="color:#e8c86a;">(anonymous sign-in is off — enable it in Firebase → Authentication)</span>'}`
-      : '<span style="color:#e08080;">✗ Could not reach Firestore — see the browser console.</span>';
+      ? `<span style="color:var(--equi-good-soft);">✓ Connected to Firestore</span>${window.EquiDB.authed?'':' <span style="color:var(--equi-brass-light);">(anonymous sign-in is off — enable it in Firebase → Authentication)</span>'}`
+      : '<span style="color:var(--equi-bad-soft);">✗ Could not reach Firestore — see the browser console.</span>';
   })();
 
   fsCard.querySelector('#fs_verify').onclick=async()=>{
@@ -8191,14 +8186,14 @@ function appendBreedingTraitsEditor(wrap){
   const card=el('div','card');
   card.innerHTML=`
     <h3 style="margin-top:0;">Breeding traits & risks</h3>
-    <p class="small" style="color:#c8b8a8;">Configure the rare traits, health risks, and lethal genotypes each created breed can pass to foals. These feed the Foal Calculator.</p>
+    <p class="small" style="color:var(--equi-dim);">Configure the rare traits, health risks, and lethal genotypes each created breed can pass to foals. These feed the Foal Calculator.</p>
     ${breeds.length? `
       <label class="small">Breed</label>
       <select id="bt_breed">${breeds.map(b=>`<option value="${escAttr(b.id)}">${escAttr(b.name)}</option>`).join("")}</select>
       <button id="bt_load_ilb" class="secondary" style="margin-left:8px;">Load Irish Lightblood defaults</button>
       <div id="bt_list" style="margin-top:12px;"></div>
-      <div style="margin-top:12px;border-top:1px solid #3a2e22;padding-top:12px;">
-        <b class="small" style="color:#e8c86a;">Add a trait</b>
+      <div style="margin-top:12px;border-top:1px solid var(--equi-faint);padding-top:12px;">
+        <b class="small" style="color:var(--equi-brass-light);">Add a trait</b>
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-top:6px;">
           <input id="bt_name" placeholder="Trait name" />
           <select id="bt_type"><option value="flat">Flat %</option><option value="health">Trait + health risk</option><option value="conditional">Conditional (needs gene)</option></select>
@@ -8220,13 +8215,13 @@ function appendBreedingTraitsEditor(wrap){
     const b=getBreed(); if(!b) return;
     const list=card.querySelector('#bt_list');
     const traits=b.rareTraits||[];
-    if(!traits.length){ list.innerHTML=`<p class="small" style="color:#8a7a6a;">No traits configured for ${escAttr(b.name)} yet. Add some below, or load the Irish Lightblood defaults.</p>`; return; }
+    if(!traits.length){ list.innerHTML=`<p class="small" style="color:var(--equi-faint);">No traits configured for ${escAttr(b.name)} yet. Add some below, or load the Irish Lightblood defaults.</p>`; return; }
     list.innerHTML = traits.map((t,i)=>{
       const detail = t.type==="health" ? ` → ${escAttr(t.healthName||'')} ${t.healthChance||0}%`
         : t.type==="conditional" ? ` (needs ${escAttr(t.requiresLabel||t.requires?.locus||'gene')})` : '';
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;border-bottom:1px solid #2e241a;">
-        <span class="small"><b>${escAttr(t.name)}</b> · ${t.chance}% · <span style="color:#8a9ac8;">${t.type}</span>${detail}</span>
-        <button data-del="${i}" class="secondary" style="padding:2px 10px;color:#e08080;">Remove</button>
+        <span class="small"><b>${escAttr(t.name)}</b> · ${t.chance}% · <span style="color:var(--equi-accent-2);">${t.type}</span>${detail}</span>
+        <button data-del="${i}" class="secondary" style="padding:2px 10px;color:var(--equi-bad-soft);">Remove</button>
       </div>`;
     }).join("");
     list.querySelectorAll('[data-del]').forEach(btn=>btn.onclick=async()=>{
@@ -8439,17 +8434,17 @@ function renderBreeding(){
   wrap.innerHTML=`
     <div class="card">
       <h2 style="margin-top:0;">🧬 Foal Calculator</h2>
-      <p class="small" style="color:#c8b8a8;">Pick a stallion and a mare from your horses that still have an open breeding slot (age 3+). You'll get two possible foals (A and B), each with a full genetic code, coat colour, averaged stats, rare-trait chances, and any inbreeding or health risks. This is a preview tool; it doesn't use up a slot or create a foal yet.</p>
+      <p class="small" style="color:var(--equi-dim);">Pick a stallion and a mare from your horses that still have an open breeding slot (age 3+). You'll get two possible foals (A and B), each with a full genetic code, coat colour, averaged stats, rare-trait chances, and any inbreeding or health risks. This is a preview tool; it doesn't use up a slot or create a foal yet.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div>
           <label class="small">Sire (stallion / colt)</label>
           <select id="bc_sire">${noSires?'<option value="">— none available —</option>':'<option value="">— pick a sire —</option>'+sires.map(h=>optFor(h,__breedSire)).join("")}</select>
-          <div id="bc_sireInfo" class="small" style="color:#a89888;margin-top:4px;"></div>
+          <div id="bc_sireInfo" class="small" style="color:var(--equi-dim);margin-top:4px;"></div>
         </div>
         <div>
           <label class="small">Dam (mare / filly)</label>
           <select id="bc_dam">${noDams?'<option value="">— none available —</option>':'<option value="">— pick a dam —</option>'+dams.map(h=>optFor(h,__breedDam)).join("")}</select>
-          <div id="bc_damInfo" class="small" style="color:#a89888;margin-top:4px;"></div>
+          <div id="bc_damInfo" class="small" style="color:var(--equi-dim);margin-top:4px;"></div>
         </div>
       </div>
       ${(noSires||noDams)?`<p class="small" style="color:var(--equi-accent);margin-top:10px;">${noSires&&noDams?'None of your horses have an open breeding slot yet (they need to be age 3+ with a free slot).':noSires?'You have no eligible sire (a stallion, colt or rig aged 3+ with a free slot).':'You have no eligible dam (a mare or filly aged 3+ with a free slot).'}</p>`:''}
@@ -8516,13 +8511,13 @@ function renderBreeding(){
     out.innerHTML='<span class="small" style="opacity:.6;">Checking…</span>';
     try{ out.innerHTML='<div style="background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:6px;padding:10px;">'
       + await diagnoseReservations() + '</div>'; }
-    catch(e){ out.innerHTML='<span class="small" style="color:#e0906a;">Diagnostic failed: '+escAttr(String(e&&e.message||e))+'</span>'; }
+    catch(e){ out.innerHTML='<span class="small" style="color:var(--equi-rust);">Diagnostic failed: '+escAttr(String(e&&e.message||e))+'</span>'; }
   };
 
   const note=wrap.querySelector('#bc_resnote');
   const showNote=(html)=>{ const n=wrap.querySelector('#bc_resnote'); if(n) n.innerHTML=html; };
   if(state.reservedForMe && state.reservedForMe.length){
-    showNote(`<span class="small" style="color:#8a9ac8;">${state.reservedForMe.length} slot${state.reservedForMe.length===1?'':'s'} reserved for you by other members — listed above.</span>`);
+    showNote(`<span class="small" style="color:var(--equi-accent-2);">${state.reservedForMe.length} slot${state.reservedForMe.length===1?'':'s'} reserved for you by other members — listed above.</span>`);
   } else if(!state.__resBusy){
     state.__resBusy = true;
     showNote('<span class="small" style="opacity:.6;">Checking for slots reserved for you…</span>');
@@ -8538,7 +8533,7 @@ function renderBreeding(){
         // redrew and the note sat on "Checking…" forever.
         if(activeTab==="breeding") render();
       } else {
-        showNote('<span class="small" style="color:#8a7a6a;">No slots are reserved for you right now. '
+        showNote('<span class="small" style="color:var(--equi-faint);">No slots are reserved for you right now. '
           +'If a member says they reserved one: they need to be on the current version of the Manager, '
           +'and the site\'s database permissions must be published. Reopening this tab checks again.</span>');
       }
@@ -8546,15 +8541,15 @@ function renderBreeding(){
       state.__resBusy = false;
       state.reservedForMe = [];
       if(err && /timeout/i.test(String(err.message||err)) && !err.denied){
-        showNote('<span class="small" style="color:#e0906a;">The check for reserved slots timed out. '
+        showNote('<span class="small" style="color:var(--equi-rust);">The check for reserved slots timed out. '
           +'Reopen this tab to try again — the “Why can\'t I see a reserved slot?” button below will show what the database actually holds.</span>');
         return;
       }
       showNote(err && err.denied
-        ? '<span class="small" style="color:#e0906a;">The database refused to read reserved slots. '
+        ? '<span class="small" style="color:var(--equi-rust);">The database refused to read reserved slots. '
           +'This means the <b>breedingReservations</b> permissions haven\'t been published yet — '
           +'until they are, reservations can\'t reach anyone. Your own horses are unaffected.</span>'
-        : '<span class="small" style="color:#e0906a;">Couldn\'t check for reserved slots — the database didn\'t answer. '
+        : '<span class="small" style="color:var(--equi-rust);">Couldn\'t check for reserved slots — the database didn\'t answer. '
           +'Your own horses are unaffected.</span>');
     });
   }
@@ -8729,9 +8724,9 @@ function showBreedingConfirm(sire, dam, onConfirm){
       <b>${escAttr(sire.name)}</b> &times; <b>${escAttr(dam.name)}</b><br>
       <span class="small" style="color:var(--equi-dim);">Uses one breeding slot each &mdash; ${escAttr(sire.name)} would have ${ownerOpenSlots(sire)-1} left, ${escAttr(dam.name)} ${ownerOpenSlots(dam)-1}. A real foal is created once you name it.</span>
     </div>
-    <label class="small" style="color:#e8c86a;text-transform:uppercase;display:block;">Use an item in this breeding?</label>
+    <label class="small" style="color:var(--equi-brass-light);text-transform:uppercase;display:block;">Use an item in this breeding?</label>
     ${tokens.length ? `<div id="bcf_tokens" style="margin-top:4px;">
-        <p class="small" style="color:#8a7a6a;margin:0 0 6px;">Optional &mdash; up to ${MAX_TOKENS_PER_BREEDING}, one of each type.</p>
+        <p class="small" style="color:var(--equi-faint);margin:0 0 6px;">Optional &mdash; up to ${MAX_TOKENS_PER_BREEDING}, one of each type.</p>
         ${tokens.map(t=>`<label style="display:block;margin:4px 0;cursor:pointer;">
           <input type="checkbox" data-token="${escAttr(t.key)}" data-inv="${escAttr(t.invId)}" />
           <b>${escAttr(t.label)}</b> <span class="small" style="opacity:.75;">&times;${t.left}</span>
@@ -8742,9 +8737,9 @@ function showBreedingConfirm(sire, dam, onConfirm){
             <option value="Colt">Colt</option><option value="Filly">Filly</option>
           </select>
         </div>
-        <div id="bcf_warn" class="small" style="color:#e0906a;margin-top:4px;"></div>
+        <div id="bcf_warn" class="small" style="color:var(--equi-rust);margin-top:4px;"></div>
       </div>`
-      : `<p class="small" style="color:#8a7a6a;margin-top:4px;">You don't own any breeding items. You can breed without one.</p>`}
+      : `<p class="small" style="color:var(--equi-faint);margin-top:4px;">You don't own any breeding items. You can breed without one.</p>`}
     <button id="bcf_go" style="margin-top:14px;width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;">Breed</button>
     <button id="bcf_cancel" style="margin-top:8px;width:100%;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);padding:9px;border-radius:6px;cursor:pointer;">Cancel</button>
   </div>`;
@@ -8797,17 +8792,17 @@ async function commitBreeding(sire, dam, picks, roll, sel){
 // An unused Reroll Token is never spent, so it stays in the saddlebag for later.
 function renderLiveBreeding(box, sire, dam, roll, sel, rerollUsed){
   const card=(f,i)=>`
-    <div class="card" style="border-color:#6a5a3a;background:#1a1510;">
+    <div class="card" style="border-color:var(--equi-faint);background:#1a1510;">
       <div style="display:flex;justify-content:space-between;align-items:baseline;">
-        <h3 style="margin:0;color:#e8c86a;">Foal ${i===0?'A':'B'}</h3>
-        <span class="tag" style="background:#2a2016;color:#e8c86a;">${escAttr(f.gender)}</span>
+        <h3 style="margin:0;color:var(--equi-brass-light);">Foal ${i===0?'A':'B'}</h3>
+        <span class="tag" style="background:#2a2016;color:var(--equi-brass-light);">${escAttr(f.gender)}</span>
       </div>
       <div style="margin-top:8px;"><span class="small" style="color:var(--dim);">Colour</span><br><b>${escAttr(f.phenotype||'—')}</b></div>
-      <div style="margin-top:8px;"><span class="small" style="color:var(--dim);">Genotype</span><br><code style="font-size:.92em;color:#c8b8a8;word-break:break-word;">${escAttr(f.genotype)}</code></div>
+      <div style="margin-top:8px;"><span class="small" style="color:var(--dim);">Genotype</span><br><code style="font-size:.92em;color:var(--equi-dim);word-break:break-word;">${escAttr(f.genotype)}</code></div>
       <div style="margin-top:8px;"><span class="small" style="color:var(--dim);">Rare markings &amp; traits</span><br>${
-        f.traits.length?f.traits.map(t=>`<span class="tag" style="margin:2px 2px 0 0;background:#2a2016;color:#e8c86a;">${escAttr(t.name)}${t.health?` <span style="color:#d98a6a;">· ${escAttr(t.health)}</span>`:''}</span>`).join(""):'<span class="small" style="color:#8a7a6a;">none</span>'
+        f.traits.length?f.traits.map(t=>`<span class="tag" style="margin:2px 2px 0 0;background:#2a2016;color:var(--equi-brass-light);">${escAttr(t.name)}${t.health?` <span style="color:var(--equi-rust);">· ${escAttr(t.health)}</span>`:''}</span>`).join(""):'<span class="small" style="color:var(--equi-faint);">none</span>'
       }</div>
-      ${f.lethal.length?`<div class="small" style="color:#e05050;margin-top:6px;">☠ Lethal genotype — this foal would not survive.</div>`:''}
+      ${f.lethal.length?`<div class="small" style="color:var(--equi-bad);margin-top:6px;">☠ Lethal genotype — this foal would not survive.</div>`:''}
       <div style="margin-top:10px;">
         <input id="lb_name_${i}" placeholder="Name this foal" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;" />
         ${roll.twins?'':`<button data-keep="${i}" style="margin-top:6px;width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:9px;border-radius:6px;font-weight:bold;cursor:pointer;">Keep this foal</button>`}
@@ -8817,10 +8812,10 @@ function renderLiveBreeding(box, sire, dam, roll, sel, rerollUsed){
   box.innerHTML=`
     <div class="card">
       <h3 style="margin-top:0;color:var(--equi-accent);">Breeding — ${escAttr(sire.name)} × ${escAttr(dam.name)}</h3>
-      <p class="small" style="color:#a89888;">Name the foal you want to keep — this breeding is locked in.</p>
-      ${roll.twins?`<div class="card" style="border-color:var(--equi-good);"><b style="color:#9bd18a;">Twins!</b> <span class="small">Both foals are yours — this still uses only one breeding slot each.</span></div>`:''}
-      ${roll.coi>0?`<div class="card" style="border-color:#8a5a2a;"><span class="small">⚠ Inbreeding coefficient ${(roll.coi*100).toFixed(1)}% — health risks were raised on this pairing.</span></div>`:''}
-      ${(sel&&sel.length)?`<p class="small" style="color:#8a9ac8;">Items in use: ${sel.map(t=>escAttr(BREEDING_TOKENS[t.key].label)+(t.gender?` (${escAttr(t.gender)})`:'')).join(", ")} — spent when you keep a foal. An unused Reroll Token is returned.</p>`:''}
+      <p class="small" style="color:var(--equi-dim);">Name the foal you want to keep — this breeding is locked in.</p>
+      ${roll.twins?`<div class="card" style="border-color:var(--equi-good);"><b style="color:var(--equi-good-soft);">Twins!</b> <span class="small">Both foals are yours — this still uses only one breeding slot each.</span></div>`:''}
+      ${roll.coi>0?`<div class="card" style="border-color:var(--equi-rust);"><span class="small">⚠ Inbreeding coefficient ${(roll.coi*100).toFixed(1)}% — health risks were raised on this pairing.</span></div>`:''}
+      ${(sel&&sel.length)?`<p class="small" style="color:var(--equi-accent-2);">Items in use: ${sel.map(t=>escAttr(BREEDING_TOKENS[t.key].label)+(t.gender?` (${escAttr(t.gender)})`:'')).join(", ")} — spent when you keep a foal. An unused Reroll Token is returned.</p>`:''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">${roll.foals.map(card).join("")}</div>
       ${roll.twins?`<button id="lb_keep_both" style="margin-top:10px;width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;">Keep both foals</button>`:''}
       ${roll.mods.reroll?`<button id="lb_reroll" class="secondary" style="margin-top:8px;width:100%;padding:9px;">🎲 Reroll this breeding — uses your Reroll Token</button>`:''}
@@ -8946,18 +8941,18 @@ function computeFoalPreview(sire,dam,allHorses){
 
   const foalCard=(foal,gender,label)=>{
     const lethHits=foalLethals(foal.selections);
-    const lethLine=lethHits.length?`<div class="small" style="color:#e05050;margin-top:6px;">☠ Lethal genotype: ${escAttr(lethHits.join(', '))} — this foal would not survive.</div>`:'';
-    return `<div class="card" style="border-color:#6a5a3a;background:#1a1510;">
+    const lethLine=lethHits.length?`<div class="small" style="color:var(--equi-bad);margin-top:6px;">☠ Lethal genotype: ${escAttr(lethHits.join(', '))} — this foal would not survive.</div>`:'';
+    return `<div class="card" style="border-color:var(--equi-faint);background:#1a1510;">
       <div style="display:flex;justify-content:space-between;align-items:baseline;">
-        <h3 style="margin:0;color:#e8c86a;">${label}</h3>
-        <span class="tag" style="background:#2a2016;color:#e8c86a;">${gender}</span>
+        <h3 style="margin:0;color:var(--equi-brass-light);">${label}</h3>
+        <span class="tag" style="background:#2a2016;color:var(--equi-brass-light);">${gender}</span>
       </div>
       <div style="margin-top:8px;"><span class="small" style="color:var(--dim);">Colour</span><br><b>${escAttr(foal.phenotype||'—')}</b></div>
-      <div style="margin-top:8px;"><span class="small" style="color:var(--dim);">Genotype</span><br><code style="font-size:.92em;color:#c8b8a8;word-break:break-word;">${escAttr(foal.genotype||'—')}</code></div>
+      <div style="margin-top:8px;"><span class="small" style="color:var(--dim);">Genotype</span><br><code style="font-size:.92em;color:var(--equi-dim);word-break:break-word;">${escAttr(foal.genotype||'—')}</code></div>
       <div style="margin-top:8px;"><span class="small" style="color:var(--dim);">Rare markings &amp; traits</span><br>${
         (foal.traits && foal.traits.length)
-          ? foal.traits.map(t=>`<span class="tag" style="margin:2px 2px 0 0;background:#2a2016;color:#e8c86a;">${escAttr(t.name)}${t.health?` <span style="color:#d98a6a;">· ${escAttr(t.health)}</span>`:''}</span>`).join("")
-          : `<span class="small" style="color:#8a7a6a;">none rolled</span>`
+          ? foal.traits.map(t=>`<span class="tag" style="margin:2px 2px 0 0;background:#2a2016;color:var(--equi-brass-light);">${escAttr(t.name)}${t.health?` <span style="color:var(--equi-rust);">· ${escAttr(t.health)}</span>`:''}</span>`).join("")
+          : `<span class="small" style="color:var(--equi-faint);">none rolled</span>`
       }</div>
       ${lethLine}
     </div>`;
@@ -8966,41 +8961,41 @@ function computeFoalPreview(sire,dam,allHorses){
   const statHtml = STATS.map(s=>`
     <div style="display:flex;justify-content:space-between;padding:2px 8px;">
       <span class="small" style="color:var(--dim);">${STAT_LABELS[s]}</span>
-      <span class="small" style="color:var(--accent);font-weight:bold;">${fstats[s]} <span style="color:#8a7a6a;font-weight:normal;">(${sire.stats?.[s]??0}+${dam.stats?.[s]??0})/2</span></span>
+      <span class="small" style="color:var(--accent);font-weight:bold;">${fstats[s]} <span style="color:var(--equi-faint);font-weight:normal;">(${sire.stats?.[s]??0}+${dam.stats?.[s]??0})/2</span></span>
     </div>`).join("");
 
   const traitHtml = traitRows.length ? traitRows.map(t=>{
     const health = t.healthName
-      ? ` · <span style="color:#d98a6a;">${pct(t.healthChance)} ${escAttr(t.healthName)}${t.healthInflated?' ⚠':''} (${pct(t.healthOverall)} overall)</span>`
+      ? ` · <span style="color:var(--equi-rust);">${pct(t.healthChance)} ${escAttr(t.healthName)}${t.healthInflated?' ⚠':''} (${pct(t.healthOverall)} overall)</span>`
       : '';
-    const cond = t.conditional ? ` <span class="small" style="color:#8a9ac8;">(needs ${escAttr(t.requiresLabel||'gene')})</span>` : '';
+    const cond = t.conditional ? ` <span class="small" style="color:var(--equi-accent-2);">(needs ${escAttr(t.requiresLabel||'gene')})</span>` : '';
     return `<div style="padding:3px 8px;"><b class="small">${escAttr(t.name)}</b> · ${pct(t.chance)}${cond}${health}</div>`;
-  }).join("") : `<p class="small" style="color:#8a7a6a;padding:0 8px;">No rare traits possible from these parents.</p>`;
+  }).join("") : `<p class="small" style="color:var(--equi-faint);padding:0 8px;">No rare traits possible from these parents.</p>`;
 
   const lociHtml = loci.map(l=>{
     const outs=foalByLocus[l.key];
     if(outs.length===1 && outs[0].p>=0.999) return "";
     const rows=outs.map(o=>`<span class="tag" style="margin:2px;">${escAttr(o.code)} · ${pct(o.p)}</span>`).join("");
-    return `<div style="margin:6px 0;"><b class="small" style="color:#e8c86a;">${escAttr(l.label||l.key)}</b><div>${rows}</div></div>`;
+    return `<div style="margin:6px 0;"><b class="small" style="color:var(--equi-brass-light);">${escAttr(l.label||l.key)}</b><div>${rows}</div></div>`;
   }).filter(Boolean).join("");
 
   const inbHtml = inb.coi>0 ? `
-    <div class="card" style="border-color:#8a5a2a;">
-      <h3 style="margin-top:0;color:#e0a860;">⚠ Inbreeding detected</h3>
+    <div class="card" style="border-color:var(--equi-rust);">
+      <h3 style="margin-top:0;color:var(--equi-rust);">⚠ Inbreeding detected</h3>
       <p class="small">Inbreeding coefficient: <b>${pct(inb.coi)}</b> — health-risk odds are raised <b>${riskMult.toFixed(2)}×</b> on this pairing. Shared ancestors: ${inb.contributors.length}.</p>
     </div>` : '';
 
   const riskHtml = (geneRiskFlags.length||lethalFlags.length) ? `
-    <div class="card" style="border-color:#a04a2a;">
-      <h3 style="margin-top:0;color:#e07850;">Possible health & genetic risks</h3>
-      ${lethalFlags.map(f=>`<div class="small" style="color:#e05050;">☠ <b>Lethal:</b> ${escAttr(f.code)} — ${pct(f.p)} chance (this genotype is fatal).</div>`).join("")}
-      ${geneRiskFlags.map(f=>`<div class="small" style="color:#e0906a;">⚕ ${escAttr(f.code)} — ${escAttr(f.risk)} · ${pct(f.p)} (${escAttr(f.severity)}).</div>`).join("")}
+    <div class="card" style="border-color:var(--equi-rust);">
+      <h3 style="margin-top:0;color:var(--equi-rust);">Possible health & genetic risks</h3>
+      ${lethalFlags.map(f=>`<div class="small" style="color:var(--equi-bad);">☠ <b>Lethal:</b> ${escAttr(f.code)} — ${pct(f.p)} chance (this genotype is fatal).</div>`).join("")}
+      ${geneRiskFlags.map(f=>`<div class="small" style="color:var(--equi-rust);">⚕ ${escAttr(f.code)} — ${escAttr(f.risk)} · ${pct(f.p)} (${escAttr(f.severity)}).</div>`).join("")}
     </div>` : '';
 
   return `
     <div class="card">
       <h3 style="margin-top:0;">Foal preview — ${escAttr(sire.name)} × ${escAttr(dam.name)}</h3>
-      <p class="small" style="color:#a89888;">Breed: ${escAttr(breedName||'unspecified')} (mare's breed governs genetics). Two possible foals rolled below — in live breeding you'll choose one.</p>
+      <p class="small" style="color:var(--equi-dim);">Breed: ${escAttr(breedName||'unspecified')} (mare's breed governs genetics). Two possible foals rolled below — in live breeding you'll choose one.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         ${foalCard(foalA,genderA,'Foal A')}
         ${foalCard(foalB,genderB,'Foal B')}
@@ -9008,18 +9003,18 @@ function computeFoalPreview(sire,dam,allHorses){
       <div style="text-align:right;margin-top:6px;"><button id="bc_reroll" class="secondary" style="font-size:.95em;padding:4px 12px;">🎲 Roll again</button></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px;">
         <div>
-          <h4 style="color:#e8c86a;margin:0 0 6px;">Base stats (floored average)</h4>
+          <h4 style="color:var(--equi-brass-light);margin:0 0 6px;">Base stats (floored average)</h4>
           ${statHtml}
         </div>
         <div>
-          <h4 style="color:#e8c86a;margin:0 0 6px;">Rare trait odds</h4>
-          <p class="small" style="color:#8a7a6a;margin:0 0 6px;">Chances for this pairing. What each foal actually rolled is on its card above.</p>
+          <h4 style="color:var(--equi-brass-light);margin:0 0 6px;">Rare trait odds</h4>
+          <p class="small" style="color:var(--equi-faint);margin:0 0 6px;">Chances for this pairing. What each foal actually rolled is on its card above.</p>
           ${traitHtml}
         </div>
       </div>
       <details style="margin-top:12px;">
         <summary style="cursor:pointer;color:var(--equi-accent);font-size:.95em;">Show per-gene odds</summary>
-        <div style="margin-top:8px;">${lociHtml || '<p class="small" style="color:#8a7a6a;">Both parents are identical at every gene — the foal matches them.</p>'}</div>
+        <div style="margin-top:8px;">${lociHtml || '<p class="small" style="color:var(--equi-faint);">Both parents are identical at every gene — the foal matches them.</p>'}</div>
       </details>
     </div>
     ${inbHtml}
@@ -9082,7 +9077,7 @@ function renderHorseProfilePage(app, h){
     const base=h.stats[s]||0, bonus=getEquippedStatBonus(h,s), eff=base+bonus;
     const key = dStatsP.includes(s);
     return `<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:5px 10px;border-radius:5px;white-space:nowrap;${key?'background:#2a1f12;border:1px solid #4a3a1a;':'border:1px solid transparent;'}" ${key?`title="Key stat for ${h.discipline}"`:''}>
-      <span style="font-size:1em;color:${key?'#e8c86a':'var(--equi-dim)'};font-weight:${key?'bold':'normal'};">${key?'★ ':''}${STAT_LABELS[s]}</span>
+      <span style="font-size:1em;color:${key?'var(--equi-brass-light)':'var(--equi-dim)'};font-weight:${key?'bold':'normal'};">${key?'★ ':''}${STAT_LABELS[s]}</span>
       <span style="font-size:1em;font-weight:bold;color:var(--equi-accent);" title="${bonus?`Base ${base} + ${bonus} from tack = ${eff}`:`Base ${base}`}">${base}${bonus?` <span style="color:var(--equi-good);font-weight:normal;">(+${bonus})</span>`:""}</span>
     </div>`;
   }).join("");
@@ -9107,13 +9102,13 @@ function renderHorseProfilePage(app, h){
     const s=Object.entries(item.stats||{}).map(([k,v])=>`+${v} ${STAT_LABELS[k]}`).join(", ");
     if(item.image){
       return `<div style="display:inline-flex;flex-direction:column;align-items:center;gap:4px;width:150px;">
-        <img src="${item.image}" style="width:150px;height:150px;object-fit:contain;cursor:zoom-in;border:1px solid #3a7a5a;border-radius:6px;background:var(--equi-ink);"
+        <img src="${item.image}" style="width:150px;height:150px;object-fit:contain;cursor:zoom-in;border:1px solid var(--equi-good);border-radius:6px;background:var(--equi-ink);"
              onclick="openLightbox('${jsStr(item.image)}','${jsStr(item.name)}')" onerror="this.style.display='none';this.nextElementSibling.style.display='block';" />
-        <span class="tag" style="display:none;background:#1a3a2a;color:#a0e8c0;border-color:#3a7a5a;">${item.name}</span>
-        <div class="small" style="text-align:center;color:#a0e8c0;">${item.name}${s?`<br><span style="color:var(--equi-good);">${s}</span>`:""}</div>
+        <span class="tag" style="display:none;background:#1a3a2a;color:var(--equi-good-soft);border-color:var(--equi-good);">${item.name}</span>
+        <div class="small" style="text-align:center;color:var(--equi-good-soft);">${item.name}${s?`<br><span style="color:var(--equi-good);">${s}</span>`:""}</div>
       </div>`;
     }
-    return `<span class="tag" style="background:#1a3a2a;color:#a0e8c0;border-color:#3a7a5a;">${item.name}${s?` (${s})`:""}</span>`;
+    return `<span class="tag" style="background:#1a3a2a;color:var(--equi-good-soft);border-color:var(--equi-good);">${item.name}${s?` (${s})`:""}</span>`;
   }).join(" ")||`<span class="small">Nothing equipped.</span>`;
 
   const trophies=(h.compHistory||[]).filter(c=>c.placement>=1&&c.placement<=3);
@@ -9164,7 +9159,7 @@ function renderHorseProfilePage(app, h){
         <div class="small" style="text-align:center;">Reference / Registration${h.referenceLink?` · <a href="${h.referenceLink}" target="_blank">View on site</a>`:""}</div>
         ${h.referenceImage
           ? `<img src="${h.referenceImage}" onclick="openLightbox('${jsStr(h.referenceImage)}','${jsStr(h.name+' — Reference / Registration')}')" style="width:min(560px,92%);max-height:460px;border-radius:10px;object-fit:contain;border:3px solid var(--accent, var(--equi-accent));cursor:zoom-in;background:var(--equi-ink);box-shadow:0 6px 20px rgba(0,0,0,.45);" />`
-          : `<div style="width:min(560px,92%);height:260px;border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:1em;background:var(--equi-ink);color:#8a7a6a;text-align:center;padding:10px;">No reference sheet uploaded yet.</div>`}
+          : `<div style="width:min(560px,92%);height:260px;border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:1em;background:var(--equi-ink);color:var(--equi-faint);text-align:center;padding:10px;">No reference sheet uploaded yet.</div>`}
         ${bankAccount.linked?`
           <button id="pp_ref_change_btn" class="secondary" style="font-size:.92em;">Change Image</button>
           <div id="pp_ref_url_wrap" style="display:none;width:100%;max-width:420px;">
@@ -9218,7 +9213,7 @@ function renderHorseProfilePage(app, h){
         </div>
         <div style="flex:1;min-width:220px;">
           <h1 style="margin:0 0 4px;color:var(--equi-accent);font-size:1.9em;">${h.name}</h1>
-          ${(h.badges||[]).length?`<div style="margin-bottom:6px;">${h.badges.map(b=>`<span class="tag" style="background:#3a2a10;color:#e8c86a;border-color:var(--equi-accent);">${b}</span>`).join(" ")}</div>`:""}
+          ${(h.badges||[]).length?`<div style="margin-bottom:6px;">${h.badges.map(b=>`<span class="tag" style="background:#3a2a10;color:var(--equi-brass-light);border-color:var(--equi-accent);">${b}</span>`).join(" ")}</div>`:""}
           <div class="small" style="font-size:1.1em;">${h.breed}${h.gender?` · ${h.gender}`:""} · Age ${h.age} (${h.stage})</div>
           ${fullPhenotype(h)?`<div class="small">Phenotype: ${fullPhenotype(h)}</div>`:""}
           ${h.genotype?`<div class="small">Genotype: ${h.genotype}</div>`:""}
@@ -9230,14 +9225,14 @@ function renderHorseProfilePage(app, h){
           </div>
           <div style="margin-top:16px;font-size:.98em;color:var(--equi-dim);">Net Worth: <b style="color:var(--equi-accent);">฿${netWorth.toLocaleString()}</b> &nbsp;|&nbsp; Breeding Slot: <b style="color:var(--equi-accent);">฿${slotPrice.toLocaleString()}</b></div>
           <details style="margin-top:4px;">
-            <summary style="cursor:pointer;font-size:.85em;color:#8a7a6a;">Breakdown</summary>
+            <summary style="cursor:pointer;font-size:.85em;color:var(--equi-faint);">Breakdown</summary>
             <div style="margin-top:6px;font-size:.85em;max-width:280px;">
               <div class="small" style="margin-bottom:4px;font-size:.9em;">Lightblood Pricing Guide · Slot = Net Worth × 5%.</div>
               <div class="worth-row" style="padding:4px 0;"><span>Genotype Base Price</span><span>฿${(h.genoBasePrice||0).toLocaleString()}</span></div>
               ${(h.genoModifiers||[]).map(m=>`<div class="worth-row" style="padding:4px 0;"><span>${m.label}</span><span>฿${(m.value||0).toLocaleString()}</span></div>`).join("")}
               <div class="worth-row" style="padding:4px 0;"><span>Total Genotype Value</span><span>฿${genoPrice.toLocaleString()}</span></div>
               <div class="worth-row" style="padding:4px 0;"><span>Show Earnings</span><span>฿${showEarnings.toLocaleString()}</span></div>
-              ${h.customNetWorth!==null&&h.customNetWorth!==undefined&&h.customNetWorth!==""?`<div class="worth-row" style="padding:4px 0;"><span style="color:#d4a030;">⚠ Custom override</span><span>฿${Number(h.customNetWorth).toLocaleString()}</span></div>`:""}
+              ${h.customNetWorth!==null&&h.customNetWorth!==undefined&&h.customNetWorth!==""?`<div class="worth-row" style="padding:4px 0;"><span style="color:var(--equi-warn);">⚠ Custom override</span><span>฿${Number(h.customNetWorth).toLocaleString()}</span></div>`:""}
               <div class="worth-row" style="padding:4px 0;margin-top:2px;padding-top:6px;border-top:1px solid var(--equi-line);"><span>NET WORTH</span><span>฿${netWorth.toLocaleString()}</span></div>
               <div class="worth-row" style="padding:4px 0;"><span>Breeding Slot (5%)</span><span>฿${slotPrice.toLocaleString()}</span></div>
             </div>
@@ -9283,7 +9278,7 @@ function renderHorseProfilePage(app, h){
 
       <div style="text-align:center;margin:20px 0;">
         <div class="small" style="margin-bottom:6px;">Shareable link to this profile:</div>
-        <input readonly value="${shareUrl.toString()}" onclick="this.select()" style="max-width:480px;width:100%;text-align:center;padding:8px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:6px;font-family:monospace;" />
+        <input readonly value="${shareUrl.toString()}" onclick="this.select()" style="max-width:480px;width:100%;text-align:center;padding:8px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:6px;font-family:var(--equi-mono);" />
       </div>
     </div>
   `;
@@ -9550,7 +9545,7 @@ function showNetWorthModal(horseId){
     overlay.querySelector('#nw_preview').innerHTML=`
       <div style="display:flex;justify-content:space-between;"><span>Genotype Value</span><span>฿${geno.toLocaleString()}</span></div>
       <div style="display:flex;justify-content:space-between;"><span>Show Earnings</span><span>฿${shows.toLocaleString()}</span></div>
-      ${custom!==""?`<div style="display:flex;justify-content:space-between;color:#d4a030;"><span>⚠ Custom override</span><span>฿${Number(custom).toLocaleString()}</span></div>`:""}
+      ${custom!==""?`<div style="display:flex;justify-content:space-between;color:var(--equi-warn);"><span>⚠ Custom override</span><span>฿${Number(custom).toLocaleString()}</span></div>`:""}
       <div style="display:flex;justify-content:space-between;padding-top:6px;margin-top:6px;border-top:1px solid var(--equi-raised);font-weight:bold;color:var(--equi-accent);"><span>Net Worth</span><span>฿${nw.toLocaleString()}</span></div>
       <div style="display:flex;justify-content:space-between;color:var(--equi-accent);"><span>Slot Price (5%)</span><span>฿${slot.toLocaleString()}</span></div>`;
   }

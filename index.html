@@ -24,39 +24,39 @@
     --gold-shine:linear-gradient(135deg,#e8c97a 0%,#c9a84c 30%,#f2d97e 50%,#c9a84c 70%,#8a6820 100%);
   }
   *{box-sizing:border-box;}
-  body{ margin:0; background:var(--bg); color:var(--text); font-family:'Lora',Georgia,'Palatino Linotype',serif; line-height:1.6; }
+  body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--equi-serif); line-height:1.6; }
   a{ color:var(--accent); }
 
   header{ border-bottom:1px solid var(--line); background:linear-gradient(180deg,#2c1f16,#1b1410); position:relative; }
   header::after{ content:''; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:var(--gold-shine); opacity:.55; }
   .wrap{ max-width:min(1700px, 94vw); margin:0 auto; padding:0 clamp(16px,2vw,32px); }
-  h1{ margin:0; font-family:'Playfair Display',serif; font-weight:700; font-size:clamp(1.8rem,4vw,2.6rem);
+  h1{ margin:0; font-family:var(--equi-display); font-weight:700; font-size:clamp(1.8rem,4vw,2.6rem);
       background:var(--gold-shine); -webkit-background-clip:text; background-clip:text; color:transparent; letter-spacing:.5px; }
   .tagline{ color:var(--dim); margin:2px 0 0; font-family:'Caveat',cursive; font-size:1.3rem; }
   nav{ display:flex; gap:4px; flex-wrap:wrap; margin-top:14px; }
   .tab{ padding:9px 18px; border:1px solid var(--line); border-bottom:none;
         border-radius:8px 8px 0 0; cursor:pointer; background:#1e1610; color:var(--dim);
-        font-family:'Playfair Display',serif; font-size:.98em; letter-spacing:.02em; }
+        font-family:var(--equi-display); font-size:.98em; letter-spacing:.02em; }
   .tab.active{ background:var(--gold-shine); color:#241a14; font-weight:700; }
 
   .card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px; margin:16px 0;
          box-shadow:0 2px 14px rgba(0,0,0,.25), inset 0 0 0 1px rgba(201,168,76,.07); }
-  .card h2{ margin:0 0 10px; font-family:'Playfair Display',serif; color:var(--accent); font-size:1.5em; }
-  .card h3{ margin:0 0 8px; font-family:'Playfair Display',serif; color:var(--accent); font-size:1.22em; }
-  .card h4{ font-family:'Playfair Display',serif; }
+  .card h2{ margin:0 0 10px; font-family:var(--equi-display); color:var(--accent); font-size:1.5em; }
+  .card h3{ margin:0 0 8px; font-family:var(--equi-display); color:var(--accent); font-size:1.22em; }
+  .card h4{ font-family:var(--equi-display); }
   .grid{ display:grid; gap:12px; }
   .small{ font-size:.92em; color:var(--dim); }
   .tag{ display:inline-block; font-size:.9em; padding:3px 9px; border-radius:10px;
         background:var(--deep); color:var(--dim); border:1px solid var(--line); }
   button{ background:linear-gradient(135deg,var(--honey),var(--rust)); color:#fff6ea; border:none; padding:9px 18px; border-radius:6px;
-          font-weight:700; cursor:pointer; font-family:'Playfair Display',serif; font-size:1em;
+          font-weight:700; cursor:pointer; font-family:var(--equi-display); font-size:1em;
           box-shadow:0 2px 0 rgba(80,32,10,.4), inset 0 1px 0 rgba(255,255,255,.12); }
   button:hover:not(:disabled){ filter:brightness(1.06); }
   button:disabled{ opacity:.6; cursor:not-allowed; }
-  button.ghost{ background:#2c2118; color:var(--text); border:1px solid var(--line); box-shadow:none; font-family:'Lora',serif; font-weight:500; }
+  button.ghost{ background:#2c2118; color:var(--text); border:1px solid var(--line); box-shadow:none; font-family:var(--equi-serif); font-weight:500; }
   button.ghost:hover{ border-color:var(--brass-mid); filter:none; }
   input, textarea, select{ width:100%; padding:9px; font-size:1em; background:var(--deep); border:1px solid var(--line);
-          color:var(--text); border-radius:5px; font-family:'Lora',serif; }
+          color:var(--text); border-radius:5px; font-family:var(--equi-serif); }
   input:focus, textarea:focus, select:focus{ outline:none; border-color:var(--brass-mid); box-shadow:0 0 0 2px rgba(201,168,76,.22); }
   label{ font-size:.88em; color:var(--dim); text-transform:uppercase; display:block; margin-top:10px; letter-spacing:.03em; }
   .muted{ opacity:.7; }
@@ -75,7 +75,7 @@
     background-color:var(--panel2); border-bottom:1px solid var(--line); }
   .shop-tile .banner.noimg{ display:flex; align-items:center; justify-content:center; font-size:2.4em; color:var(--line); }
   .shop-tile .body{ padding:12px 14px; flex:1; display:flex; flex-direction:column; gap:5px; }
-  .shop-tile .body b{ font-family:'Playfair Display',serif; color:var(--accent); font-size:1.1em; }
+  .shop-tile .body b{ font-family:var(--equi-display); color:var(--accent); font-size:1.1em; }
 
   /* A storefront restyles itself with these locals, so each shop feels custom
      while still living inside the hub. Defaults inherit the hub's palette. */
@@ -86,17 +86,17 @@
   .sf-hero .banner{ height:180px; background-size:cover; background-position:center; background-color:var(--sf-panel); }
   .sf-hero .banner.noimg{ display:flex; align-items:center; justify-content:center; font-size:3em; color:var(--sf-accent); opacity:.5; }
   .sf-hero .meta{ padding:16px 18px; }
-  .sf-hero .meta h2{ margin:0; font-family:'Playfair Display',serif; color:var(--sf-head); }
+  .sf-hero .meta h2{ margin:0; font-family:var(--equi-display); color:var(--sf-head); }
   .sf-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; }
   .sf-item{ border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--sf-panel);
     display:flex; flex-direction:column; }
   .sf-item .img{ height:150px; background-size:cover; background-position:center; background-color:var(--panel2); }
   .sf-item .img.noimg{ display:flex; align-items:center; justify-content:center; font-size:2em; color:var(--line); }
   .sf-item .pad{ padding:12px; flex:1; display:flex; flex-direction:column; gap:6px; }
-  .sf-item .pad .nm{ font-family:'Playfair Display',serif; color:var(--sf-head); font-weight:700; }
-  .sf-price{ color:var(--sf-accent); font-family:'Caveat',cursive; font-weight:700; font-size:1.5rem; margin-top:auto; }
+  .sf-item .pad .nm{ font-family:var(--equi-display); color:var(--sf-head); font-weight:700; }
+  .sf-price{ color:var(--sf-accent); font-family:var(--equi-display); font-weight:700; font-size:1.5rem; margin-top:auto; }
   .sf-buy{ background:var(--sf-accent); color:#1a130c; border:none; padding:7px 14px; border-radius:6px;
-    font-family:'Playfair Display',serif; font-weight:700; cursor:pointer; }
+    font-family:var(--equi-display); font-weight:700; cursor:pointer; }
   .sf-buy:disabled{ opacity:.5; cursor:not-allowed; }
   .swatch-row{ display:flex; gap:12px; flex-wrap:wrap; }
   .swatch{ display:flex; flex-direction:column; gap:4px; align-items:flex-start; }
@@ -107,13 +107,13 @@
   /* ── BREEDS TAB ───────────────────────────────────────────── */
   .breed-page{ --sf-accent:var(--accent); --sf-panel:var(--deep); --sf-head:var(--brass-mid); }
   .breed-sub{ display:flex; gap:6px; flex-wrap:wrap; margin:14px 0; }
-  .breed-sub .bk-pill{ font-family:'Playfair Display',serif; }
+  .breed-sub .bk-pill{ font-family:var(--equi-display); }
   .imp-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; }
   .imp-card{ border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--sf-panel); display:flex; flex-direction:column; }
   .imp-card .img{ height:170px; background-size:cover; background-position:center; background-color:var(--panel2); }
   .imp-card .img.noimg{ display:flex; align-items:center; justify-content:center; font-size:2.2em; color:var(--line); }
   .imp-card .pad{ padding:12px; flex:1; display:flex; flex-direction:column; gap:6px; }
-  .imp-card .nm{ font-family:'Playfair Display',serif; color:var(--sf-head); font-weight:700; }
+  .imp-card .nm{ font-family:var(--equi-display); color:var(--sf-head); font-weight:700; }
   .imp-status{ font-size:.82em; padding:2px 8px; border-radius:10px; display:inline-block; width:max-content; }
   .imp-status.available{ background:#22301c; color:var(--good); border:1px solid var(--moss); }
   .imp-status.pending{ background:#332a14; color:var(--brass-light); border:1px solid var(--brass-dark); }
@@ -123,16 +123,16 @@
   .reg-row .thumb{ width:40px; height:40px; border-radius:6px; background-size:cover; background-position:center; background-color:var(--panel2); flex:0 0 auto; }
 
   /* ── BANK TAB ─────────────────────────────────────────────── */
-  .eyebrow{ font-family:'Caveat',cursive; font-size:1.05rem; letter-spacing:.12em; text-transform:uppercase; color:var(--brass-mid); }
+  .eyebrow{ font-family:var(--equi-serif); font-size:1.05rem; letter-spacing:.12em; text-transform:uppercase; color:var(--brass-mid); }
   .bank-hero{ border:1px solid var(--brass-mid);
     background:linear-gradient(180deg,#2a1f14,#20170f);
     box-shadow:0 4px 24px rgba(0,0,0,.35), inset 0 0 0 1px rgba(232,201,122,.15); }
   .bank-hero-row{ display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
-  .bank-balance{ font-family:'Caveat',cursive; font-weight:700; font-size:clamp(2.6rem,7vw,3.4rem); line-height:1;
+  .bank-balance{ font-family:var(--equi-display); font-weight:700; font-size:clamp(2.6rem,7vw,3.4rem); line-height:1;
     background:var(--gold-shine); -webkit-background-clip:text; background-clip:text; color:transparent; margin:2px 0 4px; }
   .bank-hero-actions{ display:flex; gap:8px; align-items:center; flex-shrink:0; }
   .bk-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px;
-    border-radius:9px; background:var(--rust); color:#fff; font-family:'Caveat',cursive; font-weight:700; font-size:.85rem; }
+    border-radius:9px; background:var(--rust); color:#fff; font-family:var(--equi-serif); font-weight:700; font-size:.85rem; }
   .bank-filters{ display:flex; gap:6px; }
   .bk-pill{ padding:4px 14px; border:1px solid var(--line); border-radius:20px; cursor:pointer; font-size:.85rem; color:var(--dim); user-select:none; }
   .bk-pill:hover{ border-color:var(--brass-mid); color:var(--text); }
@@ -145,8 +145,8 @@
     background:var(--panel); flex:0 0 auto; font-size:1rem; }
   .bk-tx-body{ flex:1; min-width:0; display:flex; flex-direction:column; }
   .bk-tx-body b{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .bk-tx-date{ font-family:'Caveat',cursive; color:var(--dim); opacity:.75; font-size:.95rem; }
-  .bk-tx-amt{ font-family:'Caveat',cursive; font-weight:700; font-size:1.35rem; white-space:nowrap; }
+  .bk-tx-date{ font-family:var(--equi-serif); color:var(--dim); opacity:.75; font-size:.95rem; }
+  .bk-tx-amt{ font-family:var(--equi-serif); font-weight:700; font-size:1.35rem; white-space:nowrap; }
   .bk-tx-amt.in{ color:var(--good); }
   .bk-tx-amt.out{ color:var(--rust); }
   .bk-notif{ padding:10px 12px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px; background:var(--deep); }
@@ -160,8 +160,8 @@
   .bk-subnav{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
   .bk-idbox{ background:var(--gold-shine); border:1px solid var(--brass-dark); border-radius:10px;
     padding:14px 16px; text-align:center; margin:12px 0; box-shadow:0 2px 0 var(--brass-dark); }
-  .bk-idbox .lab{ font-family:'Caveat',cursive; font-size:1rem; text-transform:uppercase; letter-spacing:.1em; color:#3e2b15; opacity:.85; }
-  .bk-idbox .val{ font-family:'Caveat',cursive; font-size:1.7rem; font-weight:700; color:#241a14; word-break:break-all; line-height:1.15; }
+  .bk-idbox .lab{ font-family:var(--equi-serif); font-size:1rem; text-transform:uppercase; letter-spacing:.1em; color:#3e2b15; opacity:.85; }
+  .bk-idbox .val{ font-family:var(--equi-mono); font-size:1.7rem; font-weight:700; color:#241a14; word-break:break-all; line-height:1.15; }
   .bk-idbox .hint{ font-size:.78rem; color:#3e2b15; font-style:italic; opacity:.85; margin-top:4px; }
 </style>
   <link rel="stylesheet" href="equi-shell.css" />
@@ -185,7 +185,6 @@
       <div class="equi-hd__words">
         <h1 class="equi-hd__title">EquiStories</h1>
         <p class="equi-hd__tagline">An art-driven horse roleplay community — draw, train, compete, breed.</p>
-        <div class="equi-hd__apps"><a class="equi-hd__app is-here" href="index.html">Community</a><a class="equi-hd__app" href="stable.html">Stable Manager</a><a class="equi-hd__app" href="shows.html">Shows</a></div>
       </div>
     </div>
     <nav id="nav" class="equi-hd__nav"></nav>
@@ -545,8 +544,8 @@ async function renderHome(v){
         <div style="display:flex;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid #2a2018;">
           <span style="width:28px;text-align:right;font-size:1.15em;color:${i<3?'var(--accent2)':'var(--dim)'};font-weight:${i<3?'bold':'normal'};">${i+1}</span>
           ${imgOk(r.image)
-            ? `<img src="${__esc(r.image)}" referrerpolicy="no-referrer" style="width:150px;height:150px;border-radius:6px;object-fit:cover;border:1px solid #6a4a8a;" />`
-            : `<div style="width:150px;height:150px;border-radius:6px;border:1px solid #6a4a8a;display:flex;align-items:center;justify-content:center;background:var(--deep);">&#129485;</div>`}
+            ? `<img src="${__esc(r.image)}" referrerpolicy="no-referrer" style="width:150px;height:150px;border-radius:6px;object-fit:cover;border:1px solid var(--equi-plum);" />`
+            : `<div style="width:150px;height:150px;border-radius:6px;border:1px solid var(--equi-plum);display:flex;align-items:center;justify-content:center;background:var(--deep);">&#129485;</div>`}
           <span style="flex:1;min-width:0;">
             <a href="${__APPS.stable}?rider=${encodeURIComponent(r.id)}"><b>${__esc(r.name||'Unnamed')}</b></a>
             <span class="small muted"> · ${__esc(r.__owner||'')}</span>
@@ -584,7 +583,7 @@ function renderSpotlight(h, profiles){
     <div class="card" style="border-color:var(--accent);">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
         <h3 style="margin:0;">&#127942; Horse of the moment</h3>
-        <span class="tag" style="background:#3a2a10;color:#e8c86a;border-color:var(--accent);">Highest total stats</span>
+        <span class="tag" style="background:#3a2a10;color:var(--equi-brass-light);border-color:var(--accent);">Highest total stats</span>
       </div>
       <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;margin-top:12px;">
         <div style="flex:0 0 auto;">
@@ -597,7 +596,7 @@ function renderSpotlight(h, profiles){
             <a href="${__APPS.stable}?horse=${encodeURIComponent(h.id)}">${__esc(h.name||'Unnamed')}</a></h4>
           ${h.barnName?`<div class="small muted">"${__esc(h.barnName)}"</div>`:''}
           <div class="small">${__esc(h.breed||'')}${h.height?` · ${__esc(h.height)}`:''} · Level ${h.level||1}${h.discipline?` · ${__esc(h.discipline)}`:''}</div>
-          <div style="margin:8px 0;"><span class="tag" style="background:#3a2a10;color:#e8c86a;border-color:var(--accent);font-size:1rem;">${h.total} total stats</span></div>
+          <div style="margin:8px 0;"><span class="tag" style="background:#3a2a10;color:var(--equi-brass-light);border-color:var(--accent);font-size:1rem;">${h.total} total stats</span></div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 14px;margin-top:6px;">
             ${STATS.map(k=>`<span class="small" style="display:flex;justify-content:space-between;gap:8px;white-space:nowrap;padding:2px 8px;background:var(--deep);border-radius:5px;">
                <span>${STAT_LABELS[k]}</span><b style="color:var(--accent);">${(h.stats&&h.stats[k])||0}</b></span>`).join("")}
@@ -1312,7 +1311,7 @@ async function renderAdminPanel(v){
       <div style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
         <div class="grid" style="grid-template-columns:2fr 1fr;gap:8px;">
           <div><label class="small">Board name</label><input data-bd="${i}" data-f="name" value="${esc(b.name)}" placeholder="Advertisements" /></div>
-          <div><label class="small">id ${b._existing?'<span style="color:var(--bad)">(keep as-is)</span>':'<span class="muted">(auto)</span>'}</label><input data-bd="${i}" data-f="id" value="${esc(b.id)}" placeholder="ads" style="font-family:monospace;" /></div>
+          <div><label class="small">id ${b._existing?'<span style="color:var(--bad)">(keep as-is)</span>':'<span class="muted">(auto)</span>'}</label><input data-bd="${i}" data-f="id" value="${esc(b.id)}" placeholder="ads" style="font-family:var(--equi-mono);" /></div>
         </div>
         <label class="small">Description</label><input data-bd="${i}" data-f="desc" value="${esc(b.desc)}" placeholder="What this board is for" />
         <button class="ghost" data-bddel="${i}" style="margin-top:6px;color:var(--bad);padding:4px 10px;">Remove</button>
@@ -2035,7 +2034,7 @@ function renderMessages(v){
           <span style="flex:1"></span>
           <button class="ghost" data-mtab="compose" style="${mode==='compose'?'font-weight:bold;':''}">Write a message</button>
         </div>
-        ${__msgCache.error?`<div class="small" style="color:#e0906a;margin-top:8px;">${__msgCache.error}</div>`:''}
+        ${__msgCache.error?`<div class="small" style="color:var(--equi-rust);margin-top:8px;">${__msgCache.error}</div>`:''}
       </div>
 
       ${mode==='compose' ? `
@@ -2062,7 +2061,7 @@ function renderMessages(v){
           <input id="m_block" list="m_members" placeholder="username to block" style="max-width:220px;" />
           <button class="ghost" id="m_blockadd">Block</button>
         </div>
-        <div style="margin-top:8px;">${blocked.length?blocked.map(b=>`<span class="tag" style="margin-right:6px;">${esc(b)} <span data-munblock="${esc(b)}" style="cursor:pointer;color:#e0906a;">✕</span></span>`).join(""):'<span class="small muted">No one blocked.</span>'}</div>
+        <div style="margin-top:8px;">${blocked.length?blocked.map(b=>`<span class="tag" style="margin-right:6px;">${esc(b)} <span data-munblock="${esc(b)}" style="cursor:pointer;color:var(--equi-rust);">✕</span></span>`).join(""):'<span class="small muted">No one blocked.</span>'}</div>
       </div>`;
 
     const resHost=v.querySelector('#res_list');
@@ -2120,12 +2119,13 @@ function renderNav(){
   const visibleTabs = (who && isAdminMember(who.userId)) ? TABS.concat(["Admin"]) : TABS;
   $("nav").innerHTML = visibleTabs.map(t=>{
     const __n = (t==="Messages") ? (msgUnread()+resultsWaiting()) : 0;
-    const badge = __n ? ` <span style="background:#c9a84c;color:#140e07;border-radius:9px;padding:0 6px;font-size:.82em;font-weight:bold;">${__n}</span>` : "";
+    const badge = __n ? ` <span style="background:var(--equi-accent);color:var(--equi-ink);border-radius:9px;padding:0 6px;font-size:.82em;font-weight:bold;">${__n}</span>` : "";
     return `<div class="tab ${t===tab?'active':''}" data-tab="${t}">${t}${badge}</div>`;
   }).join("")
-    + `<span style="margin-left:auto;display:flex;align-items:center;gap:10px;padding:0 4px;">
-         <span class="small">${esc(who?who.userId:'')}</span>
-         <button class="ghost" id="navOut" style="padding:4px 12px;font-size:.9em;">Sign out</button>
+    + `<span class="equi-hd__user">
+         <a class="small member-link" href="?player=${encodeURIComponent(who?who.userId:'')}">${esc(who?who.userId:'')}</a>
+         <a class="ghost" href="?player=${encodeURIComponent(who?who.userId:'')}">My Profile</a>
+         <button class="ghost" id="navOut">Sign out</button>
        </span>`;
   $("nav").querySelectorAll("[data-tab]").forEach(el=>el.onclick=()=>{ tab=el.dataset.tab; if(tab==="Shops"){ __shopView={mode:"browse",shopId:null}; } if(tab==="Breeds"){ __breedView={mode:"browse",breedId:null}; } render(); });
   const out=$("navOut");
@@ -2427,7 +2427,7 @@ async function renderBreedBrowse(v, DB, who){
       `<h4 style="color:var(--accent);margin:0 0 6px;">Affiliated breeds (${affiliatedNames.length})</h4>`
       + (affiliatedNames.length
           ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">`
-            + affiliatedNames.map(n=>`<span class="tag" style="background:#2a1a3a;color:var(--accent2);border-color:#6a4a8a;">${esc(n)}</span>`).join("")
+            + affiliatedNames.map(n=>`<span class="tag" style="background:#2a1a3a;color:var(--accent2);border-color:var(--equi-plum);">${esc(n)}</span>`).join("")
             + `</div>`
           : `<span class="muted">No affiliated breeds yet — yours could be the first.</span>`)
       + `<h4 style="color:var(--accent);margin:14px 0 6px;">Standard breeds (${BASE_BREEDS.length})</h4>
@@ -2555,7 +2555,7 @@ async function breedImportsView(body, DB, who, breed, staff){
             <div class="nm">${esc(i.name)}</div>
             <span class="imp-status ${i.status}">${i.status==='pending'?'On hold':'Available'}</span>
             ${i.designUrl?`<a class="small" href="${esc(i.designUrl)}" target="_blank" rel="noopener">View design →</a>`:''}
-            <span class="sf-price" style="color:var(--sf-accent);font-family:'Caveat',cursive;font-weight:700;font-size:1.5rem;">✦ ${Number(i.price)||0}</span>
+            <span class="sf-price" style="color:var(--sf-accent);font-family:var(--equi-display);font-weight:700;font-size:1.5rem;">✦ ${Number(i.price)||0}</span>
             <button class="sf-buy" style="background:var(--sf-accent);color:#1a130c;" data-order="${esc(i.id)}" ${claimable?'':'disabled'}>${i.status==='pending'?'On hold':(who?'Order this':'Sign in to order')}</button>
           </div>
         </div>`;
@@ -2963,19 +2963,19 @@ function gearStatCap(uid){ return isAdminMember(uid) ? Infinity : (isPremiumMemb
 // A small crown badge shown beside premium members' names across the hub.
 function premiumBadge(uid){
   if(!isPremiumMember(uid)) return "";
-  return ` <span title="Premium member" style="display:inline-block;font-size:.85em;color:#d4af37;vertical-align:baseline;">&#128081;</span>`;
+  return ` <span title="Premium member" style="display:inline-block;font-size:.85em;color:var(--equi-brass-light);vertical-align:baseline;">&#128081;</span>`;
 }
 // A friendly status line for the signed-in member: shows premium expiry (or
 // "permanent" for the list) if active, otherwise a gentle invite to support.
 function premiumStatusLine(uid){
   if(ADMIN_MEMBERS.includes(uid) || PREMIUM_MEMBERS.includes(uid)){
-    return `<div class="small" style="color:#d4af37;margin-top:2px;">&#128081; Premium member</div>`;
+    return `<div class="small" style="color:var(--equi-brass-light);margin-top:2px;">&#128081; Premium member</div>`;
   }
   const until = __premiumCache[uid];
   if(until && until > Date.now()){
     const days = Math.ceil((until - Date.now())/(24*60*60*1000));
     const dateStr = new Date(until).toLocaleDateString();
-    return `<div class="small" style="color:#d4af37;margin-top:2px;">&#128081; Premium active — ${days} day${days===1?'':'s'} left (until ${dateStr}). Renew anytime; early renewals add on.</div>`;
+    return `<div class="small" style="color:var(--equi-brass-light);margin-top:2px;">&#128081; Premium active — ${days} day${days===1?'':'s'} left (until ${dateStr}). Renew anytime; early renewals add on.</div>`;
   }
   return `<div class="small muted" style="margin-top:2px;">Not premium. <a href="https://ko-fi.com/" target="_blank" style="color:var(--accent);">Support EquiStories</a> to unlock the crown, custom shop looks, multiple shops, and +3 gear. Enter your User ID <b>${esc(uid)}</b> at checkout.</div>`;
 }
@@ -3441,9 +3441,9 @@ async function renderShopManage(v, DB, who){
         Your CSS restyles the real shop; buying still runs on the hub's safe buttons underneath, so it's fully secure.
         <b>No JavaScript</b> is needed or allowed — it's pure look.</p>
       <label>Custom CSS <span class="small">(styles everything inside your storefront)</span></label>
-      <textarea id="ph_css" rows="10" placeholder=".storefront-custom{ font-family:'Cinzel',serif; background:#0b1e3f; }&#10;.storefront-custom .sf-buy{ background:linear-gradient(#e9c46a,#b8860b); color:#1a130c; }&#10;.storefront-custom .sf-item{ border:1px solid #d4af37; border-radius:12px; }" style="font-family:monospace;font-size:.85em;">${esc(shop.customCss||'')}</textarea>
+      <textarea id="ph_css" rows="10" placeholder=".storefront-custom{ font-family:'Cinzel',serif; background:#0b1e3f; }&#10;.storefront-custom .sf-buy{ background:linear-gradient(#e9c46a,#b8860b); color:#1a130c; }&#10;.storefront-custom .sf-item{ border:1px solid var(--equi-brass-light); border-radius:12px; }" style="font-family:var(--equi-mono);font-size:.85em;">${esc(shop.customCss||'')}</textarea>
       <label style="margin-top:8px;">Wrapper HTML <span class="small">(optional — your header/frame; put <code>{{SHOP}}</code> where items should appear)</span></label>
-      <textarea id="ph_wrap" rows="8" placeholder="<div class='my-hero'><img src='https://…/banner.png'><h1>Irish Lightblood Emporium</h1></div>&#10;{{SHOP}}&#10;<footer class='my-foot'>Thanks for visiting!</footer>" style="font-family:monospace;font-size:.85em;">${esc(shop.customWrap||'')}</textarea>
+      <textarea id="ph_wrap" rows="8" placeholder="<div class='my-hero'><img src='https://…/banner.png'><h1>Irish Lightblood Emporium</h1></div>&#10;{{SHOP}}&#10;<footer class='my-foot'>Thanks for visiting!</footer>" style="font-family:var(--equi-mono);font-size:.85em;">${esc(shop.customWrap||'')}</textarea>
       <p class="small muted" style="margin-top:6px;">Tip: to use a custom font, paste its raw <code>@font-face</code> rule into <b>Custom CSS</b> (a Google Fonts <code>&lt;link&gt;</code> in the wrapper is stripped for safety). Your CSS targets <code>.storefront-custom</code> and the real shop classes: <code>.sf-item</code>, <code>.sf-buy</code>, <code>.sf-price</code>, <code>.sf-grid</code>, <code>.nm</code>, <code>.img</code>.</p>
       <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button id="ph_save">Save custom look</button>

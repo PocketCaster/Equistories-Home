@@ -42,6 +42,11 @@ html:root{
   --equi-warn:      #c9a23a;
   --equi-bad:       #b1473f;
   --equi-rust:      #c96a3a;
+  --equi-faint:     #8a7a6a;   /* quieter than --equi-dim: timestamps, hints  */
+  --equi-brass-light:#e8c97a;  /* highlight gold on dark panels               */
+  --equi-plum:      #6a4a8a;   /* rider prestige                              */
+  --equi-good-soft: #a0e8c0;
+  --equi-bad-soft:  #e08080;
 
   --equi-serif: 'Lora', 'Palatino Linotype', Georgia, serif;
   --equi-display: 'Playfair Display', Georgia, serif;
@@ -197,3 +202,15 @@ html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); lett
 /* Member names are links to their Hub profile wherever they appear. */
 .member-link{ color: var(--equi-accent); text-decoration:none; }
 .member-link:hover{ text-decoration:underline; }
+
+/* Name / My Profile / Sign out sit together at the right of the tab row. */
+.equi-hd__user a.ghost,
+.equi-hd__user button{
+  padding:4px 12px; font-size:.9em; margin-top:0;
+  background:#2c2118; color: var(--equi-text);
+  border:1px solid var(--equi-line); border-radius:6px;
+  cursor:pointer; text-decoration:none; font-family: var(--equi-serif);
+  display:inline-block; line-height:1.5;
+}
+.equi-hd__user a.ghost:hover,
+.equi-hd__user button:hover{ border-color: var(--equi-accent); }

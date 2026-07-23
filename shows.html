@@ -162,7 +162,6 @@
       <div class="equi-hd__words">
         <h1 class="equi-hd__title">EquiStories</h1>
         <p class="equi-hd__tagline">Host a show, judge the entries, or enter one of your own.</p>
-        <div class="equi-hd__apps"><a class="equi-hd__app" href="index.html">Community</a><a class="equi-hd__app" href="stable.html">Stable Manager</a><a class="equi-hd__app is-here" href="shows.html">Shows</a></div>
       </div>
     </div>
     <nav id="nav" class="equi-hd__nav"></nav>
@@ -1854,7 +1853,7 @@ function ribbonPanel(){
     return `<div class="finish" style="grid-template-columns:72px 1fr;align-items:center">
       <div class="artview" style="max-width:64px">${rib.image?`<img src="${esc(rib.image)}" alt="${esc(rib.label)}" loading="lazy" referrerpolicy="no-referrer" />`:`<div class="empty" style="padding:14px">no img</div>`}</div>
       <div><div class="name">${esc(rib.name)} — ${esc(rib.customLabel||rib.label)}${rib.className&&published.multi?` <span class="small muted">· ${esc(rib.className)}</span>`:""}</div>
-        ${rib.artExp>0?`<div class="small" style="color:#9bd18a;margin-top:4px">
+        ${rib.artExp>0?`<div class="small" style="color:var(--equi-good-soft);margin-top:4px">
           Art worth +${rib.artExp} EXP${rib.artLabel?` — ${esc(rib.artLabel)}`:""}
           <span class="muted">· log it in your tracker's show log</span></div>`:""}
         ${rib.expBonus>0?`<div class="small" style="color:var(--amber);margin-top:4px">
@@ -3186,7 +3185,7 @@ if(showParam){
   if(show.title && show.title.trim()) persist();
 }
 </script>
-<div id="buildStamp" style="position:fixed;bottom:6px;right:8px;z-index:99999;font:11px/1.4 ui-monospace,monospace;color:#7a6a58;background:rgba(20,14,10,.85);border:1px solid #3a2e22;border-radius:4px;padding:3px 7px;pointer-events:none;">
+<div id="buildStamp" style="position:fixed;bottom:6px;right:8px;z-index:99999;font:11px/1.4 ui-monospace,monospace;color:#7a6a58;background:rgba(20,14,10,.85);border:1px solid var(--equi-faint);border-radius:4px;padding:3px 7px;pointer-events:none;">
   build 2026-07-22-e
 </div>
 </body>

@@ -53,8 +53,11 @@
                t.href + '">' + t.label + "</a>";
       }).join("") +
       '<span class="equi-hd__user">' +
-        '<span class="small">' + esc(who ? who.userId : "") + "</span>" +
-        (who ? '<button class="ghost" id="equiOut">Sign out</button>' : "") +
+        (who
+          ? '<a class="small member-link" href="index.html?player=' + encodeURIComponent(who.userId) + '">' + esc(who.userId) + "</a>" +
+            '<a class="ghost" href="index.html?player=' + encodeURIComponent(who.userId) + '">My Profile</a>' +
+            '<button class="ghost" id="equiOut">Sign out</button>'
+          : '<span class="small"></span>') +
       "</span>";
 
     var out = document.getElementById("equiOut");
