@@ -1,21 +1,20 @@
 /* ==========================================================================
-   EquiStories — shared banner + navigation
-   Renders the same header on every page: the crest, a tagline, and the
-   cross-app tabs.
+   EquiStories — shared site header
+   The SAME header on every page: the crest, the gold EquiStories wordmark, the
+   tagline, and a tab row with your name and Sign out on the right.
 
-     <script src="core/equi-nav.js"
-             data-app="stable"
-             data-tagline="Your horses, riders, training and shows."
-             defer></script>
+     <script src="core/equi-nav.js" data-app="stable" defer></script>
 
    data-app is one of: hub | stable | shows
-   data-tagline is optional; each page gets a sensible default below.
 
-   Mounts into <div id="equi-nav"></div>, or as the first child of <body>.
-
-   NOTE ON PAGE NAVS: this is the SITE nav (which app you're in). Each page
-   keeps its own section nav underneath — the Hub's #nav tab bar, the tracker's
-   .tabs. They're deliberately two levels and shouldn't be merged.
+   HOW THE TAB ROW IS FILLED
+   -------------------------
+   The header always renders <nav id="nav">, which is the element the Community
+   Hub's own renderNav() already writes into. So on the Hub, the Hub keeps full
+   control of its tabs exactly as before — this file just gives it a nicer frame.
+   On the Stable Manager and Shows, which have no such nav, this file fills the
+   row with links across the site plus the same name / Sign out block, so the
+   three headers are identical rather than merely similar.
    ========================================================================== */
 (function () {
   "use strict";
@@ -38,8 +37,7 @@
   var current = ds.app || "";
   var base    = ds.base || "";
   var tagline = ds.tagline || TAGLINES[current] || TAGLINES.hub;
-
-  var badges = {};
+  var isHub   = current === "hub";
 
   function session() {
     try {
@@ -66,47 +64,64 @@
     return mount;
   }
 
+  // The name + Sign out block that sits at the right-hand end of the tab row.
+  function userBlock(who) {
+    return '<span class="equi-hd__user">' +
+             '<span class="small">' + esc(who ? who.userId : "") + "</span>" +
+             (who ? '<button class="ghost" id="equiOut">Sign out</button>' : "") +
+           "</span>";
+  }
+
+  function fillTabsForApp() {
+    var nav = document.getElementById("nav");
+    if (!nav) return;
+    var who = session();
+    nav.innerHTML = PAGES.map(function (p) {
+      return '<a class="tab' + (p.key === current ? " active" : "") + '" href="' +
+             esc(base + p.href) + '">' + esc(p.label) + "</a>";
+    }).join("") + userBlock(who);
+
+    var out = document.getElementById("equiOut");
+    if (out) out.onclick = async function () {
+      try { localStorage.removeItem("equi-lite-bank"); } catch (e) {}
+      if (window.EquiAuth && window.EquiAuth.signOut) { try { await window.EquiAuth.signOut(); } catch (e) {} }
+      location.reload();
+    };
+  }
+
   function render() {
     if (!document.body) return;
-    var who = session();
-
-    var links = PAGES.map(function (p) {
-      var isHere = p.key === current;
-      var n = badges[p.key];
-      var badge = n ? '<span class="equi-hd__badge">' + esc(n) + "</span>" : "";
-      return '<a class="equi-hd__tab" href="' + esc(base + p.href) + '"' +
-             (isHere ? ' aria-current="page"' : "") + ">" + esc(p.label) + badge + "</a>";
-    }).join("");
 
     host().innerHTML =
       '<header class="equi-hd">' +
-        '<div class="equi-hd__top">' +
-          '<a class="equi-hd__brand" href="' + esc(base + "index.html") + '" aria-label="EquiStories home">' +
-            '<img class="equi-hd__logo" src="' + esc(base + "assets/equistories-logo.png") +
-                 '" alt="EquiStories" width="642" height="507" />' +
-          "</a>" +
-          '<div class="equi-hd__meta">' +
-            '<p class="equi-hd__tagline">' + esc(tagline) + "</p>" +
-            (who
-              ? '<p class="equi-hd__who">Signed in as <b>' + esc(who.userId) + "</b></p>"
-              : '<p class="equi-hd__who">Not signed in</p>') +
+        '<div class="equi-hd__wrap">' +
+          '<div class="equi-hd__brand">' +
+            '<a href="' + esc(base + "index.html") + '" aria-label="EquiStories home">' +
+              '<img class="equi-hd__logo" src="' + esc(base + "assets/equistories-logo.png") +
+                   '" alt="" width="642" height="507" />' +
+            "</a>" +
+            "<div>" +
+              '<h1 class="equi-hd__title">EquiStories</h1>' +
+              '<p class="equi-hd__tagline">' + esc(tagline) + "</p>" +
+            "</div>" +
           "</div>" +
+          '<nav id="nav" class="equi-hd__nav"></nav>' +
         "</div>" +
-        '<nav class="equi-hd__nav" aria-label="EquiStories sections">' + links + "</nav>" +
       "</header>";
+
+    // On the Hub, its own renderNav() owns #nav — don't fight it.
+    if (!isHub) fillTabsForApp();
+    else if (typeof window.renderNav === "function") { try { window.renderNav(); } catch (e) {} }
   }
 
-  window.EquiNav = {
-    setBadge: function (key, n) { if (n) badges[key] = n; else delete badges[key]; render(); },
-    refresh: render,
-    current: function () { return current; }
-  };
+  window.EquiNav = { refresh: render, current: function () { return current; } };
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", render);
-  } else {
-    render();
-  }
+  // This script is placed in the body, immediately after its mount and BEFORE
+  // each page's own inline script — so render now rather than waiting for
+  // DOMContentLoaded, which would fire too late for the Hub's renderNav() to
+  // find #nav.
+  if (document.body) render();
+  else document.addEventListener("DOMContentLoaded", render);
 
   window.addEventListener("storage", function (e) {
     if (e.key === "equi-lite-bank") render();
