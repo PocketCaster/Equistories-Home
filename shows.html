@@ -12,8 +12,8 @@
     /* Hub palette, mapped onto this app's names:
        --bg = hub --bg, --ink = hub --deep (inputs/insets), --panel = hub --panel,
        --parchment = hub --text, --moss/--rust = hub --good/--bad */
-    --bg:#1b1410; --ink:#15100c; --panel:#241a14; --raised:#2c2118; --line:#4a392a;
-    --amber:#c98a3a; --parchment:#f1e6d8; --dim:#b5a392; --moss:#7a9b6e; --rust:#c96a3a;
+    --bg:var(--equi-bg); --ink:var(--equi-ink); --panel:var(--equi-panel); --raised:var(--equi-raised); --line:var(--equi-line);
+    --amber:var(--equi-accent); --parchment:var(--equi-text); --dim:var(--equi-dim); --moss:var(--equi-good); --rust:var(--equi-rust);
     --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   }
   *{box-sizing:border-box}
@@ -21,7 +21,7 @@
   /* Same content width as the Hub, so the apps fill the screen consistently. */
   .wrap{max-width:min(1700px,94vw);margin:0 auto;padding:32px clamp(16px,2vw,32px) 80px}
 
-  header{border-bottom:1px solid var(--line);background:linear-gradient(180deg,#2c1f16,#1b1410)}
+  header{border-bottom:1px solid var(--line);background:linear-gradient(180deg,#2c1f16,var(--equi-bg))}
   header .wrap{padding:22px 20px 18px}
   h1{font-size:clamp(1.6rem,4vw,2.4rem);margin:0;color:var(--amber);letter-spacing:.5px}
   h1 em{font-style:normal;color:var(--parchment)}
@@ -746,11 +746,11 @@ function rubricBreakdownHtml(criteria, presetName){
     } else if(c.kind==="anchored"){
       detail = `<div style="margin-top:4px;">`
         + c.bands.map(b=>`<div style="display:flex;gap:8px;padding:1px 0;">
-             <span style="min-width:34px;text-align:right;font-weight:bold;color:var(--accent,#c98a3a);">${b.pts}</span>
+             <span style="min-width:34px;text-align:right;font-weight:bold;color:var(--accent,var(--equi-accent));">${b.pts}</span>
              <span><b>${esc(b.label)}</b> — ${esc(b.desc)}</span></div>`).join("")
         + `</div>`;
     }
-    return `<details style="margin-top:6px;border:1px solid #4a392a;border-radius:6px;padding:6px 8px;background:#15100c;">
+    return `<details style="margin-top:6px;border:1px solid var(--equi-line);border-radius:6px;padding:6px 8px;background:var(--equi-ink);">
       <summary style="cursor:pointer;">
         <b>${esc(c.label)}</b> — ${c.max} pts <span style="opacity:.65;">(${share}% of the art score)</span>
       </summary>
@@ -3141,10 +3141,10 @@ if(showParam){
         renderAll(); renderInvite(); persist();
       }
     }else{
-      document.body.innerHTML='<div style="font-family:Georgia,serif;color:#f1e6d8;background:#241a14;border:1px solid #c98a3a;border-radius:8px;max-width:560px;margin:60px auto;padding:24px;">'
-        +'<h3 style="color:#c98a3a;margin-top:0;">Show not found</h3>'
+      document.body.innerHTML='<div style="font-family:var(--equi-serif);color:var(--equi-text);background:var(--equi-panel);border:1px solid var(--equi-accent);border-radius:8px;max-width:560px;margin:60px auto;padding:24px;">'
+        +'<h3 style="color:var(--equi-accent);margin-top:0;">Show not found</h3>'
         +'<p>That invite link points to a show this database doesn\'t have. It may have been removed, or the link may be from a different host.</p>'
-        +'<p><a href="'+location.pathname+'" style="color:#c98a3a;">← Back to the shows app</a></p></div>';
+        +'<p><a href="'+location.pathname+'" style="color:var(--equi-accent);">← Back to the shows app</a></p></div>';
     }
   })();
 } else if(hash){

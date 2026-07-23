@@ -6,6 +6,7 @@
   <title>EquiStories — Art Tracker</title>
   <link rel="stylesheet" href="style/equi-shell.css" />
   <link rel="stylesheet" href="style/equi-components.css" />
+  <link rel="stylesheet" href="style/equi-tracker.css" />
   <script src="core/equi-nav.js" data-app="stable" defer></script>
 </head>
 <body>
@@ -13,133 +14,7 @@
 
 
 <div id="app"></div>
-<style>
-  /* Base type scale: significantly larger baseline for readability/accessibility,
-     and keeps growing with viewport width so text reads comfortably on a phone
-     all the way up to a large desktop monitor instead of capping out early. */
-  html { font-size: clamp(16px, 0.6vw + 14px, 23px); -webkit-text-size-adjust:100%; }
-  html, body { background:#1b1410; margin:0; padding:0; }
-  #app {
-    --bg:#1b1410; --panel:#241a14; --panel2:#2c2118;
-    --accent:#c98a3a; --accent2:#7a9b6e;
-    --text:#f1e6d8; --dim:#b5a392; --danger:#b1473f; --warn:#c9a23a; --good:#7a9b6e;
-    font-family:'Georgia','Garamond',serif; color:var(--text); line-height:1.65;
-    background:var(--bg); padding:clamp(20px,3vw,48px); max-width:min(1800px,92vw); margin:0 auto;
-    box-sizing:border-box;
-  }
-  #app *, #app *::before, #app *::after { box-sizing:border-box; }
-  #app h1,#app h2,#app h3 { font-family:'Palatino Linotype',Georgia,serif; margin:.3em 0; line-height:1.3; }
-  #app h1 { color:var(--accent); border-bottom:2px solid var(--accent); padding-bottom:10px; font-size:1.75em; }
-  #app h3 { color:var(--accent); font-size:1.3em; margin-bottom:12px; }
-  #app .card { background:var(--panel); border:1px solid #4a392a; border-radius:10px; padding:clamp(18px,3.2vw,28px); margin-bottom:22px; }
-  #app .tabs { display:flex; gap:10px; margin:18px 0 24px; flex-wrap:wrap; }
-  #app .tab { padding:12px 20px; background:var(--panel2); border:1px solid #4a392a; border-radius:8px 8px 0 0; cursor:pointer; color:var(--dim); font-size:1.02em; min-height:48px; display:inline-flex; align-items:center; }
-  #app .tab.active { background:var(--accent); color:#241a14; font-weight:bold; border-color:var(--accent); }
-  #app .row { display:flex; gap:16px; flex-wrap:wrap; }
-  #app .row > div { flex:1; min-width:min(160px,100%); }
-  #app .gene-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px,1fr)); gap:14px 16px; align-items:end; }
-  #app .gene-cell { display:flex; flex-direction:column; min-width:0; }
-  #app .gene-cell label { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:help; }
-  #app .gene-cell select { width:100%; }
-  #app .loci-check-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:8px 14px; }
-  #app .loci-check-grid label { display:flex; align-items:center; gap:7px; cursor:pointer; min-width:0; }
-  #app .loci-check-grid input[type=checkbox] { flex-shrink:0; margin:0; width:20px; height:20px; min-height:0; padding:0; }
-  #app .loci-check-grid span { flex:1; cursor:help; }
-  #app label { font-size:.92em; color:var(--dim); display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px; }
-  #app input, #app select, #app textarea {
-    width:100%; padding:12px 14px; background:#15100c; border:1px solid #4a392a;
-    color:var(--text); border-radius:6px; font-family:inherit; font-size:1.05em; box-sizing:border-box; min-height:46px;
-  }
-  #app textarea { min-height:100px; }
-  #app button {
-    background:var(--accent); color:#231a12; border:none; padding:13px 20px;
-    border-radius:7px; cursor:pointer; font-weight:bold; font-family:inherit; font-size:1.02em; margin-top:8px;
-    min-height:46px;
-  }
-  #app button.secondary { background:var(--panel2); color:var(--text) !important; border:1px solid var(--accent); }
-  #app button.danger { background:var(--danger); color:#fff !important; }
-  #app button:hover { opacity:.88; }
-  #app .small { font-size:.92em; color:var(--dim); }
-  #app .tag { display:inline-block; font-size:1.04em; padding:4px 10px; border-radius:10px; margin-left:6px; background:#15100c; color:var(--dim); border:1px solid #4a392a; }
-  #app .result { padding:14px; border-radius:6px; margin-top:10px; font-weight:bold; }
-  #app .result.success { background:rgba(122,155,110,.15); border:1px solid var(--good); color:var(--good); }
-  #app .result.fail { background:rgba(177,71,63,.15); border:1px solid var(--danger); color:var(--danger); }
-  #app .pill-select { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
-  #app .pill { padding:8px 14px; background:#15100c; border:1px solid #4a392a; border-radius:14px; font-size:1.1em; cursor:pointer; color:var(--dim); min-height:40px; display:inline-flex; align-items:center; }
-  #app .pill.active { background:var(--accent); color:#241a14; border-color:var(--accent); }
-  #app .prompt-box { background:#15100c; border:1px dashed var(--accent); border-radius:6px; padding:14px; margin-top:10px; font-style:italic; color:var(--text); font-size:1em; }
-  /* Horse cards */
-  #app .horse-card { background:var(--panel2); border:1px solid #4a392a; border-radius:10px; padding:18px; margin-bottom:16px; }
-  #app .horse-photo { width:280px; height:280px; border-radius:8px; object-fit:cover; border:2px solid var(--accent); }
-  #app .horse-photo-placeholder { width:280px; height:280px; border-radius:8px; border:2px solid #4a392a; display:flex; align-items:center; justify-content:center; font-size:1.8em; background:#15100c; }
-  /* Lightbox */
-  #lightbox-overlay { position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px; }
-  #lightbox-overlay img { max-width:100%;max-height:90vh;border-radius:8px;box-shadow:0 0 40px rgba(0,0,0,.8);object-fit:contain; }
-  #lightbox-overlay .lb-caption { position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:#f1e6d8;background:rgba(0,0,0,.7);padding:8px 18px;border-radius:20px;font-size:1em; }
-  /* Art log */
-  #app .artlog-panel { margin-top:14px; background:#15100c; border:1px solid #4a392a; border-radius:6px; padding:12px; max-height:320px; overflow-y:auto; }
-  #app .rpp-form { margin-top:14px; background:#15100c; border:1px solid #4a392a; border-radius:6px; padding:12px; }
-  #app .artlog-entry { padding:11px 0; border-bottom:1px dashed #2c2118; font-size:1.1em; }
-  #app .artlog-entry:last-child { border-bottom:none; }
-  #app .artlog-thumb { width:56px; height:56px; border-radius:5px; object-fit:cover; border:1px solid #4a392a; margin-right:10px; vertical-align:middle; }
-  /* Stat bars */
-  #app .statgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:12px; font-size:.92em; }
-  #app .statbar-wrap { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-  #app .statbar-bg { flex:1; height:8px; background:#15100c; border-radius:4px; overflow:hidden; }
-  #app .statbar-fill { height:100%; background:linear-gradient(90deg,var(--accent2),var(--accent)); }
-  #app .expbar-bg { height:10px; background:#15100c; border-radius:5px; overflow:hidden; margin-top:6px; }
-  #app .expbar-fill { height:100%; background:linear-gradient(90deg,#8a6fb0,#c98a3a); }
-  #app .breedslots { display:flex; gap:7px; margin-top:7px; flex-wrap:wrap; }
-  #app .slot { width:24px; height:24px; border-radius:50%; border:1px solid var(--accent); display:flex; align-items:center; justify-content:center; font-size:1em; }
-  #app .slot.filled { background:var(--accent); color:#15100c; }
-  #app .slot.reserved { border-color:#8a9ac8; color:#8a9ac8; box-shadow:inset 0 0 0 2px #2a3550; }
-  /* Required field indicator */
-  #app .required { color:var(--warn); font-size:1.06em; margin-left:4px; }
-  #app input.missing, #app select.missing { border-color:var(--danger) !important; }
-
-  /* Ribbon Wall: frames scale with screen size (bigger on a wide monitor, shrink
-     to fit on a phone) and fully contain their contents — long ribbon/prize labels
-     can never bleed out and overlap a neighboring frame. */
-  #app .ribbon-frame { width:clamp(230px,24vw,400px); min-width:0; }
-  #app .ribbon-frame * { min-width:0; }
-  #app .ribbon-frame img, #app .ribbon-art-empty { width:100% !important; height:auto !important; aspect-ratio:1; }
-  #app .ribbon-frame > div:last-child { overflow:hidden; }
-
-  /* ---- Mobile: bigger touch targets, generous spacing, single-column layouts ---- */
-  @media (max-width:640px){
-    #app { padding:16px; }
-    #app .card { padding:16px; margin-bottom:18px; }
-    #app .tabs { gap:8px; }
-    #app .tab { flex:1 1 auto; justify-content:center; padding:12px 10px; font-size:1em; }
-    #app .row > div { min-width:100%; }
-    #app .statgrid { grid-template-columns:repeat(2,1fr); }
-    #app .horse-card { padding:16px; }
-  }
-  @media (max-width:380px){
-    #app .statgrid { grid-template-columns:1fr; }
-  }
-
-  /* Collapsible "Add a Horse" panel. <details> gives us open/close for free,
-     including keyboard support; we only restyle the marker and header. */
-  #app details.collapse > summary {
-    list-style:none; cursor:pointer; display:flex; align-items:center; gap:10px;
-    color:var(--accent); font-family:'Palatino Linotype',Georgia,serif;
-    font-size:1.3em; line-height:1.3; margin:0; padding:2px 0; min-height:44px;
-    user-select:none;
-  }
-  #app details.collapse > summary::-webkit-details-marker { display:none; }
-  #app details.collapse > summary::marker { content:""; }
-  #app details.collapse > summary:focus-visible { outline:2px solid var(--accent); outline-offset:4px; border-radius:4px; }
-  #app details.collapse .chev {
-    display:inline-block; flex:none; width:1em; text-align:center;
-    transition:transform .18s ease; opacity:.85;
-  }
-  #app details.collapse[open] .chev { transform:rotate(90deg); }
-  #app details.collapse .summary-hint { margin-left:auto; font-size:.62em; color:var(--dim); font-family:Georgia,serif; }
-  #app details.collapse[open] .summary-hint { opacity:0; }
-  #app details.collapse > .collapse-body { padding-top:14px; }
-  @media (prefers-reduced-motion:reduce) { #app details.collapse .chev { transition:none; } }
-</style>
+<!-- Page styling now lives in style/equi-tracker.css (linked in <head>). -->
 <script>
 // Set up a readiness promise SYNCHRONOUSLY, before the deferred module below
 // runs. The main app script executes before any module script, so it can't touch
@@ -360,11 +235,11 @@ window.addEventListener('error', function(ev){
   try{
     const app=document.getElementById('app');
     if(app && !app.hasChildNodes()){
-      app.innerHTML='<div style="font-family:Georgia,serif;color:#f1e6d8;background:#241a14;border:1px solid #c98a3a;border-radius:8px;max-width:640px;margin:40px auto;padding:20px;">'
-        +'<h3 style="color:#c98a3a;margin-top:0;">The app hit an error while starting</h3>'
-        +'<div style="font-family:monospace;font-size:.9em;background:#15100c;padding:10px;border-radius:6px;overflow:auto;">'+String(ev.message||ev.error||'Unknown error')+'</div>'
+      app.innerHTML='<div style="font-family:var(--equi-serif);color:var(--equi-text);background:var(--equi-panel);border:1px solid var(--equi-accent);border-radius:8px;max-width:640px;margin:40px auto;padding:20px;">'
+        +'<h3 style="color:var(--equi-accent);margin-top:0;">The app hit an error while starting</h3>'
+        +'<div style="font-family:monospace;font-size:.9em;background:var(--equi-ink);padding:10px;border-radius:6px;overflow:auto;">'+String(ev.message||ev.error||'Unknown error')+'</div>'
         +'<p>Try reloading the page. If it keeps happening, send the error above to the admin.</p>'
-        +'<p><a href="javascript:location.reload()" style="color:#c98a3a;font-weight:bold;">↻ Reload the page</a></p></div>';
+        +'<p><a href="javascript:location.reload()" style="color:var(--equi-accent);font-weight:bold;">↻ Reload the page</a></p></div>';
     }
   }catch(e){}
 });
@@ -541,17 +416,17 @@ function riderPPBlockHtml(prefix, mode, horse){
   // Nothing is preselected — the player ticks what actually applies. (A commission
   // is "Drawn by someone else", not a personal image; only they know which.)
   return `
-    <div class="rpp-block" data-rpp="${prefix}" style="margin-top:10px;border:1px solid #4a392a;border-radius:8px;padding:10px;background:#1a1410;">
+    <div class="rpp-block" data-rpp="${prefix}" style="margin-top:10px;border:1px solid var(--equi-line);border-radius:8px;padding:10px;background:#1a1410;">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <label style="margin:0;">Rider Prestige</label>
         <select class="rpp_rider" style="width:auto;display:inline-block;font-size:.95em;">
           <option value="">— no rider featured —</option>
           ${state.riders.map(r=>`<option value="${r.id}"${r.id===assigned?' selected':''}>${r.name} · ${riderTitle(riderPP(r)).name}</option>`).join("")}
         </select>
-        <span class="small">This entry: <b class="rpp_sum" style="color:#c9a8e8;">0</b> PP</span>
+        <span class="small">This entry: <b class="rpp_sum" style="color:var(--equi-accent-2);">0</b> PP</span>
       </div>
       <div style="margin-top:10px;">
-        <div class="small" style="font-weight:bold;color:#c9a8e8;">🎨 Art-Based PP <span style="font-weight:normal;opacity:.75;">— counted per image</span></div>
+        <div class="small" style="font-weight:bold;color:var(--equi-accent-2);">🎨 Art-Based PP <span style="font-weight:normal;opacity:.75;">— counted per image</span></div>
         <div class="small" style="opacity:.7;margin:2px 0 4px;">Any art of the rider — riding, roleplays, stable stories, daily life. Not just riding images.</div>
         <div class="small" style="opacity:.85;">Base <span style="opacity:.7;">(what the image is)</span>:</div>
         <div class="pill-select rpp_opts">${pills(RIDER_PP_ART_BASE)}</div>
@@ -947,11 +822,11 @@ function imgUrlLoadErrorCompact(img){
 }
 function urlImagePreviewHTML(url, caption){
   if(!url) return '';
-  return `<img src="${url}" style="max-height:120px;border-radius:6px;border:1px solid #4a392a;object-fit:contain;cursor:zoom-in;" onclick="openLightbox('${url.replace(/'/g,"\\'")}','${(caption||'').replace(/'/g,"\\'")}')" onerror="imgUrlLoadError(this)" />`;
+  return `<img src="${url}" style="max-height:120px;border-radius:6px;border:1px solid var(--equi-line);object-fit:contain;cursor:zoom-in;" onclick="openLightbox('${url.replace(/'/g,"\\'")}','${(caption||'').replace(/'/g,"\\'")}')" onerror="imgUrlLoadError(this)" />`;
 }
 function prizeThumbHTML(url){
-  if(!url) return '<div style="width:56px;height:56px;border:1px dashed #4a392a;border-radius:5px;flex:none;"></div>';
-  return `<img src="${url}" style="width:56px;height:56px;object-fit:cover;border-radius:5px;border:1px solid #4a392a;flex:none;" onerror="imgUrlLoadErrorCompact(this)" />`;
+  if(!url) return '<div style="width:56px;height:56px;border:1px dashed var(--equi-line);border-radius:5px;flex:none;"></div>';
+  return `<img src="${url}" style="width:56px;height:56px;object-fit:cover;border-radius:5px;border:1px solid var(--equi-line);flex:none;" onerror="imgUrlLoadErrorCompact(this)" />`;
 }
 
 function openLightbox(src, caption){
@@ -961,7 +836,7 @@ function openLightbox(src, caption){
   lb.innerHTML = `<div style="position:relative;text-align:center;">
     <img src="${src}" />
     ${caption?`<div class="lb-caption">${caption}</div>`:''}
-    <div style="position:fixed;top:16px;right:20px;font-size:1.8em;cursor:pointer;color:#f1e6d8;line-height:1;" id="lb-close">✕</div>
+    <div style="position:fixed;top:16px;right:20px;font-size:1.8em;cursor:pointer;color:var(--equi-text);line-height:1;" id="lb-close">✕</div>
   </div>`;
   lb.onclick = ()=>lb.remove();
   document.body.appendChild(lb);
@@ -2113,14 +1988,14 @@ function deleteCompRecord(h, recId){
 
 function render(){
   const app = document.getElementById('app');
-  if(!state.loaded){ app.innerHTML='<div style="padding:30px;color:#b5a392;">Loading…</div>'; return; }
+  if(!state.loaded){ app.innerHTML='<div style="padding:30px;color:var(--equi-dim);">Loading…</div>'; return; }
 
   const params = new URLSearchParams(window.location.search);
   const profileId = params.get('horse');
   if(profileId){
     const localHorse = state.horses.find(x=>x.id===profileId);
     if(localHorse){ renderHorseProfilePage(app, localHorse); return; }
-    app.innerHTML='<div style="padding:40px;text-align:center;color:#b5a392;font-family:Georgia,serif;">Loading horse profile…</div>';
+    app.innerHTML='<div style="padding:40px;text-align:center;color:var(--equi-dim);font-family:var(--equi-serif);">Loading horse profile…</div>';
     // FIX: STABLE_URL only ever exists in the browser localStorage of
     // whoever set it up in Admin settings. A visitor opening someone
     // else's shared profile link has never done that, so STABLE_URL was
@@ -2149,10 +2024,10 @@ function render(){
       } else {
         reason = 'The server responded, but did not return this horse. Check that your Apps Script\'s "loadPublicHorse" action exists and looks up horses by id across all users, not just the current one.';
       }
-      app.innerHTML=`<div style="padding:40px;text-align:center;color:#b5a392;font-family:Georgia,serif;max-width:500px;margin:0 auto;">
+      app.innerHTML=`<div style="padding:40px;text-align:center;color:var(--equi-dim);font-family:var(--equi-serif);max-width:500px;margin:0 auto;">
         Horse not found.<br>
-        <div style="font-size:1em;opacity:.8;margin-top:10px;background:#15100c;border:1px solid #4a392a;border-radius:6px;padding:10px;">${reason}</div>
-        <br><a href="${window.location.pathname}" style="color:#c98a3a;">← Back</a>
+        <div style="font-size:1em;opacity:.8;margin-top:10px;background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:6px;padding:10px;">${reason}</div>
+        <br><a href="${window.location.pathname}" style="color:var(--equi-accent);">← Back</a>
       </div>`;
     });
     return;
@@ -2166,14 +2041,14 @@ function render(){
     return;
   }
   if(false){
-    app.innerHTML='<div style="padding:40px;text-align:center;color:#b5a392;font-family:Georgia,serif;">Loading player profile…</div>';
+    app.innerHTML='<div style="padding:40px;text-align:center;color:var(--equi-dim);font-family:var(--equi-serif);">Loading player profile…</div>';
     const stableOverride = params.get('stable');
     if(stableOverride && !STABLE_URL) STABLE_URL = stableOverride;
     loadPublicPlayer(playerProfileId, stableOverride).then(res=>{
       if(res?.success && res.data){ renderPlayerProfilePage(app, res.data); return; }
-      app.innerHTML=`<div style="padding:40px;text-align:center;color:#b5a392;font-family:Georgia,serif;max-width:500px;margin:0 auto;">
+      app.innerHTML=`<div style="padding:40px;text-align:center;color:var(--equi-dim);font-family:var(--equi-serif);max-width:500px;margin:0 auto;">
         Player not found.<br><div style="font-size:1em;opacity:.8;margin-top:10px;">${res&&res.error?('Server said: "'+res.error+'"'):'Check the share link, and that the Stable script is redeployed with loadPublicProfile.'}</div>
-        <br><a href="${window.location.pathname}" style="color:#c98a3a;">← Back</a></div>`;
+        <br><a href="${window.location.pathname}" style="color:var(--equi-accent);">← Back</a></div>`;
     });
     return;
   }
@@ -2182,7 +2057,7 @@ function render(){
   if(riderProfileId){
     const localRider = state.riders.find(x=>x.id===riderProfileId);
     if(localRider){ renderRiderProfilePage(app, localRider); return; }
-    app.innerHTML='<div style="padding:40px;text-align:center;color:#b5a392;font-family:Georgia,serif;">Loading rider profile…</div>';
+    app.innerHTML='<div style="padding:40px;text-align:center;color:var(--equi-dim);font-family:var(--equi-serif);">Loading rider profile…</div>';
     const stableOverride = params.get('stable');
     if(stableOverride && !STABLE_URL) STABLE_URL = stableOverride;
     loadPublicRider(riderProfileId, stableOverride).then(res=>{
@@ -2197,10 +2072,10 @@ function render(){
       } else {
         reason = 'The server responded, but did not return this rider. Make sure the stable script has the loadPublicRider action and is redeployed.';
       }
-      app.innerHTML=`<div style="padding:40px;text-align:center;color:#b5a392;font-family:Georgia,serif;max-width:500px;margin:0 auto;">
+      app.innerHTML=`<div style="padding:40px;text-align:center;color:var(--equi-dim);font-family:var(--equi-serif);max-width:500px;margin:0 auto;">
         Rider not found.<br>
-        <div style="font-size:1em;opacity:.8;margin-top:10px;background:#15100c;border:1px solid #4a392a;border-radius:6px;padding:10px;">${reason}</div>
-        <br><a href="${window.location.pathname}" style="color:#c98a3a;">← Back</a>
+        <div style="font-size:1em;opacity:.8;margin-top:10px;background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:6px;padding:10px;">${reason}</div>
+        <br><a href="${window.location.pathname}" style="color:var(--equi-accent);">← Back</a>
       </div>`;
     });
     return;
@@ -2216,8 +2091,8 @@ function render(){
       <img src="${LOGO_DATA_URL}" alt="EquiStories" style="max-width:min(320px,70vw);height:auto;" />
     </div>
     <h1 style="text-align:center;border-bottom:none;">EquiStories Art Tracker</h1>
-    <details ${imageLinkHelpOpen?"open":""} id="imgHelpBox" style="background:#241a14;border:1px solid #4a392a;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
-      <summary style="cursor:pointer;color:#c98a3a;font-weight:bold;">How to add show art, prize photos & art log images (click to expand)</summary>
+    <details ${imageLinkHelpOpen?"open":""} id="imgHelpBox" style="background:var(--equi-panel);border:1px solid var(--equi-line);border-radius:8px;padding:10px 14px;margin-bottom:14px;">
+      <summary style="cursor:pointer;color:var(--equi-accent);font-weight:bold;">How to add show art, prize photos & art log images (click to expand)</summary>
       <div class="small" style="margin-top:10px;line-height:1.5;color:#d8c8b8;">
         Show art, prize/ribbon photos, art log images, profile photos, reference sheets, and tack item photos are all added by <b>pasting a direct link to the image</b> — not by uploading a file.
         <br><br>
@@ -2237,7 +2112,7 @@ function render(){
         </div>`).join("")}
       <div style="flex:1;"></div>
       <span class="small" style="color:var(--dim);margin-right:6px;">${bankAccount.userId}</span>
-      <button id="btn_myprofile" class="secondary" style="font-size:.98em;padding:4px 10px;margin-top:0;">My Profile${inboxUnreadCount()?` <span style="background:#c98a3a;color:#1c1510;border-radius:9px;padding:0 6px;font-weight:bold;font-size:.85em;">${inboxUnreadCount()}</span>`:''}</button>
+      <button id="btn_myprofile" class="secondary" style="font-size:.98em;padding:4px 10px;margin-top:0;">My Profile${inboxUnreadCount()?` <span style="background:var(--equi-accent);color:#1c1510;border-radius:9px;padding:0 6px;font-weight:bold;font-size:.85em;">${inboxUnreadCount()}</span>`:''}</button>
       <button id="btn_signout" class="secondary" style="font-size:.98em;padding:4px 10px;margin-top:0;">Sign Out</button>
     </div>
     <div id="tab-content"></div>
@@ -2294,56 +2169,56 @@ function renderLoginScreen(app){
   const field=(id,label,type,ph)=>`<div style="margin-bottom:8px;">
     <label class="small">${label}</label>
     <input id="${id}" type="${type}" placeholder="${ph}" autocomplete="${type==='password'?'current-password':'email'}"
-      style="width:100%;padding:8px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;box-sizing:border-box;margin-top:3px;" /></div>`;
+      style="width:100%;padding:8px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;box-sizing:border-box;margin-top:3px;" /></div>`;
 
   let body='';
   if(mode==='signin'){
     body = `
-      <h3 style="margin-top:0;color:#c98a3a;">Sign in</h3>
+      <h3 style="margin-top:0;color:var(--equi-accent);">Sign in</h3>
       <p class="small">Sign in with your email. Your Buxx, horses and riders are all still here.</p>
       ${field('li_email','Email','email','you@example.com')}
       ${field('li_pass','Password','password','Your password')}
-      <button id="li_go" style="width:100%;padding:10px;background:#c98a3a;color:#241a14;border:none;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Sign In</button>
+      <button id="li_go" style="width:100%;padding:10px;background:var(--equi-accent);color:var(--equi-panel);border:none;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Sign In</button>
       <div style="display:flex;justify-content:space-between;margin-top:10px;">
-        <span data-mode="forgot" class="small" style="color:#c98a3a;cursor:pointer;">Forgot password?</span>
-        <span data-mode="signup" class="small" style="color:#c98a3a;cursor:pointer;">Create an account</span>
+        <span data-mode="forgot" class="small" style="color:var(--equi-accent);cursor:pointer;">Forgot password?</span>
+        <span data-mode="signup" class="small" style="color:var(--equi-accent);cursor:pointer;">Create an account</span>
       </div>`;
   } else if(mode==='signup'){
     body = `
-      <h3 style="margin-top:0;color:#c98a3a;">Create an account</h3>
+      <h3 style="margin-top:0;color:var(--equi-accent);">Create an account</h3>
       <p class="small">Already play EquiStories? Create your login here, then you'll link it to your existing
       stable on the next screen — <b>nothing is lost</b>.</p>
       ${field('li_email','Email','email','you@example.com')}
       ${field('li_pass','Password','password','At least 6 characters')}
-      <button id="li_go" style="width:100%;padding:10px;background:#c98a3a;color:#241a14;border:none;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Create Account</button>
+      <button id="li_go" style="width:100%;padding:10px;background:var(--equi-accent);color:var(--equi-panel);border:none;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Create Account</button>
       <div style="margin-top:10px;text-align:center;">
-        <span data-mode="signin" class="small" style="color:#c98a3a;cursor:pointer;">← Back to sign in</span>
+        <span data-mode="signin" class="small" style="color:var(--equi-accent);cursor:pointer;">← Back to sign in</span>
       </div>`;
   } else if(mode==='forgot'){
     body = `
-      <h3 style="margin-top:0;color:#c98a3a;">Reset your password</h3>
+      <h3 style="margin-top:0;color:var(--equi-accent);">Reset your password</h3>
       <p class="small">We'll email you a link to set a new password. No admin needed.</p>
       ${field('li_email','Email','email','you@example.com')}
-      <button id="li_go" style="width:100%;padding:10px;background:#c98a3a;color:#241a14;border:none;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Send Reset Email</button>
+      <button id="li_go" style="width:100%;padding:10px;background:var(--equi-accent);color:var(--equi-panel);border:none;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Send Reset Email</button>
       <div style="margin-top:10px;text-align:center;">
-        <span data-mode="signin" class="small" style="color:#c98a3a;cursor:pointer;">← Back to sign in</span>
+        <span data-mode="signin" class="small" style="color:var(--equi-accent);cursor:pointer;">← Back to sign in</span>
       </div>`;
   } else { // link
     body = `
-      <h3 style="margin-top:0;color:#c98a3a;">Connect your stable</h3>
+      <h3 style="margin-top:0;color:var(--equi-accent);">Connect your stable</h3>
       <p class="small">Signed in as <b>${(window.EquiAuth && window.EquiAuth.email)||''}</b>.
       Enter your <b>old</b> Bank User ID and password once, and this login takes over from here.
       Your Buxx and horses stay exactly as they are.</p>
       ${field('li_user','Bank User ID','text','e.g. PocketCaster')}
       ${field('li_oldpass','Old bank password','password','Your old password')}
-      <button id="li_go" style="width:100%;padding:10px;background:#c98a3a;color:#241a14;border:none;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Link My Stable</button>
-      <div style="margin-top:12px;padding-top:10px;border-top:1px solid #4a392a;">
+      <button id="li_go" style="width:100%;padding:10px;background:var(--equi-accent);color:var(--equi-panel);border:none;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Link My Stable</button>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--equi-line);">
         <p class="small" style="margin:0 0 6px;">Brand new to EquiStories? Pick a User ID instead — this is permanent and stamps everything you own.</p>
         ${field('li_newid','New User ID','text','3-24 letters, numbers, _ or -')}
-        <button id="li_new" style="width:100%;padding:8px;background:#2c2118;color:#f1e6d8;border:1px solid #4a392a;border-radius:5px;cursor:pointer;">Create a new stable</button>
+        <button id="li_new" style="width:100%;padding:8px;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);border-radius:5px;cursor:pointer;">Create a new stable</button>
       </div>
       <div style="margin-top:10px;text-align:center;">
-        <span data-mode="signout" class="small" style="color:#b5a392;cursor:pointer;">Sign out</span>
+        <span data-mode="signout" class="small" style="color:var(--equi-dim);cursor:pointer;">Sign out</span>
       </div>`;
   }
 
@@ -2352,20 +2227,20 @@ function renderLoginScreen(app){
       <img src="${LOGO_DATA_URL}" alt="EquiStories" style="max-width:min(320px,70vw);height:auto;" />
     </div>
     <h1 style="text-align:center;border-bottom:none;">EquiStories Art Tracker</h1>
-    <div style="max-width:460px;margin:clamp(16px,6vh,40px) auto;background:#241a14;border:1px solid #4a392a;border-radius:8px;padding:clamp(16px,4vw,20px);">
-      ${!stableSet?'<div style="background:rgba(177,71,63,.15);border:1px solid #b1473f;border-radius:6px;padding:8px;margin-bottom:10px;font-size:1.02em;color:#e08080;">&#9888; Stable Data URL not configured — expand Admin section below first.</div>':""}
+    <div style="max-width:460px;margin:clamp(16px,6vh,40px) auto;background:var(--equi-panel);border:1px solid var(--equi-line);border-radius:8px;padding:clamp(16px,4vw,20px);">
+      ${!stableSet?'<div style="background:rgba(177,71,63,.15);border:1px solid var(--equi-bad);border-radius:6px;padding:8px;margin-bottom:10px;font-size:1.02em;color:#e08080;">&#9888; Stable Data URL not configured — expand Admin section below first.</div>':""}
       ${body}
       <div id="li_result" style="margin-top:8px;"></div>
-      <hr style="border:none;border-top:1px solid #4a392a;margin:16px 0;" />
+      <hr style="border:none;border-top:1px solid var(--equi-line);margin:16px 0;" />
       <details ${adminPanelUnlocked?"open":""}>
-        <summary style="cursor:pointer;font-size:1.02em;color:#b5a392;">Admin</summary>
+        <summary style="cursor:pointer;font-size:1.02em;color:var(--equi-dim);">Admin</summary>
         <div style="margin-top:10px;">
           ${adminPanelUnlocked ? `
           <p class="small">EquiStories now stores all stable data in <b>Firestore</b>. The old Google Sheets "Stable Data URL" has been retired and no longer needs configuring — there is nothing to set up here.</p>
           ` : `
           <p class="small">Enter the admin passcode to view or change the Stable Data URL.</p>
-          <input id="li_admin_pass" type="password" placeholder="Admin passcode" style="width:100%;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;box-sizing:border-box;margin-bottom:6px;" />
-          <button id="li_admin_unlock" style="width:100%;padding:8px;background:#2c2118;color:#f1e6d8;border:1px solid #4a392a;border-radius:5px;cursor:pointer;">Unlock Admin Panel</button>
+          <input id="li_admin_pass" type="password" placeholder="Admin passcode" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;box-sizing:border-box;margin-bottom:6px;" />
+          <button id="li_admin_unlock" style="width:100%;padding:8px;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);border-radius:5px;cursor:pointer;">Unlock Admin Panel</button>
           <div id="li_admin_unlock_result" style="margin-top:4px;font-size:1em;"></div>
           `}
         </div>
@@ -2383,14 +2258,14 @@ function renderLoginScreen(app){
 
   // After a Firebase sign-in, ask the bank which stable this login owns.
   async function afterAuth(){
-    say('Checking your stable…','#b5a392');
+    say('Checking your stable…','var(--equi-dim)');
     const token = await window.EquiAuth.token();
     const who = await gasPost({ action:'getMyAccount', idToken:token });
     if(who?.success && who.data?.linked){
       bankAccount = { userId: who.data.userId, password:'', linked:true };
       saveBankAccount();
       await upgradeToOwnerSession();
-      say(`✓ Welcome back, ${who.data.displayName}! Loading your stable…`, '#7a9b6e');
+      say(`✓ Welcome back, ${who.data.displayName}! Loading your stable…`, 'var(--equi-good)');
       await loadFromSheets();
       render();
     } else {
@@ -2406,10 +2281,10 @@ function renderLoginScreen(app){
     if(mode==='forgot'){
       const email=app.querySelector('#li_email').value.trim();
       if(!email){ say('Enter your email.','#e08080'); go.disabled=false; return; }
-      say('Sending…','#b5a392');
+      say('Sending…','var(--equi-dim)');
       const r = await window.EquiAuth.resetPassword(email);
       go.disabled=false;
-      if(r.success) say('✓ Check your email for a reset link. It may take a minute, and check spam.','#7a9b6e');
+      if(r.success) say('✓ Check your email for a reset link. It may take a minute, and check spam.','var(--equi-good)');
       else say('✗ '+r.error,'#e08080');
       return;
     }
@@ -2417,7 +2292,7 @@ function renderLoginScreen(app){
     const email=app.querySelector('#li_email').value.trim();
     const pass =app.querySelector('#li_pass').value;
     if(!email||!pass){ say('Enter your email and password.','#e08080'); go.disabled=false; return; }
-    say(mode==='signup'?'Creating your account…':'Signing in…','#b5a392');
+    say(mode==='signup'?'Creating your account…':'Signing in…','var(--equi-dim)');
     const r = mode==='signup' ? await window.EquiAuth.signUp(email,pass) : await window.EquiAuth.signIn(email,pass);
     go.disabled=false;
     if(!r.success){ say('✗ '+r.error,'#e08080'); return; }
@@ -2430,7 +2305,7 @@ function renderLoginScreen(app){
     const userId=app.querySelector('#li_user').value.trim();
     const oldPass=app.querySelector('#li_oldpass').value;
     if(!userId||!oldPass){ say('Enter your old User ID and password.','#e08080'); return; }
-    linkBtn.disabled=true; say('Linking…','#b5a392');
+    linkBtn.disabled=true; say('Linking…','var(--equi-dim)');
     const token = await window.EquiAuth.token();
     const r = await gasPost({ action:'linkFirebaseAccount', idToken:token, userId, password:oldPass });
     linkBtn.disabled=false;
@@ -2438,7 +2313,7 @@ function renderLoginScreen(app){
       bankAccount={ userId:r.data.userId, password:'', linked:true };
       saveBankAccount();
       await upgradeToOwnerSession();
-      say(`✓ Linked! Welcome back, ${r.data.displayName} — ฿${r.data.balance} intact. Loading…`,'#7a9b6e');
+      say(`✓ Linked! Welcome back, ${r.data.displayName} — ฿${r.data.balance} intact. Loading…`,'var(--equi-good)');
       await loadFromSheets(); render();
     } else say('✗ '+(r?.error||'Could not link that account.'),'#e08080');
   };
@@ -2447,14 +2322,14 @@ function renderLoginScreen(app){
   if(newBtn) newBtn.onclick = async()=>{
     const userId=app.querySelector('#li_newid').value.trim();
     if(!userId){ say('Pick a User ID.','#e08080'); return; }
-    newBtn.disabled=true; say('Creating your stable…','#b5a392');
+    newBtn.disabled=true; say('Creating your stable…','var(--equi-dim)');
     const token = await window.EquiAuth.token();
     const r = await gasPost({ action:'registerFirebaseAccount', idToken:token, userId, displayName:userId });
     newBtn.disabled=false;
     if(r?.success){
       bankAccount={ userId:r.data.userId, password:'', linked:true };
       saveBankAccount();
-      say(`✓ Welcome to EquiStories, ${r.data.displayName}! You start with ฿${r.data.balance}.`,'#7a9b6e');
+      say(`✓ Welcome to EquiStories, ${r.data.displayName}! You start with ฿${r.data.balance}.`,'var(--equi-good)');
       await loadFromSheets(); render();
     } else say('✗ '+(r?.error||'Could not create that account.'),'#e08080');
   };
@@ -2507,7 +2382,7 @@ function renderPrestigeTab(){
       </div>
       <div style="flex:1;min-width:180px;">
         <div class="small"><b>${pp} PP</b> · ${title.name}${prog.next?` · ${prog.toNext} to ${prog.next.name}`:` · top tier`}</div>
-        <div class="expbar-bg" style="margin-top:5px;"><div class="expbar-fill" style="width:${prog.pct}%;background:linear-gradient(90deg,#8a6fb0,#c9a8e8);"></div></div>
+        <div class="expbar-bg" style="margin-top:5px;"><div class="expbar-fill" style="width:${prog.pct}%;background:linear-gradient(90deg,#8a6fb0,var(--equi-accent-2));"></div></div>
       </div>
     </div>`;
   wrap.appendChild(head);
@@ -2583,15 +2458,15 @@ function renderAttireInventory(){
   const inv=state.attireInventory||[];
   const invCard=el('div');
   invCard.style.cssText='margin-top:12px;';
-  invCard.innerHTML=`<div class="small" style="color:#b5a392;">Wardrobe (${inv.length})</div>`;
+  invCard.innerHTML=`<div class="small" style="color:var(--equi-dim);">Wardrobe (${inv.length})</div>`;
   if(inv.length){
     const grid=el('div');
     grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:8px;';
     inv.forEach(item=>{
       const div=el('div');
-      div.style.cssText='background:#15100c;border:1px solid #4a392a;border-radius:8px;padding:8px;text-align:center;';
+      div.style.cssText='background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:8px;padding:8px;text-align:center;';
       div.innerHTML=`
-        ${item.image?`<img src="${item.image}" style="width:100%;height:90px;object-fit:cover;border-radius:5px;cursor:zoom-in;" onclick="openLightbox('${jsStr(item.image)}','${jsStr(item.name)}')" />`:`<div style="height:90px;display:flex;align-items:center;justify-content:center;font-size:2em;color:#4a392a;">&#128085;</div>`}
+        ${item.image?`<img src="${item.image}" style="width:100%;height:90px;object-fit:cover;border-radius:5px;cursor:zoom-in;" onclick="openLightbox('${jsStr(item.image)}','${jsStr(item.name)}')" />`:`<div style="height:90px;display:flex;align-items:center;justify-content:center;font-size:2em;color:var(--equi-line);">&#128085;</div>`}
         <div style="margin-top:6px;font-weight:bold;font-size:1.02em;">${item.name}</div>
         <div class="small">${item.category}</div>
         <button class="danger" data-act="del-attire" data-id="${item.id}" style="font-size:.94em;padding:3px 8px;margin-top:6px;">Remove</button>`;
@@ -2623,13 +2498,13 @@ function attireHtml(rider){
     const cap=`${item.name} · ${item.category}`;
     if(item.image){
       return `<div style="display:inline-flex;flex-direction:column;align-items:center;gap:4px;width:96px;">
-        <img src="${item.image}" style="width:96px;height:96px;object-fit:contain;cursor:zoom-in;border:1px solid #6a4a8a;border-radius:6px;background:#15100c;"
+        <img src="${item.image}" style="width:96px;height:96px;object-fit:contain;cursor:zoom-in;border:1px solid #6a4a8a;border-radius:6px;background:var(--equi-ink);"
              onclick="openLightbox('${jsStr(item.image)}','${jsStr(item.name)}')" />
-        <div class="small" style="text-align:center;color:#c9a8e8;">${item.name}</div>
-        <span data-ract="unequip-attire" data-id="${rider.id}" data-attire="${item.id}" style="cursor:pointer;color:#c96a3a;font-size:.85em;">remove</span>
+        <div class="small" style="text-align:center;color:var(--equi-accent-2);">${item.name}</div>
+        <span data-ract="unequip-attire" data-id="${rider.id}" data-attire="${item.id}" style="cursor:pointer;color:var(--equi-rust);font-size:.85em;">remove</span>
       </div>`;
     }
-    return `<span class="tag" style="background:#2a1a3a;color:#c9a8e8;border-color:#6a4a8a;">${cap} <span data-ract="unequip-attire" data-id="${rider.id}" data-attire="${item.id}" style="cursor:pointer;">✕</span></span>`;
+    return `<span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:#6a4a8a;">${cap} <span data-ract="unequip-attire" data-id="${rider.id}" data-attire="${item.id}" style="cursor:pointer;">✕</span></span>`;
   }).join(" ");
 }
 function attireAvailable(rider){
@@ -2760,13 +2635,13 @@ function showPlayerProfileModal(){
   const overlay=el('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;color:var(--text);';
   overlay.innerHTML=`
-    <div class="card" style="max-width:760px;width:100%;margin-top:20px;background:#241a14;border:1px solid #4a392a;box-shadow:0 12px 40px rgba(0,0,0,.6);">
-      <h3 style="margin-top:0;color:#c98a3a;">My Player Profile</h3>
+    <div class="card" style="max-width:760px;width:100%;margin-top:20px;background:var(--equi-panel);border:1px solid var(--equi-line);box-shadow:0 12px 40px rgba(0,0,0,.6);">
+      <h3 style="margin-top:0;color:var(--equi-accent);">My Player Profile</h3>
       <div class="small" style="margin-top:-4px;margin-bottom:10px;">Your public community profile — it shows your horses, riders, and how to reach you. Account name: <b>${bankAccount.userId}</b>.</div>
 
-      <div id="pp_inbox" style="margin-bottom:14px;border:1px solid #4a392a;border-radius:8px;padding:10px;background:#1c1510;">
+      <div id="pp_inbox" style="margin-bottom:14px;border:1px solid var(--equi-line);border-radius:8px;padding:10px;background:#1c1510;">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <b style="color:#c98a3a;">Show Results</b>
+          <b style="color:var(--equi-accent);">Show Results</b>
           <span class="small" style="opacity:.75;">Placements from shows you entered.</span>
           <div style="flex:1;"></div>
           <button id="pp_inbox_reload" class="secondary" style="font-size:.92em;padding:2px 9px;margin-top:0;">Refresh</button>
@@ -2841,7 +2716,7 @@ function showPlayerProfileModal(){
           <span class="small" style="opacity:.85;">· ${escAttr(place)} · ${who}${it.hasArt?' · art attached':''}</span>
         </div>
         ${done
-          ? '<span class="small" style="color:#7a9b6e;">✓ logged</span>'
+          ? '<span class="small" style="color:var(--equi-good);">✓ logged</span>'
           : `<button class="btn" data-inbox-add="${i}" style="font-size:.92em;padding:3px 10px;margin-top:0;">${label}</button>`}
       </div>`;
     }).join("");
@@ -2894,8 +2769,8 @@ function renderPlayerProfilePage(app, data){
   if(STABLE_URL) shareUrl.searchParams.set('stable', STABLE_URL);
 
   const avatar = prof.avatar
-    ? `<img src="${prof.avatar}" onclick="openLightbox('${jsStr(prof.avatar)}','${jsStr(name)}')" style="width:min(240px,50vw);height:min(240px,50vw);border-radius:12px;object-fit:cover;border:3px solid #c98a3a;cursor:zoom-in;" />`
-    : `<div style="width:min(240px,50vw);height:min(240px,50vw);border-radius:12px;border:3px solid #4a392a;display:flex;align-items:center;justify-content:center;font-size:3.5em;background:#15100c;">👤</div>`;
+    ? `<img src="${prof.avatar}" onclick="openLightbox('${jsStr(prof.avatar)}','${jsStr(name)}')" style="width:min(240px,50vw);height:min(240px,50vw);border-radius:12px;object-fit:cover;border:3px solid var(--equi-accent);cursor:zoom-in;" />`
+    : `<div style="width:min(240px,50vw);height:min(240px,50vw);border-radius:12px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);">👤</div>`;
 
   let discordHtml='';
   if(prof.discord){
@@ -2914,29 +2789,29 @@ function renderPlayerProfilePage(app, data){
     </div>`).join("") : `<span class="small">No horses yet.</span>`;
 
   const riderCards = riders.length ? riders.map(r=>`
-    <div class="tag" data-act="pp-open-rider" data-id="${r.id}" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;margin:4px;padding:6px 10px;background:#2a1a3a;color:#c9a8e8;border-color:#6a4a8a;">
+    <div class="tag" data-act="pp-open-rider" data-id="${r.id}" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;margin:4px;padding:6px 10px;background:#2a1a3a;color:var(--equi-accent-2);border-color:#6a4a8a;">
       ${r.image?`<img src="${r.image}" style="width:34px;height:34px;object-fit:cover;border-radius:5px;" />`:''}
       <span><b>${(r.name||'Rider').replace(/</g,'&lt;')}</b> · ${riderTitle(r.pp||0).name} · ${r.pp||0} PP</span>
     </div>`).join("") : `<span class="small">No riders yet.</span>`;
 
   app.innerHTML=`
     <style>
-      body { background:#1b1410; color:#f1e6d8; font-family:Georgia,serif; }
-      .pcard { background:#241a14; border:1px solid #4a392a; border-radius:10px; padding:clamp(18px,3vw,28px); margin-bottom:20px; }
-      .pcard h3 { color:#c98a3a; margin-top:0; }
-      a { color:#c98a3a; }
-      .tag { display:inline-block; font-size:.97em; padding:4px 10px; border-radius:10px; background:#15100c; color:#b5a392; border:1px solid #4a392a; }
+      body { background:var(--equi-bg); color:var(--equi-text); font-family:var(--equi-serif); }
+      .pcard { background:var(--equi-panel); border:1px solid var(--equi-line); border-radius:10px; padding:clamp(18px,3vw,28px); margin-bottom:20px; }
+      .pcard h3 { color:var(--equi-accent); margin-top:0; }
+      a { color:var(--equi-accent); }
+      .tag { display:inline-block; font-size:.97em; padding:4px 10px; border-radius:10px; background:var(--equi-ink); color:var(--equi-dim); border:1px solid var(--equi-line); }
     </style>
     <div style="width:100%;margin:0 auto;padding:clamp(16px,3vw,32px);">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-        <span data-act="pp-back" style="color:#c98a3a;cursor:pointer;">← Back to Stable Manager</span>
+        <span data-act="pp-back" style="color:var(--equi-accent);cursor:pointer;">← Back to Stable Manager</span>
         ${owned?`<button data-act="pp-edit" class="secondary" style="margin-top:0;">Edit my profile</button>`:''}
       </div>
       <div class="pcard">
         <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
           <div style="flex:none;">${avatar}</div>
           <div style="flex:1;min-width:220px;">
-            <h1 style="margin:0;color:#c98a3a;font-size:1.9em;">${name.replace(/</g,'&lt;')} ${prof.pronouns?`<span class="small" style="color:#8a7a6a;font-weight:normal;">${prof.pronouns.replace(/</g,'&lt;')}</span>`:''}</h1>
+            <h1 style="margin:0;color:var(--equi-accent);font-size:1.9em;">${name.replace(/</g,'&lt;')} ${prof.pronouns?`<span class="small" style="color:#8a7a6a;font-weight:normal;">${prof.pronouns.replace(/</g,'&lt;')}</span>`:''}</h1>
             <div class="small" style="margin-top:2px;">Account: ${data.userId}</div>
             <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">${discordHtml?`<span class="tag">${discordHtml}</span>`:''} ${linksHtml}</div>
             ${prof.bio?`<div style="margin-top:12px;line-height:1.6;white-space:pre-wrap;">${prof.bio.replace(/</g,'&lt;')}</div>`:''}
@@ -2953,7 +2828,7 @@ function renderPlayerProfilePage(app, data){
       </div>
       <div style="text-align:center;margin:20px 0;">
         <div class="small" style="margin-bottom:6px;">Shareable link to this profile:</div>
-        <input readonly value="${shareUrl.toString()}" onclick="this.select()" style="max-width:480px;width:100%;text-align:center;padding:8px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:6px;font-family:monospace;" />
+        <input readonly value="${shareUrl.toString()}" onclick="this.select()" style="max-width:480px;width:100%;text-align:center;padding:8px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:6px;font-family:monospace;" />
       </div>
     </div>`;
 
@@ -2976,13 +2851,13 @@ function showRiderProfileModal(riderId){
 
   function field(id, label, val, placeholder, type='input'){
     const inp = type==='textarea'
-      ? `<textarea id="${id}" rows="4" placeholder="${placeholder}" style="width:100%;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;margin-top:3px;box-sizing:border-box;font-family:Georgia,serif;resize:vertical;">${val||''}</textarea>`
-      : `<input id="${id}" value="${escAttr(val||'')}" placeholder="${placeholder}" style="width:100%;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;margin-top:3px;box-sizing:border-box;" />`;
-    return `<div style="margin-bottom:10px;"><label style="font-size:.98em;color:#b5a392;text-transform:uppercase;display:block;">${label}</label>${inp}</div>`;
+      ? `<textarea id="${id}" rows="4" placeholder="${placeholder}" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;margin-top:3px;box-sizing:border-box;font-family:var(--equi-serif);resize:vertical;">${val||''}</textarea>`
+      : `<input id="${id}" value="${escAttr(val||'')}" placeholder="${placeholder}" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;margin-top:3px;box-sizing:border-box;" />`;
+    return `<div style="margin-bottom:10px;"><label style="font-size:.98em;color:var(--equi-dim);text-transform:uppercase;display:block;">${label}</label>${inp}</div>`;
   }
 
-  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid #c98a3a;border-radius:10px;padding:24px;max-width:760px;width:100%;color:#f1e6d8;font-family:Georgia,serif;margin:auto;">
-    <h3 style="margin-top:0;color:#c98a3a;">Edit Profile — ${r.name}</h3>
+  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid var(--equi-accent);border-radius:10px;padding:24px;max-width:760px;width:100%;color:var(--equi-text);font-family:var(--equi-serif);margin:auto;">
+    <h3 style="margin-top:0;color:var(--equi-accent);">Edit Profile — ${r.name}</h3>
     <div style="display:flex;gap:10px;">
       <div style="flex:1;">${field('rm_name','Rider Name',r.name,'e.g. Natalia Jones')}</div>
       <div style="width:150px;">${field('rm_pronouns','Pronouns (optional)',r.pronouns,'she/her')}</div>
@@ -2993,9 +2868,9 @@ function showRiderProfileModal(riderId){
     ${field('rm_link','Reference / Profile Sheet Link (optional)',r.link,'https://…')}
     ${pp>=100?field('rm_title','Custom Prestige Title (100+ PP)',r.customTitle,'Your awarded title'):''}
     ${field('rm_bio','Bio',r.bio,'Name, age, occupation, personality, backstory…','textarea')}
-    <button id="rm_save" style="width:100%;background:#c98a3a;color:#241a14;border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Save</button>
-    <button id="rm_cancel" style="margin-top:8px;width:100%;background:#2c2118;color:#f1e6d8;border:1px solid #4a392a;padding:10px;border-radius:6px;cursor:pointer;font-size:1.1em;">Cancel</button>
-    <div id="rm_status" style="margin-top:8px;font-size:.92em;color:#b5a392;text-align:center;min-height:1.2em;"></div>
+    <button id="rm_save" style="width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Save</button>
+    <button id="rm_cancel" style="margin-top:8px;width:100%;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);padding:10px;border-radius:6px;cursor:pointer;font-size:1.1em;">Cancel</button>
+    <div id="rm_status" style="margin-top:8px;font-size:.92em;color:var(--equi-dim);text-align:center;min-height:1.2em;"></div>
   </div>`;
   document.body.appendChild(overlay);
 
@@ -3041,46 +2916,46 @@ function renderRiderProfilePage(app, rider){
   const attireHtml = eq.length ? eq.map(item=>{
     if(item.image){
       return `<div style="display:inline-flex;flex-direction:column;align-items:center;gap:4px;width:150px;">
-        <img src="${item.image}" style="width:150px;height:150px;object-fit:contain;cursor:zoom-in;border:1px solid #6a4a8a;border-radius:6px;background:#15100c;"
+        <img src="${item.image}" style="width:150px;height:150px;object-fit:contain;cursor:zoom-in;border:1px solid #6a4a8a;border-radius:6px;background:var(--equi-ink);"
              onclick="openLightbox('${jsStr(item.image)}','${jsStr(item.name)}')" onerror="this.style.display='none';this.nextElementSibling.style.display='block';" />
-        <span class="tag" style="display:none;background:#2a1a3a;color:#c9a8e8;border-color:#6a4a8a;">${item.name}</span>
-        <div class="small" style="text-align:center;color:#c9a8e8;">${item.name}<br><span style="color:#8a7a6a;">${item.category||""}</span></div>
+        <span class="tag" style="display:none;background:#2a1a3a;color:var(--equi-accent-2);border-color:#6a4a8a;">${item.name}</span>
+        <div class="small" style="text-align:center;color:var(--equi-accent-2);">${item.name}<br><span style="color:#8a7a6a;">${item.category||""}</span></div>
       </div>`;
     }
-    return `<span class="tag" style="background:#2a1a3a;color:#c9a8e8;border-color:#6a4a8a;">${item.name}${item.category?` (${item.category})`:""}</span>`;
+    return `<span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:#6a4a8a;">${item.name}${item.category?` (${item.category})`:""}</span>`;
   }).join(" ") : `<span class="small">Nothing equipped.</span>`;
 
   const log=(rider.artLog||[]);
   const logHtml=log.length?`<div class="artlog-panel" style="max-height:300px;">${[...log].reverse().map(e=>`
     <div class="artlog-entry">
       <div><b>${(e.label||'Entry').replace(/</g,'&lt;')}</b> <span class="tag">+${e.pp||0} PP</span>
-        ${e.link?`<a href="${e.link}" target="_blank" rel="noopener" style="color:#c98a3a;font-size:1em;margin-left:4px;">↗</a>`:""}
+        ${e.link?`<a href="${e.link}" target="_blank" rel="noopener" style="color:var(--equi-accent);font-size:1em;margin-left:4px;">↗</a>`:""}
         ${(e.sources&&e.sources.length)?`<div class="small">${e.sources.join(" · ")}</div>`:""}
       </div>
     </div>`).join("")}</div>`:
     `<div class="small" style="opacity:.6;">No Prestige logged yet.</div>`;
 
   const photoHtml = rider.image
-    ? `<img src="${rider.image}" onclick="openLightbox('${jsStr(rider.image)}','${jsStr(rider.name)}')" style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;object-fit:cover;border:3px solid #c98a3a;cursor:zoom-in;" />`
-    : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;border:3px solid #4a392a;display:flex;align-items:center;justify-content:center;font-size:3.5em;background:#15100c;">\ud83e\uddcd</div>`;
+    ? `<img src="${rider.image}" onclick="openLightbox('${jsStr(rider.image)}','${jsStr(rider.name)}')" style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;object-fit:cover;border:3px solid var(--equi-accent);cursor:zoom-in;" />`
+    : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);">\ud83e\uddcd</div>`;
 
   app.innerHTML=`
     <style>
-      body { background:#1b1410; color:#f1e6d8; font-family:Georgia,serif; margin:0; padding:0; }
-      .pcard { background:#241a14; border:1px solid #4a392a; border-radius:10px; padding:clamp(18px,3vw,28px); margin-bottom:20px; }
-      .pcard h3 { color:#c98a3a; margin-top:0; font-family:"Palatino Linotype",Georgia,serif; }
-      .pcard .small { font-size:1em; color:#b5a392; }
-      a { color:#c98a3a; }
-      .expbar-bg { height:10px; background:#15100c; border-radius:5px; overflow:hidden; margin-top:6px; }
-      .expbar-fill { height:100%; background:linear-gradient(90deg,#8a6fb0,#c9a8e8); }
-      .tag { display:inline-block; font-size:.97em; padding:4px 10px; border-radius:10px; background:#15100c; color:#b5a392; border:1px solid #4a392a; margin-left:5px; }
-      .artlog-panel { background:#15100c; border:1px solid #4a392a; border-radius:6px; padding:12px; overflow-y:auto; }
-      .artlog-entry { padding:10px 0; border-bottom:1px dashed #2c2118; }
+      body { background:var(--equi-bg); color:var(--equi-text); font-family:var(--equi-serif); margin:0; padding:0; }
+      .pcard { background:var(--equi-panel); border:1px solid var(--equi-line); border-radius:10px; padding:clamp(18px,3vw,28px); margin-bottom:20px; }
+      .pcard h3 { color:var(--equi-accent); margin-top:0; font-family:var(--equi-display); }
+      .pcard .small { font-size:1em; color:var(--equi-dim); }
+      a { color:var(--equi-accent); }
+      .expbar-bg { height:10px; background:var(--equi-ink); border-radius:5px; overflow:hidden; margin-top:6px; }
+      .expbar-fill { height:100%; background:linear-gradient(90deg,#8a6fb0,var(--equi-accent-2)); }
+      .tag { display:inline-block; font-size:.97em; padding:4px 10px; border-radius:10px; background:var(--equi-ink); color:var(--equi-dim); border:1px solid var(--equi-line); margin-left:5px; }
+      .artlog-panel { background:var(--equi-ink); border:1px solid var(--equi-line); border-radius:6px; padding:12px; overflow-y:auto; }
+      .artlog-entry { padding:10px 0; border-bottom:1px dashed var(--equi-raised); }
       .artlog-entry:last-child { border-bottom:none; }
     </style>
 
     <div style="width:100%;margin:0 auto;padding:clamp(16px,3vw,32px);">
-      <div style="margin-bottom:12px;"><span data-act="back-from-rider" style="color:#c98a3a;text-decoration:none;cursor:pointer;">\u2190 Back to Stable Manager</span></div>
+      <div style="margin-bottom:12px;"><span data-act="back-from-rider" style="color:var(--equi-accent);text-decoration:none;cursor:pointer;">\u2190 Back to Stable Manager</span></div>
 
       <div class="pcard">
         <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
@@ -3090,8 +2965,8 @@ function renderRiderProfilePage(app, rider){
             ${rider.link?`<div class="small" style="text-align:center;"><a href="${rider.link}" target="_blank" rel="noopener">Reference sheet \u2197</a></div>`:""}
           </div>
           <div style="flex:1;min-width:220px;">
-            <h1 style="margin:0 0 4px;color:#c98a3a;font-size:1.9em;">${rider.name}</h1>
-            <div style="margin-bottom:6px;"><span class="tag" style="background:#2a1a3a;color:#c9a8e8;border-color:#6a4a8a;font-size:1.05em;">${showTitle}</span></div>
+            <h1 style="margin:0 0 4px;color:var(--equi-accent);font-size:1.9em;">${rider.name}</h1>
+            <div style="margin-bottom:6px;"><span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:#6a4a8a;font-size:1.05em;">${showTitle}</span></div>
             <div style="margin-top:8px;"><span class="tag" style="font-size:1.02em;">${pp} PP</span> <span class="tag" style="font-size:1.02em;">${prog.next?`${prog.toNext} to ${prog.next.name}`:"Top tier"}</span></div>
             <div class="expbar-bg" style="margin-top:6px;max-width:260px;"><div class="expbar-fill" style="width:${pct}%"></div></div>
             <div class="small" style="margin-top:10px;font-style:italic;">${title.note}</div>
@@ -3117,7 +2992,7 @@ function renderRiderProfilePage(app, rider){
 
       <div style="text-align:center;margin:20px 0;">
         <div class="small" style="margin-bottom:6px;">Shareable link to this profile:</div>
-        <input readonly value="${shareUrl.toString()}" onclick="this.select()" style="max-width:480px;width:100%;text-align:center;padding:8px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:6px;font-family:monospace;" />
+        <input readonly value="${shareUrl.toString()}" onclick="this.select()" style="max-width:480px;width:100%;text-align:center;padding:8px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:6px;font-family:monospace;" />
       </div>
     </div>
   `;
@@ -3147,7 +3022,7 @@ function renderRiders(){
   add.style.cssText='margin-bottom:18px;';
   add.innerHTML=`
     <h3 style="margin-top:0;">Add a Rider</h3>
-    <div class="small" style="color:#b5a392;margin-bottom:10px;">Riders are characters on your account. They earn <b>Prestige Points (PP)</b> from art, writing, and community activity, and climb through rider titles.</div>
+    <div class="small" style="color:var(--equi-dim);margin-bottom:10px;">Riders are characters on your account. They earn <b>Prestige Points (PP)</b> from art, writing, and community activity, and climb through rider titles.</div>
     <div class="row">
       <div><label>Name</label><input id="nr_name" placeholder="e.g. Natalia Jones" /></div>
       <div><label>Pronouns <span style="opacity:.6;font-weight:normal;">(optional)</span></label><input id="nr_pronouns" placeholder="she/her" style="max-width:130px;" /></div>
@@ -3208,12 +3083,12 @@ function renderRiders(){
           <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;">
             <span data-ract="open-rider" data-id="${rider.id}" style="font-size:1.25em;color:var(--accent);font-weight:bold;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;" title="Open profile">${rider.name}</span>
             ${rider.pronouns?`<span class="small" style="color:#8a7a6a;">${rider.pronouns}</span>`:""}
-            <span class="tag" style="background:#2a1a3a;color:#c9a8e8;border-color:#6a4a8a;">${showTitle}</span>
+            <span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:#6a4a8a;">${showTitle}</span>
           </div>
           <div class="small" style="margin-top:4px;">Barn: ${rider.barn?rider.barn.replace(/</g,'&lt;'):`<span style="color:#8a7a6a;">—</span>`}</div>
           <div class="small" style="margin-top:2px;">Rides: ${riddenHtml}</div>
           <div class="small" style="margin-top:6px;"><b>${pp} PP</b>${prog.next?` · ${prog.toNext} to ${prog.next.name}`:` · top tier`}</div>
-          <div class="expbar-bg" style="margin-top:5px;"><div class="expbar-fill" style="width:${prog.pct}%;background:linear-gradient(90deg,#8a6fb0,#c9a8e8);"></div></div>
+          <div class="expbar-bg" style="margin-top:5px;"><div class="expbar-fill" style="width:${prog.pct}%;background:linear-gradient(90deg,#8a6fb0,var(--equi-accent-2));"></div></div>
         </div>
       </div>
       <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
@@ -3267,7 +3142,7 @@ function riderEntryFormHtml(rider){
         </div>
       </div>
       <div style="margin-top:10px;"><label>Link to art / literature <span class="small">(optional)</span></label><input class="rpp_link" placeholder="https://…" /></div>
-      <div class="small" style="margin-top:10px;">This entry: <b class="rpp_total" style="color:#c9a8e8;">1</b> PP</div>
+      <div class="small" style="margin-top:10px;">This entry: <b class="rpp_total" style="color:var(--equi-accent-2);">1</b> PP</div>
       <button class="btn rpp_save" style="margin-top:8px;">✓ Log Prestige (+<span class="rpp_btn_total">1</span> PP)</button>
     </div>`;
 }
@@ -3279,8 +3154,8 @@ function riderLogHtml(rider){
     <div style="border-bottom:1px solid #2a2018;padding:6px 0;">
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">
         <div><b>${(e.label||'Entry').replace(/</g,'&lt;')}</b> ${e.link?`<a href="${e.link}" target="_blank" rel="noopener" class="small" style="color:var(--accent);">↗</a>`:""}</div>
-        <div class="small" style="color:#c9a8e8;white-space:nowrap;">+${e.pp||0} PP
-          <span data-ract="del-rentry" data-id="${rider.id}" data-entry="${e.id}" style="cursor:pointer;color:#c96a3a;font-weight:bold;margin-left:8px;" title="Delete (removes its PP)">✕</span>
+        <div class="small" style="color:var(--equi-accent-2);white-space:nowrap;">+${e.pp||0} PP
+          <span data-ract="del-rentry" data-id="${rider.id}" data-entry="${e.id}" style="cursor:pointer;color:var(--equi-rust);font-weight:bold;margin-left:8px;" title="Delete (removes its PP)">✕</span>
         </div>
       </div>
       ${(e.sources&&e.sources.length)?`<div class="small" style="color:#8a7a6a;">${e.sources.join(" · ")}</div>`:""}
@@ -3399,7 +3274,7 @@ function showTrainingEditModal(horse, entryId){
   const overlay=el('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;color:var(--text);';
   overlay.innerHTML=`
-    <div class="card" style="max-width:760px;width:100%;margin-top:20px;background:#241a14;border:1px solid #4a392a;box-shadow:0 12px 40px rgba(0,0,0,.6);">
+    <div class="card" style="max-width:760px;width:100%;margin-top:20px;background:var(--equi-panel);border:1px solid var(--equi-line);box-shadow:0 12px 40px rgba(0,0,0,.6);">
       <h3 style="margin-top:0;">Edit Training Entry</h3>
       <div style="margin-top:6px;">
         <label>Art Image URL</label>
@@ -3425,7 +3300,7 @@ function showTrainingEditModal(horse, entryId){
       <div style="margin-top:8px;"><label>Link to Art</label><input id="te_link" value="${escAttr(e.link||'')}" placeholder="https://…" /></div>
       <label style="margin-top:10px;display:flex;align-items:center;gap:8px;cursor:pointer;">
         <input type="checkbox" id="te_featured" ${e.featuredRiderId?'checked':''} style="width:18px;height:18px;" />
-        Rider featured here ${rider?`— grants <b>${rider.name}</b> Prestige (+1)`:`<span style="color:#c96a3a;">(assign a rider to this horse first)</span>`}
+        Rider featured here ${rider?`— grants <b>${rider.name}</b> Prestige (+1)`:`<span style="color:var(--equi-rust);">(assign a rider to this horse first)</span>`}
       </label>
       <div class="small" style="margin-top:6px;opacity:.75;">Note: stat gains stay as originally logged — art type/bonuses/lit here adjust EXP only.</div>
       <div style="margin-top:14px;display:flex;gap:8px;">
@@ -3769,7 +3644,7 @@ function renderRoster(){
             ${e.image?`<img src="${e.image}" class="artlog-thumb" data-lightbox="${e.image}" data-caption="${e.label}" style="cursor:zoom-in;" />`:""}
             <b>${e.label}</b> ${e.type==="competition"&&e.placement?`<span class="tag">${["1st","2nd","3rd","4th","5th","6th"][e.placement-1]||e.placement+"th"}</span>`:""}
             <span class="tag">+${e.exp} EXP</span>
-            <span data-act="edit-training" data-id="${h.id}" data-entry="${e.id}" style="cursor:pointer;color:#c98a3a;font-size:.92em;margin-left:6px;font-weight:bold;" title="Edit this entry (image, art type, link, rider PP)">${e.featuredRiderId?'\u2605 ':''}Edit</span><span data-act="delete-artlog" data-id="${h.id}" data-entry="${e.id}" style="cursor:pointer;color:#c96a3a;font-size:.92em;margin-left:6px;font-weight:bold;" title="Delete this entry (reverses its EXP/stats)">✕ Delete</span>
+            <span data-act="edit-training" data-id="${h.id}" data-entry="${e.id}" style="cursor:pointer;color:var(--equi-accent);font-size:.92em;margin-left:6px;font-weight:bold;" title="Edit this entry (image, art type, link, rider PP)">${e.featuredRiderId?'\u2605 ':''}Edit</span><span data-act="delete-artlog" data-id="${h.id}" data-entry="${e.id}" style="cursor:pointer;color:var(--equi-rust);font-size:.92em;margin-left:6px;font-weight:bold;" title="Delete this entry (reverses its EXP/stats)">✕ Delete</span>
             ${e.link?`<a href="${e.link}" target="_blank" class="artlog-link" style="font-size:1em;margin-left:6px;">View</a>`:""}
             <div class="small" style="margin-top:2px;">${e.art||""}${e.lit?` · ${e.lit}`:""}</div>
           </div>`).join("") + showOnlyHtml) : '<div class="small">No entries yet.</div>'}
@@ -3796,7 +3671,7 @@ function renderRoster(){
           <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;">
             <span data-act="view-profile" data-id="${h.id}" style="font-size:1.1em;color:var(--accent);font-weight:bold;text-decoration:none;cursor:pointer;">${h.name}</span>
             <span class="tag">Lvl ${h.level}</span>
-            ${(h.badges||[]).map(b=>`<span class="tag" title="${b} Trophy" style="background:#3a2a10;color:#e8c86a;border-color:#c98a3a;">${b}</span>`).join("")}
+            ${(h.badges||[]).map(b=>`<span class="tag" title="${b} Trophy" style="background:#3a2a10;color:#e8c86a;border-color:var(--equi-accent);">${b}</span>`).join("")}
           </div>
           ${h.barnName?`<div class="small" style="color:#8a7a6a;margin-top:-2px;">"${h.barnName}"</div>`:""}
           <div class="small">${h.breed} · Age ${h.age} (${h.stage})${h.gender?` · ${h.gender}`:""}${h.height?` · ${h.height}`:""}${h.discipline?` · <span style="color:#e8c86a;">${h.discipline}</span>`:""}</div>
@@ -3805,7 +3680,7 @@ function renderRoster(){
             <select data-act="assign-rider" data-id="${h.id}" style="width:auto;display:inline-block;font-size:.95em;padding:2px 6px;min-height:0;">
               <option value="">— none —</option>
               ${state.riders.map(r=>`<option value="${r.id}"${h.riderId===r.id?' selected':''}>${r.name} · ${riderTitle(riderPP(r)).name}</option>`).join("")}
-            </select>${h.riderFinalBonus?` <span class="tag" style="background:#2a1a3a;color:#c9a8e8;border-color:#6a4a8a;" title="Fully-trained bonus from ${(state.riders.find(r=>r.id===h.riderId)||{}).name||'rider'}">Lvl 10 +${h.riderFinalBonus} all stats</span>`:""}
+            </select>${h.riderFinalBonus?` <span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:#6a4a8a;" title="Fully-trained bonus from ${(state.riders.find(r=>r.id===h.riderId)||{}).name||'rider'}">Lvl 10 +${h.riderFinalBonus} all stats</span>`:""}
           </div>
           <div class="small">EXP: ${h.exp} / ${h.level<10?LEVEL_TABLE[h.level+1].exp:"MAX"}</div>
           <div class="expbar-bg"><div class="expbar-fill" style="width:${pct}%"></div></div>
@@ -3973,7 +3848,7 @@ async function removeReservation(horseId, slotIndex){
 // different spelling of your name.
 async function diagnoseReservations(){
   const L=[];
-  const add=(t,c)=>L.push(`<div class="small" style="color:${c||'#b5a392'};">${t}</div>`);
+  const add=(t,c)=>L.push(`<div class="small" style="color:${c||'var(--equi-dim)'};">${t}</div>`);
   const me=(state.profile && state.profile.memberName)||"";
   const bank=bankAccount.userId||"";
   add(`<b>Signed in as:</b> bank username “${escAttr(bank||'(none)')}”, profile name “${escAttr(me||'(none)')}”`);
@@ -4124,29 +3999,29 @@ function showBreedingSlotModal(horseId, slotIndex){
 
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;';
-  overlay.innerHTML=`<div id="bs_box" style="background:#2c1f16;border:2px solid #c98a3a;border-radius:10px;padding:22px;max-width:520px;width:100%;color:#f1e6d8;font-family:Georgia,serif;max-height:92vh;overflow-y:auto;"></div>`;
+  overlay.innerHTML=`<div id="bs_box" style="background:#2c1f16;border:2px solid var(--equi-accent);border-radius:10px;padding:22px;max-width:520px;width:100%;color:var(--equi-text);font-family:var(--equi-serif);max-height:92vh;overflow-y:auto;"></div>`;
   document.body.appendChild(overlay);
   const box=overlay.querySelector('#bs_box');
   const close=()=>overlay.remove();
 
   const field=(id,label,ph,type)=>`
-    <label class="small" style="color:#b5a392;text-transform:uppercase;display:block;margin-top:8px;">${label}</label>
-    <input id="${id}" type="${type||'text'}" placeholder="${escAttr(ph||'')}" style="width:100%;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;margin-top:3px;" />`;
+    <label class="small" style="color:var(--equi-dim);text-transform:uppercase;display:block;margin-top:8px;">${label}</label>
+    <input id="${id}" type="${type||'text'}" placeholder="${escAttr(ph||'')}" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;margin-top:3px;" />`;
   const btn=(id,text,bg,fg)=>`<button id="${id}" style="margin-top:10px;width:100%;background:${bg};color:${fg};border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;">${text}</button>`;
-  const ghost=(id,text)=>`<button id="${id}" style="margin-top:8px;width:100%;background:#2c2118;color:#f1e6d8;border:1px solid #4a392a;padding:9px;border-radius:6px;cursor:pointer;">${text}</button>`;
-  const head=t=>`<h3 style="margin-top:0;color:#c98a3a;">${t}</h3>`;
+  const ghost=(id,text)=>`<button id="${id}" style="margin-top:8px;width:100%;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);padding:9px;border-radius:6px;cursor:pointer;">${text}</button>`;
+  const head=t=>`<h3 style="margin-top:0;color:var(--equi-accent);">${t}</h3>`;
 
   // ── Empty slot: choose what you're doing, then see only those fields. ──────
   // The old version stacked a "record a breeding" form and a "reserve it" form
   // on top of each other, so you had to read both to work out which was yours.
   function drawChoose(){
     box.innerHTML = head(`Breeding Slot ${slotIndex+1} — ${escAttr(h.name)}`) + `
-      <p class="small" style="color:#b5a392;margin-top:0;">This slot is free. What would you like to do with it?</p>
+      <p class="small" style="color:var(--equi-dim);margin-top:0;">This slot is free. What would you like to do with it?</p>
 
-      <div style="border:1px solid #4a392a;border-radius:8px;padding:12px;margin-top:10px;">
+      <div style="border:1px solid var(--equi-line);border-radius:8px;padding:12px;margin-top:10px;">
         <b style="color:#e8c86a;">Breed now</b>
         <p class="small" style="color:#a89888;margin:4px 0 0;">Roll a real foal in the Breeding tab. Genetics, stats and pedigree are worked out for you, and the slot is spent automatically.</p>
-        ${btn('bs_go_breed','Go to Breeding','#c98a3a','#241a14')}
+        ${btn('bs_go_breed','Go to Breeding','var(--equi-accent)','var(--equi-panel)')}
       </div>
 
       <div style="border:1px solid #3a4a6a;border-radius:8px;padding:12px;margin-top:10px;">
@@ -4155,10 +4030,10 @@ function showBreedingSlotModal(horseId, slotIndex){
         ${btn('bs_go_reserve','Reserve this slot','#3a4a6a','#fff')}
       </div>
 
-      <div style="border:1px solid #4a392a;border-radius:8px;padding:12px;margin-top:10px;">
-        <b style="color:#b5a392;">Log a past breeding</b>
+      <div style="border:1px solid var(--equi-line);border-radius:8px;padding:12px;margin-top:10px;">
+        <b style="color:var(--equi-dim);">Log a past breeding</b>
         <p class="small" style="color:#a89888;margin:4px 0 0;">For breedings that already happened elsewhere — older foals from before the site. Records who it was with, no rolling involved.</p>
-        ${btn('bs_go_past','Log a past breeding','#5a4a3a','#f1e6d8')}
+        ${btn('bs_go_past','Log a past breeding','#5a4a3a','var(--equi-text)')}
       </div>
       ${ghost('bs_cancel','Cancel')}`;
     box.querySelector('#bs_cancel').onclick=close;
@@ -4169,7 +4044,7 @@ function showBreedingSlotModal(horseId, slotIndex){
 
   function drawReserve(){
     box.innerHTML = head(`Reserve slot ${slotIndex+1} — ${escAttr(h.name)}`) + `
-      <p class="small" style="color:#b5a392;margin-top:0;">${escAttr(h.name)} will appear in their Breeding tab, marked as reserved for them. You can release it any time before it's used.</p>
+      <p class="small" style="color:var(--equi-dim);margin-top:0;">${escAttr(h.name)} will appear in their Breeding tab, marked as reserved for them. You can release it any time before it's used.</p>
       ${field('bs_reserve_for',"Member's name or @handle",'e.g. @Moonlight')}
       ${field('bs_reserve_note','Note (optional)','e.g. which mare, agreed terms')}
       ${btn('bs_reserve','Reserve slot for this member','#3a4a6a','#fff')}
@@ -4182,9 +4057,9 @@ function showBreedingSlotModal(horseId, slotIndex){
 
   function drawPast(){
     box.innerHTML = head(`Log a past breeding — ${escAttr(h.name)}`) + `
-      <p class="small" style="color:#b5a392;margin-top:0;">Records a breeding that already happened. This marks the slot used; it doesn't create a foal.</p>
-      <label class="small" style="color:#b5a392;text-transform:uppercase;display:block;margin-top:8px;">This horse's role</label>
-      <select id="bs_role" style="width:100%;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;margin-top:3px;">
+      <p class="small" style="color:var(--equi-dim);margin-top:0;">Records a breeding that already happened. This marks the slot used; it doesn't create a foal.</p>
+      <label class="small" style="color:var(--equi-dim);text-transform:uppercase;display:block;margin-top:8px;">This horse's role</label>
+      <select id="bs_role" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;margin-top:3px;">
         <option value="sire">Sire (this horse is the father)</option>
         <option value="dam">Dam (this horse is the mother)</option>
       </select>
@@ -4192,7 +4067,7 @@ function showBreedingSlotModal(horseId, slotIndex){
       ${field('bs_partner_owner',"Partner's owner (optional)",'e.g. @username')}
       ${field('bs_date','Date','e.g. Day 45 or a real date')}
       ${field('bs_note','Note (optional)','Any notes about this breeding')}
-      ${btn('bs_save','✓ Record this breeding','#c98a3a','#241a14')}
+      ${btn('bs_save','✓ Record this breeding','var(--equi-accent)','var(--equi-panel)')}
       ${ghost('bs_back','← Back')}`;
     box.querySelector('#bs_back').onclick=drawChoose;
     box.querySelector('#bs_save').onclick=doRecordPast;
@@ -4201,19 +4076,19 @@ function showBreedingSlotModal(horseId, slotIndex){
   function drawReserved(){
     box.innerHTML = head(`Breeding Slot ${slotIndex+1} — ${escAttr(h.name)}`) + `
       <p class="small" style="color:#8a9ac8;margin-top:0;">Reserved — this slot doesn't count as free for you until it's released or used.</p>
-      <div style="background:#15100c;padding:10px;border-radius:6px;margin-bottom:4px;">
+      <div style="background:var(--equi-ink);padding:10px;border-radius:6px;margin-bottom:4px;">
         <b>Reserved for:</b> ${escAttr(existing.reservedFor)}<br>
         ${existing.date?`<b>Date:</b> ${escAttr(existing.date)}<br>`:''}
         ${existing.note?`<i>${escAttr(existing.note)}</i>`:''}
       </div>
       <p class="small" style="color:#a89888;">If they breed with ${escAttr(h.name)}, this fills in on its own. Only record it by hand if the breeding happened somewhere else.</p>
-      <label class="small" style="color:#b5a392;text-transform:uppercase;display:block;margin-top:8px;">This horse's role</label>
-      <select id="bs_role" style="width:100%;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;margin-top:3px;">
+      <label class="small" style="color:var(--equi-dim);text-transform:uppercase;display:block;margin-top:8px;">This horse's role</label>
+      <select id="bs_role" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;margin-top:3px;">
         <option value="sire">Sire (this horse is the father)</option>
         <option value="dam">Dam (this horse is the mother)</option>
       </select>
       ${field('bs_partner_name',"Partner's name",'e.g. Moonshadow')}
-      ${btn('bs_convert','✓ Record breeding for this slot','#c98a3a','#241a14')}
+      ${btn('bs_convert','✓ Record breeding for this slot','var(--equi-accent)','var(--equi-panel)')}
       ${btn('bs_release','Release reservation — make it mine again','#3a4a6a','#fff')}
       ${ghost('bs_cancel','Cancel')}`;
     box.querySelector('#bs_cancel').onclick=close;
@@ -4223,23 +4098,23 @@ function showBreedingSlotModal(horseId, slotIndex){
 
   function drawUsed(){
     box.innerHTML = head(`Breeding Slot ${slotIndex+1} — ${escAttr(h.name)}`) + `
-      <p class="small" style="color:#b5a392;margin-top:0;">This slot has been used.</p>
-      <div style="background:#15100c;padding:10px;border-radius:6px;margin-bottom:4px;">
+      <p class="small" style="color:var(--equi-dim);margin-top:0;">This slot has been used.</p>
+      <div style="background:var(--equi-ink);padding:10px;border-radius:6px;margin-bottom:4px;">
         <b>${existing.role==="sire"?"Sired with":"Bred to"}:</b> ${escAttr(existing.partnerName)}${existing.partnerOwner?` (${escAttr(existing.partnerOwner)})`:""}<br>
         <b>Date:</b> ${escAttr(existing.date||"—")}<br>
-        ${existing.foalId ? `<b>Foal:</b> <span onclick="goToProfile('${existing.foalId}')" style="color:#c98a3a;cursor:pointer;text-decoration:underline;">${escAttr(existing.foalName)}</span>${existing.foalOwner?` <span class="small" style="opacity:.75;">(owned by ${escAttr(existing.foalOwner)})</span>`:''}` : (existing.foalName?`<b>Foal:</b> ${escAttr(existing.foalName)} (not linked)`:'<b>Foal:</b> not yet born/added')}
+        ${existing.foalId ? `<b>Foal:</b> <span onclick="goToProfile('${existing.foalId}')" style="color:var(--equi-accent);cursor:pointer;text-decoration:underline;">${escAttr(existing.foalName)}</span>${existing.foalOwner?` <span class="small" style="opacity:.75;">(owned by ${escAttr(existing.foalOwner)})</span>`:''}` : (existing.foalName?`<b>Foal:</b> ${escAttr(existing.foalName)} (not linked)`:'<b>Foal:</b> not yet born/added')}
         ${existing.note?`<br><i>${escAttr(existing.note)}</i>`:""}
       </div>
       ${!existing.foalId ? `
-        <label class="small" style="color:#b5a392;text-transform:uppercase;display:block;margin-top:8px;">Link to a foal on your roster</label>
-        <select id="bs_foal_select" style="width:100%;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;margin-top:3px;">
+        <label class="small" style="color:var(--equi-dim);text-transform:uppercase;display:block;margin-top:8px;">Link to a foal on your roster</label>
+        <select id="bs_foal_select" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;margin-top:3px;">
           <option value="">— select foal —</option>
           ${state.horses.filter(x=>x.id!==h.id).map(x=>`<option value="${escAttr(x.id)}">${escAttr(x.name)}</option>`).join("")}
         </select>
-        ${btn('bs_link_foal','Link Foal','#c98a3a','#241a14')}
+        ${btn('bs_link_foal','Link Foal','var(--equi-accent)','var(--equi-panel)')}
         <div id="bs_foal_member" style="margin-top:2px;"></div>
         <p class="small" style="color:#a89888;margin:6px 0 0;">Foals from before the site often live on someone else's roster — use the box above to link one of theirs.</p>` : ""}
-      ${btn('bs_clear','Clear this slot','#b1473f','#fff')}
+      ${btn('bs_clear','Clear this slot','var(--equi-bad)','#fff')}
       ${ghost('bs_cancel','Cancel')}`;
     box.querySelector('#bs_cancel').onclick=close;
     const lb=box.querySelector('#bs_link_foal'); if(lb) lb.onclick=doLinkFoal;
@@ -4376,12 +4251,12 @@ function pedLink(entry, label){
   const name = pedName(entry) || "Unknown";
   const inRoster = entry.inRosterId ? state.horses.find(x=>x.id===entry.inRosterId) : null;
   if(inRoster && name !== "Unknown"){
-    return `<span onclick="goToProfile('${inRoster.id}')" style="color:#c98a3a;text-decoration:underline;font-weight:bold;cursor:pointer;">${name}</span>`;
+    return `<span onclick="goToProfile('${inRoster.id}')" style="color:var(--equi-accent);text-decoration:underline;font-weight:bold;cursor:pointer;">${name}</span>`;
   }
   if(entry.link && name !== "Unknown"){
-    return `<a href="${entry.link}" target="_blank" style="color:#c98a3a;text-decoration:none;font-weight:bold;">${name}</a>`;
+    return `<a href="${entry.link}" target="_blank" style="color:var(--equi-accent);text-decoration:none;font-weight:bold;">${name}</a>`;
   }
-  return `<span style="color:${name==="Unknown"?"#4a392a":"#f1e6d8"};font-weight:${name!=="Unknown"?"bold":"normal"};">${name}</span>`;
+  return `<span style="color:${name==="Unknown"?"var(--equi-line)":"var(--equi-text)"};font-weight:${name!=="Unknown"?"bold":"normal"};">${name}</span>`;
 }
 
 // Stats the horse's chosen discipline calls for (used to highlight them).
@@ -4402,11 +4277,11 @@ function renderPedigreeChart(h){
   }
   const line=(lead,label,key,strong)=>`<div style="padding:1px 0;white-space:pre;overflow-x:auto;">`
     +`<span style="color:#3a2e22;">${lead}</span>`
-    +`<span style="color:${strong?'#c98a3a':'#b5a392'};font-weight:${strong?'bold':'normal'};">${lead?' ':''}${label}: </span>`
+    +`<span style="color:${strong?'var(--equi-accent)':'var(--equi-dim)'};font-weight:${strong?'bold':'normal'};">${lead?' ':''}${label}: </span>`
     +`${nm(key)}</div>`;
 
-  return `<div style="font-family:'Courier New',monospace;font-size:.95em;background:#15100c;border:1px solid #4a392a;border-radius:8px;padding:14px;line-height:1.7;">
-    <div style="font-family:Georgia,serif;color:#c98a3a;margin-bottom:8px;font-weight:bold;">Bloodline:</div>
+  return `<div style="font-family:'Courier New',monospace;font-size:.95em;background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:8px;padding:14px;line-height:1.7;">
+    <div style="font-family:var(--equi-serif);color:var(--equi-accent);margin-bottom:8px;font-weight:bold;">Bloodline:</div>
     ${line(L3,'SSS','sss')}
     ${line(L2,'SS','ss')}
     ${line(L3,'SSD','ssd')}
@@ -4466,7 +4341,7 @@ function memberHorsePicker(idPrefix, labelText, onPick){
   box.innerHTML=`
     <div class="small" style="color:#8a9ac8;text-transform:uppercase;">${escAttr(labelText)}</div>
     <div style="display:flex;gap:6px;margin-top:5px;">
-      <input id="${idPrefix}_owner" placeholder="Their bank username" style="flex:1;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;" />
+      <input id="${idPrefix}_owner" placeholder="Their bank username" style="flex:1;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;" />
       <button id="${idPrefix}_find" class="secondary" style="white-space:nowrap;padding:7px 12px;margin:0;">Find</button>
     </div>
     <div id="${idPrefix}_result" style="margin-top:6px;"></div>`;
@@ -4490,7 +4365,7 @@ function memberHorsePicker(idPrefix, labelText, onPick){
       return;
     }
     res().innerHTML=`
-      <select id="${idPrefix}_pick" style="width:100%;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;">
+      <select id="${idPrefix}_pick" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;">
         ${list.map(x=>`<option value="${escAttr(x.id)}">${escAttr(x.name)} (${escAttr(x.breed||'?')}${x.gender?', '+escAttr(x.gender):''})</option>`).join("")}
       </select>
       <button id="${idPrefix}_use" style="margin-top:6px;width:100%;background:#3a4a6a;color:#fff;border:none;padding:8px;border-radius:6px;font-weight:bold;cursor:pointer;">Use this horse</button>`;
@@ -4517,14 +4392,14 @@ function showLineageModal(horseId){
     const e = pedEntry(h, key);
     const inRosterVal = e.inRosterId || "";
     return `
-      <div style="background:#15100c;border:1px solid #4a392a;border-radius:6px;padding:10px;margin-bottom:8px;">
-        <div style="font-weight:bold;color:#c98a3a;margin-bottom:6px;font-size:1.06em;">${label}</div>
-        <label style="font-size:.97em;color:#b5a392;text-transform:uppercase;display:block;">Name</label>
-        <input data-ped="${key}" data-field="name" value="${e.name||''}" placeholder="e.g. Shadowfax" style="width:100%;padding:6px;background:#1b1410;border:1px solid #4a392a;color:#f1e6d8;border-radius:4px;margin-top:3px;box-sizing:border-box;" />
-        <label style="font-size:.97em;color:#b5a392;text-transform:uppercase;display:block;margin-top:6px;">External Link <span style="opacity:.6;">(off-site URL, optional)</span></label>
-        <input data-ped="${key}" data-field="link" value="${e.link||''}" placeholder="https://… (DeviantArt, Toyhouse, etc.)" style="width:100%;padding:6px;background:#1b1410;border:1px solid #4a392a;color:#f1e6d8;border-radius:4px;margin-top:3px;box-sizing:border-box;" />
-        <label style="font-size:.97em;color:#b5a392;text-transform:uppercase;display:block;margin-top:6px;">Link to horse in your roster <span style="opacity:.6;">(overrides external link)</span></label>
-        <select data-ped="${key}" data-field="inRosterId" style="width:100%;padding:6px;background:#1b1410;border:1px solid #4a392a;color:#f1e6d8;border-radius:4px;margin-top:3px;box-sizing:border-box;">
+      <div style="background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:6px;padding:10px;margin-bottom:8px;">
+        <div style="font-weight:bold;color:var(--equi-accent);margin-bottom:6px;font-size:1.06em;">${label}</div>
+        <label style="font-size:.97em;color:var(--equi-dim);text-transform:uppercase;display:block;">Name</label>
+        <input data-ped="${key}" data-field="name" value="${e.name||''}" placeholder="e.g. Shadowfax" style="width:100%;padding:6px;background:var(--equi-bg);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:4px;margin-top:3px;box-sizing:border-box;" />
+        <label style="font-size:.97em;color:var(--equi-dim);text-transform:uppercase;display:block;margin-top:6px;">External Link <span style="opacity:.6;">(off-site URL, optional)</span></label>
+        <input data-ped="${key}" data-field="link" value="${e.link||''}" placeholder="https://… (DeviantArt, Toyhouse, etc.)" style="width:100%;padding:6px;background:var(--equi-bg);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:4px;margin-top:3px;box-sizing:border-box;" />
+        <label style="font-size:.97em;color:var(--equi-dim);text-transform:uppercase;display:block;margin-top:6px;">Link to horse in your roster <span style="opacity:.6;">(overrides external link)</span></label>
+        <select data-ped="${key}" data-field="inRosterId" style="width:100%;padding:6px;background:var(--equi-bg);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:4px;margin-top:3px;box-sizing:border-box;">
           <option value="">— not in roster —</option>
           ${rosterOpts.replace(`value="${inRosterVal}"`, `value="${inRosterVal}" selected`)}
         </select>
@@ -4535,37 +4410,37 @@ function showLineageModal(horseId){
 
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;';
-  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid #c98a3a;border-radius:10px;padding:24px;max-width:560px;width:100%;color:#f1e6d8;font-family:Georgia,serif;margin:auto;">
-    <h3 style="margin-top:0;color:#c98a3a;">Pedigree Editor — ${h.name}</h3>
-    <p style="color:#b5a392;font-size:1.02em;margin-top:0;">Fill in up to 3 generations. Names can link to on-site horse profiles or external pages. Leave blank for Unknown.</p>
+  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid var(--equi-accent);border-radius:10px;padding:24px;max-width:560px;width:100%;color:var(--equi-text);font-family:var(--equi-serif);margin:auto;">
+    <h3 style="margin-top:0;color:var(--equi-accent);">Pedigree Editor — ${h.name}</h3>
+    <p style="color:var(--equi-dim);font-size:1.02em;margin-top:0;">Fill in up to 3 generations. Names can link to on-site horse profiles or external pages. Leave blank for Unknown.</p>
 
-    <details open style="margin-bottom:8px;"><summary style="cursor:pointer;color:#c98a3a;font-weight:bold;padding:6px 0;">Generation 1 — Parents</summary>
+    <details open style="margin-bottom:8px;"><summary style="cursor:pointer;color:var(--equi-accent);font-weight:bold;padding:6px 0;">Generation 1 — Parents</summary>
       ${slotFields('sire','Sire (Father)')}
       ${slotFields('dam','Dam (Mother)')}
     </details>
 
-    <details style="margin-bottom:8px;"><summary style="cursor:pointer;color:#c98a3a;font-weight:bold;padding:6px 0;">Generation 2 — Grandparents</summary>
+    <details style="margin-bottom:8px;"><summary style="cursor:pointer;color:var(--equi-accent);font-weight:bold;padding:6px 0;">Generation 2 — Grandparents</summary>
       ${slotFields('ss','SS - Sires Sire')}
       ${slotFields('sd','SD - Sires Dam')}
       ${slotFields('ds','DS - Dams Sire')}
       ${slotFields('dd','DD - Dams Dam')}
     </details>
 
-    <details style="margin-bottom:8px;"><summary style="cursor:pointer;color:#c98a3a;font-weight:bold;padding:6px 0;">Generation 3 — Great-Grandparents</summary>
+    <details style="margin-bottom:8px;"><summary style="cursor:pointer;color:var(--equi-accent);font-weight:bold;padding:6px 0;">Generation 3 — Great-Grandparents</summary>
       ${slotFields('sss','SSS')}${slotFields('ssd','SSD')}
       ${slotFields('sds','SDS')}${slotFields('sdd','SDD')}
       ${slotFields('dss','DSS')}${slotFields('dsd','DSD')}
       ${slotFields('dds','DDS')}${slotFields('ddd','DDD')}
     </details>
 
-    <div id="ln_basestats" style="border-top:1px solid #4a392a;margin-top:14px;padding-top:12px;">
+    <div id="ln_basestats" style="border-top:1px solid var(--equi-line);margin-top:14px;padding-top:12px;">
       <label class="small" style="color:#e8c86a;text-transform:uppercase;">Base stats from parents</label>
       <p class="small" style="color:#a89888;margin:4px 0 0;">For foals bred before the site: link both parents above, then take this horse's starting stats from the average of theirs. Training it has already logged stays on top.</p>
       <button id="ln_bs_go" class="secondary" style="margin-top:6px;padding:6px 12px;">Set base stats from parents</button>
       <div id="ln_bs_status" style="margin-top:5px;"></div>
     </div>
-    <button id="ln_save" style="margin-top:10px;width:100%;background:#c98a3a;color:#241a14;border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Save Pedigree</button>
-    <button id="ln_cancel" style="margin-top:8px;width:100%;background:#2c2118;color:#f1e6d8;border:1px solid #4a392a;padding:10px;border-radius:6px;cursor:pointer;font-size:1.1em;">Cancel</button>
+    <button id="ln_save" style="margin-top:10px;width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Save Pedigree</button>
+    <button id="ln_cancel" style="margin-top:8px;width:100%;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);padding:10px;border-radius:6px;cursor:pointer;font-size:1.1em;">Cancel</button>
   </div>`;
   document.body.appendChild(overlay);
 
@@ -4686,13 +4561,13 @@ function showGeneticsModal(horseId){
 
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;';
-  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid #c98a3a;border-radius:10px;padding:22px;max-width:820px;width:100%;color:#f1e6d8;font-family:Georgia,serif;">
-    <h3 style="margin-top:0;color:#c98a3a;">Set Genetics — ${escAttr(h.name)}</h3>
-    <p class="small" style="color:#b5a392;margin-top:0;">Breed: <b>${escAttr(breed||"—")}</b>. Changing these updates the horse's genotype, phenotype and genetics value. Rare markings are kept as they are.</p>
+  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid var(--equi-accent);border-radius:10px;padding:22px;max-width:820px;width:100%;color:var(--equi-text);font-family:var(--equi-serif);">
+    <h3 style="margin-top:0;color:var(--equi-accent);">Set Genetics — ${escAttr(h.name)}</h3>
+    <p class="small" style="color:var(--equi-dim);margin-top:0;">Breed: <b>${escAttr(breed||"—")}</b>. Changing these updates the horse's genotype, phenotype and genetics value. Rare markings are kept as they are.</p>
     <div id="sg_wrap"></div>
-    <div id="sg_preview" class="small" style="background:#15100c;padding:10px;border-radius:6px;margin-top:12px;line-height:1.5;"></div>
-    <button id="sg_save" style="margin-top:12px;width:100%;background:#c98a3a;color:#241a14;border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;">✓ Save Genetics</button>
-    <button id="sg_cancel" style="margin-top:8px;width:100%;background:#2c2118;color:#f1e6d8;border:1px solid #4a392a;padding:9px;border-radius:6px;cursor:pointer;">Cancel</button>
+    <div id="sg_preview" class="small" style="background:var(--equi-ink);padding:10px;border-radius:6px;margin-top:12px;line-height:1.5;"></div>
+    <button id="sg_save" style="margin-top:12px;width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;">✓ Save Genetics</button>
+    <button id="sg_cancel" style="margin-top:8px;width:100%;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);padding:9px;border-radius:6px;cursor:pointer;">Cancel</button>
   </div>`;
   document.body.appendChild(overlay);
 
@@ -4781,16 +4656,16 @@ function showMarkingsModal(horseId){
 
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;';
-  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid #c98a3a;border-radius:10px;padding:22px;max-width:560px;width:100%;color:#f1e6d8;font-family:Georgia,serif;">
-    <h3 style="margin-top:0;color:#c98a3a;">Markings — ${escAttr(h.name)}</h3>
-    <p class="small" style="color:#b5a392;margin-top:0;">Rare markings and custom traits this horse carries. Coat colour genes aren't listed here — use <b>Set Genetics</b> for those.</p>
+  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid var(--equi-accent);border-radius:10px;padding:22px;max-width:560px;width:100%;color:var(--equi-text);font-family:var(--equi-serif);">
+    <h3 style="margin-top:0;color:var(--equi-accent);">Markings — ${escAttr(h.name)}</h3>
+    <p class="small" style="color:var(--equi-dim);margin-top:0;">Rare markings and custom traits this horse carries. Coat colour genes aren't listed here — use <b>Set Genetics</b> for those.</p>
     <div id="mk_list" style="margin-bottom:10px;"></div>
     <div style="display:flex;gap:6px;align-items:center;">
-      <select id="mk_pick" style="flex:1;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;"></select>
+      <select id="mk_pick" style="flex:1;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;"></select>
       <button id="mk_add" class="secondary" style="white-space:nowrap;padding:7px 12px;">+ Add</button>
     </div>
-    <button id="mk_save" style="margin-top:14px;width:100%;background:#c98a3a;color:#241a14;border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;">✓ Save Markings</button>
-    <button id="mk_cancel" style="margin-top:8px;width:100%;background:#2c2118;color:#f1e6d8;border:1px solid #4a392a;padding:9px;border-radius:6px;cursor:pointer;">Cancel</button>
+    <button id="mk_save" style="margin-top:14px;width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;">✓ Save Markings</button>
+    <button id="mk_cancel" style="margin-top:8px;width:100%;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);padding:9px;border-radius:6px;cursor:pointer;">Cancel</button>
   </div>`;
   document.body.appendChild(overlay);
 
@@ -4814,8 +4689,8 @@ function showMarkingsModal(horseId){
     list.innerHTML=marks.length ? marks.map((m,i)=>`
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
         <span style="flex:1;">${escAttr(m.label)}</span>
-        <span style="color:#c98a3a;">+฿${(m.value||0).toLocaleString()}</span>
-        <button data-remove="${i}" style="background:#b1473f;color:#fff;border:none;border-radius:4px;padding:2px 9px;cursor:pointer;">✕</button>
+        <span style="color:var(--equi-accent);">+฿${(m.value||0).toLocaleString()}</span>
+        <button data-remove="${i}" style="background:var(--equi-bad);color:#fff;border:none;border-radius:4px;padding:2px 9px;cursor:pointer;">✕</button>
       </div>`).join("")
       : `<div class="small" style="opacity:.6;">No rare markings on this horse.</div>`;
     list.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{
@@ -4863,23 +4738,23 @@ function showTraitsModal(horseId){
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;';
   const body = cfg.length ? `
-    <p style="color:#b5a392;font-size:1.02em;margin-top:0;">Tick the rare traits <b>${escAttr(h.name)}</b> carries. A carrier can pass the trait to foals in the Foal Calculator.</p>
+    <p style="color:var(--equi-dim);font-size:1.02em;margin-top:0;">Tick the rare traits <b>${escAttr(h.name)}</b> carries. A carrier can pass the trait to foals in the Foal Calculator.</p>
     <div style="display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow-y:auto;">
       ${cfg.map((t,i)=>{
         const detail = t.type==="health" ? ` → ${escAttr(t.healthName||'')} risk`
           : t.type==="conditional" ? ` (needs ${escAttr(t.requiresLabel||'gene')})` : '';
-        return `<label style="display:flex;align-items:center;gap:8px;background:#15100c;border:1px solid #4a392a;border-radius:6px;padding:8px 10px;cursor:pointer;">
+        return `<label style="display:flex;align-items:center;gap:8px;background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:6px;padding:8px 10px;cursor:pointer;">
           <input type="checkbox" data-trait="${escAttr(t.name)}" ${carried.has(t.name.toLowerCase())?'checked':''} style="width:auto;" />
           <span><b>${escAttr(t.name)}</b> · ${t.chance}% <span style="color:#8a9ac8;">${t.type}</span>${detail}</span>
         </label>`;
       }).join("")}
-    </div>` : `<p style="color:#c98a3a;">This horse's breed (<b>${escAttr(h.breed||'?')}</b>) has no breeding traits configured. An admin can set them up in the Admin tab under "Breeding traits & risks".</p>`;
+    </div>` : `<p style="color:var(--equi-accent);">This horse's breed (<b>${escAttr(h.breed||'?')}</b>) has no breeding traits configured. An admin can set them up in the Admin tab under "Breeding traits & risks".</p>`;
 
-  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid #c98a3a;border-radius:10px;padding:24px;max-width:460px;width:100%;color:#f1e6d8;font-family:Georgia,serif;margin:auto;">
-    <h3 style="margin-top:0;color:#c98a3a;">Traits — ${escAttr(h.name)}</h3>
+  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid var(--equi-accent);border-radius:10px;padding:24px;max-width:460px;width:100%;color:var(--equi-text);font-family:var(--equi-serif);margin:auto;">
+    <h3 style="margin-top:0;color:var(--equi-accent);">Traits — ${escAttr(h.name)}</h3>
     ${body}
-    ${cfg.length?`<button id="tr_save" style="margin-top:14px;width:100%;background:#c98a3a;color:#241a14;border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Save traits</button>`:''}
-    <button id="tr_cancel" style="margin-top:8px;width:100%;background:#2c2118;color:#f1e6d8;border:1px solid #4a392a;padding:10px;border-radius:6px;cursor:pointer;font-size:1.1em;">Close</button>
+    ${cfg.length?`<button id="tr_save" style="margin-top:14px;width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Save traits</button>`:''}
+    <button id="tr_cancel" style="margin-top:8px;width:100%;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);padding:10px;border-radius:6px;cursor:pointer;font-size:1.1em;">Close</button>
   </div>`;
   document.body.appendChild(overlay);
   overlay.querySelector('#tr_cancel').onclick=()=>overlay.remove();
@@ -5008,7 +4883,7 @@ function renderTraining(){
       <p class="small" style="margin:4px 0 0;opacity:.75;">Type the bonus name and how much EXP it's worth. It's added to this image's total and shown in the log.</p>
     </div>
     <div id="tr_rpp_slot"></div>
-    <div id="tr_total" style="margin-top:12px;padding:10px 12px;border:1px solid #4a392a;border-radius:8px;background:#15100c;"></div>
+    <div id="tr_total" style="margin-top:12px;padding:10px 12px;border:1px solid var(--equi-line);border-radius:8px;background:var(--equi-ink);"></div>
     <button id="tr_go" style="margin-top:12px;">✓ Log Training</button>
     <div id="tr_result"></div>
   `;
@@ -5044,7 +4919,7 @@ function renderTraining(){
     const done=new Set(h.completedMilestones||[]);
     const doneCount=m.options.filter(o=>done.has(o.id)).length;
     const ready=doneCount>=m.required;
-    box.innerHTML=`<div class="prompt-box" style="border-color:${ready?'#7a9b6e':'#4a392a'};">
+    box.innerHTML=`<div class="prompt-box" style="border-color:${ready?'var(--equi-good)':'var(--equi-line)'};">
       <b>${h.name}</b> is a <b>${h.stage}</b> — ${doneCount}/${m.required} age-up milestone${m.required>1?'s':''} completed
       ${ready?` · <button id="tr_ageup" style="margin-left:6px;">Age Up to ${m.next}</button>`:''}
     </div>`;
@@ -5154,7 +5029,7 @@ function renderTraining(){
     const exp=calcLitExp(wc);
     const prev=card.querySelector('#tr_lit_preview');
     prev.textContent=wc===0?"":(wc<200?"⚠ Min 200 words for EXP":`✓ +${exp} EXP`);
-    prev.style.color=wc<200&&wc>0?"#c9a23a":"#7a9b6e";
+    prev.style.color=wc<200&&wc>0?"#c9a23a":"var(--equi-good)";
   };
 
   // FIX (was the training-entry save bug): this used to read an uploaded
@@ -5431,7 +5306,7 @@ function buildShowLogForm(){
   }
   card.innerHTML=`
     <h3>Log a Show</h3>
-    <p class="small" style="margin-top:0;color:#b5a392;">Record any competition — past or present. Add ribbons, trophies, and prizes as photos.</p>
+    <p class="small" style="margin-top:0;color:var(--equi-dim);">Record any competition — past or present. Add ribbons, trophies, and prizes as photos.</p>
 
     <div class="row">
       <div><label>Horse</label>
@@ -5465,7 +5340,7 @@ function buildShowLogForm(){
       <input id="cs_note" placeholder="e.g. Double clear, Reserve Champion, personal best time" />
     </div>
 
-    <hr style="border:none;border-top:1px solid #4a392a;margin:14px 0;" />
+    <hr style="border:none;border-top:1px solid var(--equi-line);margin:14px 0;" />
 
     <label>Show Art / Photo <span class="small">(optional — the artwork or photo from this show)</span></label>
     <p class="small" style="margin:2px 0 6px;">This image appears in the art log and on the ribbon wall for placed entries. Paste a direct image link (not the page it's posted on) — see the note at the top of the page for how to get one.</p>
@@ -5508,18 +5383,18 @@ function buildShowLogForm(){
       <input id="cs_link" placeholder="https://… (DeviantArt, Toyhouse, etc.)" />
     </div>` : ""}
 
-    <hr style="border:none;border-top:1px solid #4a392a;margin:14px 0;" />
+    <hr style="border:none;border-top:1px solid var(--equi-line);margin:14px 0;" />
 
     <label>Prizes, Ribbons & Trophies <span class="small">(add as many as you like)</span></label>
     <p class="small" style="margin:2px 0 6px;">Paste direct image links for your ribbons, trophies, sashes, prize tack, or any awards from this show. Each gets a label.</p>
     <div id="cs_prize_area"></div>
     <button id="cs_add_prize" class="secondary" style="margin-top:6px;font-size:1.02em;">+ Add Prize / Ribbon</button>
 
-    <hr style="border:none;border-top:1px solid #4a392a;margin:14px 0;" />
+    <hr style="border:none;border-top:1px solid var(--equi-line);margin:14px 0;" />
 
     <div id="cs_rpp_slot"></div>
 
-    <div id="cs_total" style="margin:10px 0 8px;padding:10px 12px;border:1px solid #4a392a;border-radius:8px;background:#15100c;"></div>
+    <div id="cs_total" style="margin:10px 0 8px;padding:10px 12px;border:1px solid var(--equi-line);border-radius:8px;background:var(--equi-ink);"></div>
     <button id="cs_go" style="width:100%;margin-top:4px;">✓ Save Show Record</button>
     <div id="cs_result"></div>
   `;
@@ -5545,7 +5420,7 @@ function buildShowLogForm(){
       const wc=parseInt(card.querySelector('#cs_lit').value)||0;
       const prev=card.querySelector('#cs_lit_preview');
       prev.textContent=wc===0?"":(wc<200?"⚠ Min 200 words":`✓ +${calcLitExp(wc)} EXP`);
-      prev.style.color=wc<200&&wc>0?"#c9a23a":"#7a9b6e";
+      prev.style.color=wc<200&&wc>0?"#c9a23a":"var(--equi-good)";
     };
   }
 
@@ -5572,13 +5447,13 @@ function buildShowLogForm(){
   function refreshPrizeArea(){
     const area=card.querySelector('#cs_prize_area');
     area.innerHTML=prizeImages.length ? prizeImages.map((p,i)=>`
-      <div style="display:flex;align-items:flex-start;gap:8px;padding:8px;background:#15100c;border-radius:6px;margin-bottom:6px;">
+      <div style="display:flex;align-items:flex-start;gap:8px;padding:8px;background:var(--equi-ink);border-radius:6px;margin-bottom:6px;">
         <div data-prize-thumb="${i}">${prizeThumbHTML(p.dataUrl)}</div>
         <div style="flex:1;">
           <input data-prize-url="${i}" value="${p.dataUrl||''}" placeholder="Direct image URL (https://…jpg)"
-            style="width:100%;padding:5px;background:#1b1410;border:1px solid #4a392a;color:#f1e6d8;border-radius:4px;box-sizing:border-box;margin-bottom:4px;" />
+            style="width:100%;padding:5px;background:var(--equi-bg);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:4px;box-sizing:border-box;margin-bottom:4px;" />
           <input data-prize-label="${i}" value="${p.label||''}" placeholder="e.g. 1st Place Ribbon, Championship Trophy, Prize Saddle Pad…"
-            style="width:100%;padding:5px;background:#1b1410;border:1px solid #4a392a;color:#f1e6d8;border-radius:4px;box-sizing:border-box;" />
+            style="width:100%;padding:5px;background:var(--equi-bg);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:4px;box-sizing:border-box;" />
         </div>
         <button data-remove-prize="${i}" class="danger" style="font-size:.98em;padding:3px 8px;flex:none;">✕</button>
       </div>`).join("") : '<div class="small" style="color:#5a4a3a;padding:4px 0;">No prizes added yet.</div>';
@@ -5784,9 +5659,9 @@ function buildShowHistory(){
   // Claim a show ribbon: paste a code from EquiStories Shows to hang a ribbon on
   // the horse you entered. Uses the normal saveHorse path — same as a local show.
   const claim=el('div');
-  claim.style.cssText='margin-bottom:16px;padding:12px;border:1px solid #4a392a;border-radius:8px;background:#1c1510;';
+  claim.style.cssText='margin-bottom:16px;padding:12px;border:1px solid var(--equi-line);border-radius:8px;background:#1c1510;';
   claim.innerHTML=`
-    <div class="small" style="color:#b5a392;margin-bottom:6px;">Claim a show ribbon</div>
+    <div class="small" style="color:var(--equi-dim);margin-bottom:6px;">Claim a show ribbon</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <input id="ribbon_claim_code" type="text" placeholder="Paste the claim code from a show" style="flex:1;min-width:220px;" />
       <button id="ribbon_claim_btn" class="btn">Add to horse</button>
@@ -5806,9 +5681,9 @@ function buildShowHistory(){
     if(!data || data.v!==1 || !data.horseId || !data.rec){ msg.style.color='#b5533a'; msg.textContent='That is not a ribbon claim code.'; return; }
     const h=state.horses.find(x=>x.id===data.horseId);
     if(!h){ msg.style.color='#b5533a'; msg.textContent='That show is for a horse not in your stable. Are you signed into the right account?'; return; }
-    msg.style.color='#7a9b6e'; msg.textContent='Adding to '+h.name+'…';
+    msg.style.color='var(--equi-good)'; msg.textContent='Adding to '+h.name+'…';
     const out=await ingestShowRecord(h, data.rec);
-    msg.style.color = out.ok ? '#7a9b6e' : '#b5533a';
+    msg.style.color = out.ok ? 'var(--equi-good)' : '#b5533a';
     msg.textContent = out.msg;
     if(out.ok){ claim.querySelector('#ribbon_claim_code').value=''; showMode('history'); }
   };
@@ -5924,7 +5799,7 @@ async function ingestShowRecord(h, incoming){
 
     const ribbonWallHtml=allPrizeImages.length?`
       <div style="margin-bottom:14px;">
-        <div class="small" style="margin-bottom:6px;color:#b5a392;">Ribbon Wall</div>
+        <div class="small" style="margin-bottom:6px;color:var(--equi-dim);">Ribbon Wall</div>
         <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end;">
           ${allPrizeImages.map(p=>`<img src="${p.dataUrl}" style="width:280px;height:280px;object-fit:contain;cursor:zoom-in;" onclick="openLightbox('${jsStr(p.dataUrl)}','${jsStr(p.label||(p.discipline+' — '+p.placeStr))}')" onerror="this.style.display='none'" />`).join("")}
         </div>
@@ -5934,10 +5809,10 @@ async function ingestShowRecord(h, incoming){
     card.innerHTML=`
       <h3>${h.name}
         <span class="tag">${history.length} shows</span>
-        <span class="tag" style="background:rgba(201,138,58,.15);color:#c98a3a;border-color:#c98a3a;">${trophies.length} </span>
+        <span class="tag" style="background:rgba(201,138,58,.15);color:var(--equi-accent);border-color:var(--equi-accent);">${trophies.length} </span>
       </h3>
       ${ribbonWallHtml}
-      <div class="small" style="margin-bottom:6px;color:#b5a392;">Full Show History</div>
+      <div class="small" style="margin-bottom:6px;color:var(--equi-dim);">Full Show History</div>
       <div class="artlog-panel" style="max-height:400px;">
         ${history.map(c=>{
           const pl=c.placement;
@@ -5953,11 +5828,11 @@ async function ingestShowRecord(h, incoming){
                 ${c.note?`<div class="small" style="opacity:.8;">${c.note}</div>`:""}
                 ${prizes.length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">
                   ${prizes.map(p=>`<div style="text-align:center;">
-                    <img src="${p.dataUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #4a392a;cursor:zoom-in;display:block;" onclick="openLightbox('${jsStr(p.dataUrl)}','${jsStr(p.label||'Prize')}')" onerror="this.style.display='none'" />
+                    <img src="${p.dataUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid var(--equi-line);cursor:zoom-in;display:block;" onclick="openLightbox('${jsStr(p.dataUrl)}','${jsStr(p.label||'Prize')}')" onerror="this.style.display='none'" />
                   </div>`).join("")}
                 </div>`:""}
                 <button data-act="edit-show" data-hid="${h.id}" data-cid="${c.id}" class="secondary" style="font-size:.96em;padding:2px 7px;margin-top:6px;">Edit Placement / Prizes</button>
-                <button data-act="toggle-featured-comp" data-hid="${h.id}" data-cid="${c.id}" class="secondary" style="font-size:.96em;padding:2px 7px;margin-top:6px;color:${c.featuredRiderId?'#c9a8e8':''};" title="${c.featuredRiderId?'Rider featured — grants PP. Click to remove.':'Grant the horse\\u2019s rider PP for this show'}">${c.featuredRiderId?'★ Rider PP':'☆ Rider PP'}</button>
+                <button data-act="toggle-featured-comp" data-hid="${h.id}" data-cid="${c.id}" class="secondary" style="font-size:.96em;padding:2px 7px;margin-top:6px;color:${c.featuredRiderId?'var(--equi-accent-2)':''};" title="${c.featuredRiderId?'Rider featured — grants PP. Click to remove.':'Grant the horse\\u2019s rider PP for this show'}">${c.featuredRiderId?'★ Rider PP':'☆ Rider PP'}</button>
                 <button data-act="del-show" data-hid="${h.id}" data-cid="${c.id}" class="secondary" style="font-size:.96em;padding:2px 7px;margin-top:6px;">✕ Remove</button>
               </div>
             </div>
@@ -5997,23 +5872,23 @@ function showEditCompModal(h, recId){
 
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;';
-  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid #c98a3a;border-radius:10px;padding:24px;max-width:480px;width:100%;color:#f1e6d8;font-family:Georgia,serif;margin:auto;">
-    <h3 style="margin-top:0;color:#c98a3a;">Edit Show — ${rec.discipline}${rec.venue?` (${rec.venue})`:""}</h3>
+  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid var(--equi-accent);border-radius:10px;padding:24px;max-width:480px;width:100%;color:var(--equi-text);font-family:var(--equi-serif);margin:auto;">
+    <h3 style="margin-top:0;color:var(--equi-accent);">Edit Show — ${rec.discipline}${rec.venue?` (${rec.venue})`:""}</h3>
     <label>Placement</label>
-    <select id="ec_place" style="width:100%;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;box-sizing:border-box;margin-bottom:10px;">
+    <select id="ec_place" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;box-sizing:border-box;margin-bottom:10px;">
       <option value="">— Not yet judged / no placement —</option>
       ${["1st","2nd","3rd","4th","5th","6th"].map((l,i)=>`<option value="${i+1}" ${rec.placement===i+1?"selected":""}>${l}</option>`).join("")}
     </select>
     <label>Add Prize Photo URL(s)</label>
-    <p class="small" style="margin:2px 0 6px;color:#b5a392;">Paste a direct image link, click Add, repeat for more. See the note at the top of the page for how to get one.</p>
+    <p class="small" style="margin:2px 0 6px;color:var(--equi-dim);">Paste a direct image link, click Add, repeat for more. See the note at the top of the page for how to get one.</p>
     <div style="display:flex;gap:6px;margin-bottom:6px;">
-      <input type="text" id="ec_prize_url" placeholder="https://…jpg / .png / .gif" style="flex:1;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;box-sizing:border-box;" />
-      <button id="ec_prize_add" style="padding:7px 14px;background:#2c2118;color:#f1e6d8;border:1px solid #4a392a;border-radius:5px;cursor:pointer;">Add</button>
+      <input type="text" id="ec_prize_url" placeholder="https://…jpg / .png / .gif" style="flex:1;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;box-sizing:border-box;" />
+      <button id="ec_prize_add" style="padding:7px 14px;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);border-radius:5px;cursor:pointer;">Add</button>
     </div>
     <div id="ec_prize_preview" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
-    ${rec.artLogId?`<p class="small" style="color:#b5a392;">This show has art logged — changing the placement will recalculate its EXP and your horse's stats/level.</p>`:`<p class="small" style="color:#b5a392;">No art was logged for this show, so there's no EXP to recalculate — this just updates the record.</p>`}
-    <button id="ec_save" style="margin-top:8px;width:100%;background:#c98a3a;color:#241a14;border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;">Save</button>
-    <button id="ec_cancel" style="margin-top:8px;width:100%;background:#2c2118;color:#f1e6d8;border:1px solid #4a392a;padding:10px;border-radius:6px;cursor:pointer;">Cancel</button>
+    ${rec.artLogId?`<p class="small" style="color:var(--equi-dim);">This show has art logged — changing the placement will recalculate its EXP and your horse's stats/level.</p>`:`<p class="small" style="color:var(--equi-dim);">No art was logged for this show, so there's no EXP to recalculate — this just updates the record.</p>`}
+    <button id="ec_save" style="margin-top:8px;width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;">Save</button>
+    <button id="ec_cancel" style="margin-top:8px;width:100%;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);padding:10px;border-radius:6px;cursor:pointer;">Cancel</button>
   </div>`;
   document.body.appendChild(overlay);
 
@@ -6073,8 +5948,8 @@ function renderArtLog(){
             <div style="flex:1;">
               <b>${e.label}</b>
               ${placeLabel?`<span class="tag">${placeLabel}</span>`:""}
-              <span class="tag" style="background:rgba(122,155,110,.15);color:#7a9b6e;border-color:#7a9b6e;">+${e.exp} EXP</span>
-              <span data-act="edit-training" data-id="${h.id}" data-entry="${e.id}" style="cursor:pointer;color:#c98a3a;font-size:.92em;margin-left:6px;font-weight:bold;" title="Edit this entry (image, art type, link, rider PP)">${e.featuredRiderId?'\u2605 ':''}Edit</span><span data-act="delete-artlog" data-id="${h.id}" data-entry="${e.id}" style="cursor:pointer;color:#c96a3a;font-size:.92em;margin-left:6px;font-weight:bold;" title="Delete this entry (reverses its EXP/stats)">✕ Delete</span>
+              <span class="tag" style="background:rgba(122,155,110,.15);color:var(--equi-good);border-color:var(--equi-good);">+${e.exp} EXP</span>
+              <span data-act="edit-training" data-id="${h.id}" data-entry="${e.id}" style="cursor:pointer;color:var(--equi-accent);font-size:.92em;margin-left:6px;font-weight:bold;" title="Edit this entry (image, art type, link, rider PP)">${e.featuredRiderId?'\u2605 ':''}Edit</span><span data-act="delete-artlog" data-id="${h.id}" data-entry="${e.id}" style="cursor:pointer;color:var(--equi-rust);font-size:.92em;margin-left:6px;font-weight:bold;" title="Delete this entry (reverses its EXP/stats)">✕ Delete</span>
               ${e.link?`<a href="${e.link}" target="_blank" class="artlog-link" style="font-size:1em;margin-left:4px;"></a>`:""}
               <div class="small" style="margin-top:2px;">${[e.art,e.lit,...(e.bonuses||[])].filter(Boolean).join(" · ")}</div>
             </div>
@@ -6112,7 +5987,7 @@ function renderArtLog(){
 
 function renderTackInventory(){
   const wrap=el('div');
-  wrap.appendChild(el('div','small','<div style="margin-bottom:10px;color:#b5a392;">Your stable\'s collection — <b>tack</b> for horses and <b>attire</b> for riders. This is your display case; items also appear in the per-image dropdowns when you log training or offsite art. Show-relevant tack can still be equipped from a horse\'s roster card (the Show app reads what\'s equipped at entry time).</div>'));
+  wrap.appendChild(el('div','small','<div style="margin-bottom:10px;color:var(--equi-dim);">Your stable\'s collection — <b>tack</b> for horses and <b>attire</b> for riders. This is your display case; items also appear in the per-image dropdowns when you log training or offsite art. Show-relevant tack can still be equipped from a horse\'s roster card (the Show app reads what\'s equipped at entry time).</div>'));
 
   const form=el('div','card',`
     <h3>Add Tack Item</h3>
@@ -6191,9 +6066,9 @@ function renderTackInventory(){
     const b=set.bonus||{};
     const bstr=[...Object.entries(b.stats||{}).map(([s,v])=>`+${v} ${STAT_LABELS[s]||s}`),
                 b.exp?`+${b.exp} EXP`:''].filter(Boolean).join(" · ");
-    return `<div style="border:1px solid #4a392a;border-radius:8px;padding:10px;margin-bottom:8px;background:#15100c;">
+    return `<div style="border:1px solid var(--equi-line);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--equi-ink);">
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;">
-        <b style="color:#c9a8e8;">◈ ${escAttr(set.name)}</b>
+        <b style="color:var(--equi-accent-2);">◈ ${escAttr(set.name)}</b>
         <button class="danger" data-act="del-set" data-id="${set.id}" style="font-size:.9em;padding:3px 8px;">Delete set</button>
       </div>
       <div class="small" style="margin-top:4px;">Bonus when all worn together: <b style="color:var(--good);">${bstr||'none set'}</b></div>
@@ -6204,7 +6079,7 @@ function renderTackInventory(){
     <h3>Set Bonuses <span class="small">(admin)</span></h3>
     <p class="small" style="margin-top:0;">Create a named set (e.g. "Dressage Set"), give it a bonus, then assign items to it via the <b>Part of a set?</b> dropdown when adding tack. When a submission depicts <b>every</b> item in a set, the set bonus applies on top of the individual pieces.</p>
     ${setsList||'<div class="small" style="opacity:.7;margin-bottom:8px;">No sets yet.</div>'}
-    <div style="border-top:1px solid #4a392a;margin-top:8px;padding-top:10px;">
+    <div style="border-top:1px solid var(--equi-line);margin-top:8px;padding-top:10px;">
       <label>New set name</label>
       <input id="set_name" placeholder="e.g. Winter Driving Set" style="max-width:320px;" />
       <div class="row" style="margin-top:8px;">
@@ -6250,14 +6125,14 @@ function renderTackInventory(){
       if(item.exp) extra.push(`+${item.exp} EXP`);
       const setName = item.setId ? (state.tackSets||[]).find(x=>x.id===item.setId) : null;
       const div=el('div');
-      div.style.cssText='background:#15100c;border:1px solid #4a392a;border-radius:8px;padding:8px;text-align:center;';
+      div.style.cssText='background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:8px;padding:8px;text-align:center;';
       div.innerHTML=`
-        ${item.image?`<img src="${item.image}" style="width:100%;height:90px;object-fit:cover;border-radius:5px;" />`:`<div style="height:90px;display:flex;align-items:center;justify-content:center;font-size:2em;color:#4a392a;"></div>`}
+        ${item.image?`<img src="${item.image}" style="width:100%;height:90px;object-fit:cover;border-radius:5px;" />`:`<div style="height:90px;display:flex;align-items:center;justify-content:center;font-size:2em;color:var(--equi-line);"></div>`}
         <div style="margin-top:6px;font-weight:bold;font-size:1.04em;">${item.name}</div>
         <div class="small">${item.category}</div>
         ${statsStr?`<div class="small" style="color:var(--good);margin-top:2px;">${statsStr}</div>`:""}
         ${extra.length?`<div class="small" style="color:var(--accent,#d29a3e);margin-top:2px;">${extra.join(" · ")}</div>`:""}
-        ${setName?`<div class="small" style="color:#c9a8e8;margin-top:2px;">◈ ${escAttr(setName.name)} set</div>`:""}
+        ${setName?`<div class="small" style="color:var(--equi-accent-2);margin-top:2px;">◈ ${escAttr(setName.name)} set</div>`:""}
         <button class="danger" data-act="del-tack" data-id="${item.id}" style="font-size:.96em;padding:3px 8px;margin-top:6px;">Remove</button>
       `;
       grid.appendChild(div);
@@ -6278,7 +6153,7 @@ function renderTackInventory(){
   });
 
   // --- Rider attire lives here too: one Inventory tab for tack + attire ---
-  const hr=el('div'); hr.style.cssText='border-top:1px solid #4a392a;margin:22px 0 4px;';
+  const hr=el('div'); hr.style.cssText='border-top:1px solid var(--equi-line);margin:22px 0 4px;';
   wrap.appendChild(hr);
   wrap.appendChild(renderAttireInventory());
 
@@ -6332,7 +6207,7 @@ async function renderGeneticsRequests(container){
 
   container.innerHTML = `<h3 style="margin:0 0 8px;">Pending breed genetics requests (${pending.length})</h3>`
     + pending.map(r=>`
-      <div style="border:1px solid #4a392a;border-radius:8px;padding:12px;margin-bottom:10px;background:#15100c;">
+      <div style="border:1px solid var(--equi-line);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--equi-ink);">
         <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
           <b style="color:var(--accent,#d29a3e);font-size:1.05em;">${escAttr(r.breedName||'(unnamed breed)')}</b>
           <span class="small" style="opacity:.6;">by ${escAttr(r.owner||'?')} · ${String(r.submittedAt||'').slice(0,10)}</span>
@@ -6515,7 +6390,7 @@ function renderAdmin(){
   } else {
     breeds.forEach(b=>{
       const row=el('div');
-      row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #2c2118;';
+      row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--equi-raised);';
       const lociLabels=b.loci.map(k=>{ const l=allLoci().find(x=>x.key===k); return l?l.label.split(" — ")[0].split(" (")[0]:k; }).join(", ");
       row.innerHTML=`
         <div style="flex:1;">
@@ -6637,7 +6512,7 @@ function renderAdmin(){
   } else {
     genes.forEach(g=>{
       const row=el('div');
-      row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #2c2118;';
+      row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--equi-raised);';
       const usedBy=(state.customBreeds||[]).filter(b=>(b.loci||[]).includes(g.key)).map(b=>b.name);
       row.innerHTML=`
         <div style="flex:1;">
@@ -6742,7 +6617,7 @@ function renderAdmin(){
   } else {
     markings.forEach(m=>{
       const row=el('div');
-      row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #2c2118;';
+      row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--equi-raised);';
       row.innerHTML=`
         <div style="flex:1;">
           <div style="font-weight:bold;">${m.label}</div>
@@ -6885,7 +6760,7 @@ function renderAdmin(){
     const locus = mutationTargetLoci.find(l=>l.key===m.locusKey);
     const breedDisplay = mutationBreeds.find(b=>b.name.toLowerCase()===m.breedName)?.name || m.breedName;
     return `
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #2c2118;">
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--equi-raised);">
         <div style="flex:1;">
           <div style="font-weight:bold;">${m.label}${m.builtin?` <span class="small" style="opacity:.6;">(built-in)</span>`:""}</div>
           <div class="small" style="opacity:.8;">Extends ${locus?shortLocusLabel(locus):m.locusKey} — for ${breedDisplay}</div>
@@ -8266,7 +8141,7 @@ function appendBreedingTraitsEditor(wrap){
         <button id="bt_add" style="margin-top:8px;">Add trait</button>
       </div>
       <div style="margin-top:8px;"><span id="bt_status" class="small"></span></div>
-    ` : `<p class="small" style="color:#c98a3a;">Create a breed first (above), then configure its breeding traits here.</p>`}
+    ` : `<p class="small" style="color:var(--equi-accent);">Create a breed first (above), then configure its breeding traits here.</p>`}
   `;
   wrap.appendChild(card);
   if(!breeds.length) return;
@@ -8510,7 +8385,7 @@ function renderBreeding(){
           <div id="bc_damInfo" class="small" style="color:#a89888;margin-top:4px;"></div>
         </div>
       </div>
-      ${(noSires||noDams)?`<p class="small" style="color:#c98a3a;margin-top:10px;">${noSires&&noDams?'None of your horses have an open breeding slot yet (they need to be age 3+ with a free slot).':noSires?'You have no eligible sire (a stallion, colt or rig aged 3+ with a free slot).':'You have no eligible dam (a mare or filly aged 3+ with a free slot).'}</p>`:''}
+      ${(noSires||noDams)?`<p class="small" style="color:var(--equi-accent);margin-top:10px;">${noSires&&noDams?'None of your horses have an open breeding slot yet (they need to be age 3+ with a free slot).':noSires?'You have no eligible sire (a stallion, colt or rig aged 3+ with a free slot).':'You have no eligible dam (a mare or filly aged 3+ with a free slot).'}</p>`:''}
       <div id="bc_resnote" style="margin-top:8px;"></div>
       <button id="bc_resdiag" class="secondary" style="margin-top:4px;padding:4px 10px;font-size:.95em;">Why can't I see a reserved slot?</button>
       <div id="bc_resdiagout" style="margin-top:6px;"></div>
@@ -8526,7 +8401,7 @@ function renderBreeding(){
   const showInfo=(sel,box)=>{
     const h=findH(sel.value);
     wrap.querySelector(box).innerHTML = h
-      ? `${escAttr(h.genotype||'no genetics set')} · Lv ${h.level||1}${h.genoObj?'':' · <span style="color:#c98a3a;">no structured genetics — using defaults</span>'}`
+      ? `${escAttr(h.genotype||'no genetics set')} · Lv ${h.level||1}${h.genoObj?'':' · <span style="color:var(--equi-accent);">no structured genetics — using defaults</span>'}`
       : '';
   };
   sireSel.onchange=()=>{ __breedSire=sireSel.value; showInfo(sireSel,'#bc_sireInfo'); };
@@ -8544,8 +8419,8 @@ function renderBreeding(){
   if(lbBtn) lbBtn.onclick=()=>{
     const sire=findH(sireSel.value), dam=findH(damSel.value);
     const box=wrap.querySelector('#bc_result');
-    if(!sire||!dam){ box.innerHTML=`<div class="card"><p class="small" style="color:#c98a3a;">Pick both a sire and a dam first.</p></div>`; return; }
-    if(sire.id===dam.id){ box.innerHTML=`<div class="card"><p class="small" style="color:#c98a3a;">A horse can't breed with itself — pick two different horses.</p></div>`; return; }
+    if(!sire||!dam){ box.innerHTML=`<div class="card"><p class="small" style="color:var(--equi-accent);">Pick both a sire and a dam first.</p></div>`; return; }
+    if(sire.id===dam.id){ box.innerHTML=`<div class="card"><p class="small" style="color:var(--equi-accent);">A horse can't breed with itself — pick two different horses.</p></div>`; return; }
     showBreedingConfirm(sire, dam, (sel, mods)=>{
       const roll=rollBreeding(sire,dam,mods);
       renderLiveBreeding(box, sire, dam, roll, sel);
@@ -8555,8 +8430,8 @@ function renderBreeding(){
   wrap.querySelector('#bc_calc').onclick=()=>{
     const sire=findH(sireSel.value), dam=findH(damSel.value);
     const box=wrap.querySelector('#bc_result');
-    if(!sire||!dam){ box.innerHTML=`<div class="card"><p class="small" style="color:#c98a3a;">Pick both a sire and a dam.</p></div>`; return; }
-    if(sire.id===dam.id){ box.innerHTML=`<div class="card"><p class="small" style="color:#c98a3a;">A horse can't breed with itself — pick two different horses.</p></div>`; return; }
+    if(!sire||!dam){ box.innerHTML=`<div class="card"><p class="small" style="color:var(--equi-accent);">Pick both a sire and a dam.</p></div>`; return; }
+    if(sire.id===dam.id){ box.innerHTML=`<div class="card"><p class="small" style="color:var(--equi-accent);">A horse can't breed with itself — pick two different horses.</p></div>`; return; }
     renderPreview(sire,dam);
   };
 
@@ -8572,7 +8447,7 @@ function renderBreeding(){
   if(diagBtn) diagBtn.onclick=async()=>{
     const out=wrap.querySelector('#bc_resdiagout');
     out.innerHTML='<span class="small" style="opacity:.6;">Checking…</span>';
-    try{ out.innerHTML='<div style="background:#15100c;border:1px solid #4a392a;border-radius:6px;padding:10px;">'
+    try{ out.innerHTML='<div style="background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:6px;padding:10px;">'
       + await diagnoseReservations() + '</div>'; }
     catch(e){ out.innerHTML='<span class="small" style="color:#e0906a;">Diagnostic failed: '+escAttr(String(e&&e.message||e))+'</span>'; }
   };
@@ -8781,11 +8656,11 @@ function showBreedingConfirm(sire, dam, onConfirm){
   const tokens=availableBreedingTokens();
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;';
-  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid #c98a3a;border-radius:10px;padding:22px;max-width:520px;width:100%;color:#f1e6d8;font-family:Georgia,serif;max-height:90vh;overflow-y:auto;">
-    <h3 style="margin-top:0;color:#c98a3a;">Proceed with breeding?</h3>
-    <div style="background:#15100c;padding:10px;border-radius:6px;margin-bottom:10px;">
+  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid var(--equi-accent);border-radius:10px;padding:22px;max-width:520px;width:100%;color:var(--equi-text);font-family:var(--equi-serif);max-height:90vh;overflow-y:auto;">
+    <h3 style="margin-top:0;color:var(--equi-accent);">Proceed with breeding?</h3>
+    <div style="background:var(--equi-ink);padding:10px;border-radius:6px;margin-bottom:10px;">
       <b>${escAttr(sire.name)}</b> &times; <b>${escAttr(dam.name)}</b><br>
-      <span class="small" style="color:#b5a392;">Uses one breeding slot each &mdash; ${escAttr(sire.name)} would have ${ownerOpenSlots(sire)-1} left, ${escAttr(dam.name)} ${ownerOpenSlots(dam)-1}. A real foal is created once you name it.</span>
+      <span class="small" style="color:var(--equi-dim);">Uses one breeding slot each &mdash; ${escAttr(sire.name)} would have ${ownerOpenSlots(sire)-1} left, ${escAttr(dam.name)} ${ownerOpenSlots(dam)-1}. A real foal is created once you name it.</span>
     </div>
     <label class="small" style="color:#e8c86a;text-transform:uppercase;display:block;">Use an item in this breeding?</label>
     ${tokens.length ? `<div id="bcf_tokens" style="margin-top:4px;">
@@ -8796,15 +8671,15 @@ function showBreedingConfirm(sire, dam, onConfirm){
           <div class="small" style="opacity:.7;margin-left:20px;">${escAttr(t.desc)}</div>
         </label>`).join("")}
         <div id="bcf_gender_pick" style="display:none;margin:6px 0 0 20px;">
-          <select id="bcf_gender" style="padding:6px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;">
+          <select id="bcf_gender" style="padding:6px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;">
             <option value="Colt">Colt</option><option value="Filly">Filly</option>
           </select>
         </div>
         <div id="bcf_warn" class="small" style="color:#e0906a;margin-top:4px;"></div>
       </div>`
       : `<p class="small" style="color:#8a7a6a;margin-top:4px;">You don't own any breeding items. You can breed without one.</p>`}
-    <button id="bcf_go" style="margin-top:14px;width:100%;background:#c98a3a;color:#241a14;border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;">Breed</button>
-    <button id="bcf_cancel" style="margin-top:8px;width:100%;background:#2c2118;color:#f1e6d8;border:1px solid #4a392a;padding:9px;border-radius:6px;cursor:pointer;">Cancel</button>
+    <button id="bcf_go" style="margin-top:14px;width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;">Breed</button>
+    <button id="bcf_cancel" style="margin-top:8px;width:100%;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);padding:9px;border-radius:6px;cursor:pointer;">Cancel</button>
   </div>`;
   document.body.appendChild(overlay);
 
@@ -8867,20 +8742,20 @@ function renderLiveBreeding(box, sire, dam, roll, sel, rerollUsed){
       }</div>
       ${f.lethal.length?`<div class="small" style="color:#e05050;margin-top:6px;">☠ Lethal genotype — this foal would not survive.</div>`:''}
       <div style="margin-top:10px;">
-        <input id="lb_name_${i}" placeholder="Name this foal" style="width:100%;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;" />
-        ${roll.twins?'':`<button data-keep="${i}" style="margin-top:6px;width:100%;background:#c98a3a;color:#241a14;border:none;padding:9px;border-radius:6px;font-weight:bold;cursor:pointer;">Keep this foal</button>`}
+        <input id="lb_name_${i}" placeholder="Name this foal" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;" />
+        ${roll.twins?'':`<button data-keep="${i}" style="margin-top:6px;width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:9px;border-radius:6px;font-weight:bold;cursor:pointer;">Keep this foal</button>`}
       </div>
     </div>`;
 
   box.innerHTML=`
     <div class="card">
-      <h3 style="margin-top:0;color:#c98a3a;">Breeding — ${escAttr(sire.name)} × ${escAttr(dam.name)}</h3>
+      <h3 style="margin-top:0;color:var(--equi-accent);">Breeding — ${escAttr(sire.name)} × ${escAttr(dam.name)}</h3>
       <p class="small" style="color:#a89888;">Name the foal you want to keep — this breeding is locked in.</p>
-      ${roll.twins?`<div class="card" style="border-color:#7a9b6e;"><b style="color:#9bd18a;">Twins!</b> <span class="small">Both foals are yours — this still uses only one breeding slot each.</span></div>`:''}
+      ${roll.twins?`<div class="card" style="border-color:var(--equi-good);"><b style="color:#9bd18a;">Twins!</b> <span class="small">Both foals are yours — this still uses only one breeding slot each.</span></div>`:''}
       ${roll.coi>0?`<div class="card" style="border-color:#8a5a2a;"><span class="small">⚠ Inbreeding coefficient ${(roll.coi*100).toFixed(1)}% — health risks were raised on this pairing.</span></div>`:''}
       ${(sel&&sel.length)?`<p class="small" style="color:#8a9ac8;">Items in use: ${sel.map(t=>escAttr(BREEDING_TOKENS[t.key].label)+(t.gender?` (${escAttr(t.gender)})`:'')).join(", ")} — spent when you keep a foal. An unused Reroll Token is returned.</p>`:''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">${roll.foals.map(card).join("")}</div>
-      ${roll.twins?`<button id="lb_keep_both" style="margin-top:10px;width:100%;background:#c98a3a;color:#241a14;border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;">Keep both foals</button>`:''}
+      ${roll.twins?`<button id="lb_keep_both" style="margin-top:10px;width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;">Keep both foals</button>`:''}
       ${roll.mods.reroll?`<button id="lb_reroll" class="secondary" style="margin-top:8px;width:100%;padding:9px;">🎲 Reroll this breeding — uses your Reroll Token</button>`:''}
     </div>`;
 
@@ -9076,7 +8951,7 @@ function computeFoalPreview(sire,dam,allHorses){
         </div>
       </div>
       <details style="margin-top:12px;">
-        <summary style="cursor:pointer;color:#c98a3a;font-size:.95em;">Show per-gene odds</summary>
+        <summary style="cursor:pointer;color:var(--equi-accent);font-size:.95em;">Show per-gene odds</summary>
         <div style="margin-top:8px;">${lociHtml || '<p class="small" style="color:#8a7a6a;">Both parents are identical at every gene — the foal matches them.</p>'}</div>
       </details>
     </div>
@@ -9140,8 +9015,8 @@ function renderHorseProfilePage(app, h){
     const base=h.stats[s]||0, bonus=getEquippedStatBonus(h,s), eff=base+bonus;
     const key = dStatsP.includes(s);
     return `<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:5px 10px;border-radius:5px;white-space:nowrap;${key?'background:#2a1f12;border:1px solid #4a3a1a;':'border:1px solid transparent;'}" ${key?`title="Key stat for ${h.discipline}"`:''}>
-      <span style="font-size:1em;color:${key?'#e8c86a':'#b5a392'};font-weight:${key?'bold':'normal'};">${key?'★ ':''}${STAT_LABELS[s]}</span>
-      <span style="font-size:1em;font-weight:bold;color:#c98a3a;" title="${bonus?`Base ${base} + ${bonus} from tack = ${eff}`:`Base ${base}`}">${base}${bonus?` <span style="color:#7a9b6e;font-weight:normal;">(+${bonus})</span>`:""}</span>
+      <span style="font-size:1em;color:${key?'#e8c86a':'var(--equi-dim)'};font-weight:${key?'bold':'normal'};">${key?'★ ':''}${STAT_LABELS[s]}</span>
+      <span style="font-size:1em;font-weight:bold;color:var(--equi-accent);" title="${bonus?`Base ${base} + ${bonus} from tack = ${eff}`:`Base ${base}`}">${base}${bonus?` <span style="color:var(--equi-good);font-weight:normal;">(+${bonus})</span>`:""}</span>
     </div>`;
   }).join("");
 
@@ -9152,9 +9027,9 @@ function renderHorseProfilePage(app, h){
   }
 
   const breedingRecHtml = (h.breedingRecords||[]).length ? (h.breedingRecords.map(r=>`
-    <div class="small" style="padding:6px;background:#15100c;border-radius:5px;margin-bottom:4px;">
+    <div class="small" style="padding:6px;background:var(--equi-ink);border-radius:5px;margin-bottom:4px;">
       Slot ${r.slotIndex+1} — ${r.role==="sire"?"Sired with":"Bred to"} <b>${r.partnerName}</b>${r.partnerOwner?` (${r.partnerOwner})`:""}${r.date?` · ${r.date}`:""}
-      ${r.foalId?` → <span onclick="goToProfile('${r.foalId}')" style="color:#c98a3a;cursor:pointer;text-decoration:underline;">Foal: ${r.foalName}</span>`:r.foalName?` → Foal: ${r.foalName} (unlinked)`:""}
+      ${r.foalId?` → <span onclick="goToProfile('${r.foalId}')" style="color:var(--equi-accent);cursor:pointer;text-decoration:underline;">Foal: ${r.foalName}</span>`:r.foalName?` → Foal: ${r.foalName} (unlinked)`:""}
       ${r.note?`<br><i style="opacity:.7;">${r.note}</i>`:""}
     </div>`).join("")) : `<div class="small" style="opacity:.6;">No breeding records.</div>`;
 
@@ -9165,10 +9040,10 @@ function renderHorseProfilePage(app, h){
     const s=Object.entries(item.stats||{}).map(([k,v])=>`+${v} ${STAT_LABELS[k]}`).join(", ");
     if(item.image){
       return `<div style="display:inline-flex;flex-direction:column;align-items:center;gap:4px;width:150px;">
-        <img src="${item.image}" style="width:150px;height:150px;object-fit:contain;cursor:zoom-in;border:1px solid #3a7a5a;border-radius:6px;background:#15100c;"
+        <img src="${item.image}" style="width:150px;height:150px;object-fit:contain;cursor:zoom-in;border:1px solid #3a7a5a;border-radius:6px;background:var(--equi-ink);"
              onclick="openLightbox('${jsStr(item.image)}','${jsStr(item.name)}')" onerror="this.style.display='none';this.nextElementSibling.style.display='block';" />
         <span class="tag" style="display:none;background:#1a3a2a;color:#a0e8c0;border-color:#3a7a5a;">${item.name}</span>
-        <div class="small" style="text-align:center;color:#a0e8c0;">${item.name}${s?`<br><span style="color:#7a9b6e;">${s}</span>`:""}</div>
+        <div class="small" style="text-align:center;color:#a0e8c0;">${item.name}${s?`<br><span style="color:var(--equi-good);">${s}</span>`:""}</div>
       </div>`;
     }
     return `<span class="tag" style="background:#1a3a2a;color:#a0e8c0;border-color:#3a7a5a;">${item.name}${s?` (${s})`:""}</span>`;
@@ -9193,7 +9068,7 @@ function renderHorseProfilePage(app, h){
         ${c.note?`<div class="small" style="opacity:.8;">${c.note}</div>`:""}
         ${prizes.length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">
           ${prizes.map(p=>`<div style="text-align:center;">
-            <img src="${p.dataUrl}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;border:1px solid #4a392a;cursor:zoom-in;display:block;" onclick="openLightbox('${jsStr(p.dataUrl)}','${jsStr(p.label||'Prize')}')" onerror="this.style.display='none'" />
+            <img src="${p.dataUrl}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;border:1px solid var(--equi-line);cursor:zoom-in;display:block;" onclick="openLightbox('${jsStr(p.dataUrl)}','${jsStr(p.label||'Prize')}')" onerror="this.style.display='none'" />
           </div>`).join("")}
         </div>`:""}
       </div>
@@ -9203,26 +9078,26 @@ function renderHorseProfilePage(app, h){
   // Collage-style art log: 300px thumbnails in a grid, newest first. Entries
   // without an image still show as a tile so the log stays complete.
   const artLogHtml=h.artLog.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;max-height:680px;overflow-y:auto;padding-right:4px;">${h.artLog.map(e=>`
-    <div style="background:#15100c;border:1px solid #4a392a;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;">
+    <div style="background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;">
       ${e.image?`<img src="${e.image}" loading="lazy" style="width:100%;height:300px;object-fit:cover;cursor:zoom-in;display:block;" onclick="openLightbox('${jsStr(e.image)}','${jsStr(e.label)}')" />`
-              :`<div style="width:100%;height:300px;display:flex;align-items:center;justify-content:center;font-size:2.6em;color:#4a392a;background:#100b08;">🎨</div>`}
+              :`<div style="width:100%;height:300px;display:flex;align-items:center;justify-content:center;font-size:2.6em;color:var(--equi-line);background:#100b08;">🎨</div>`}
       <div style="padding:8px 10px;">
         <b style="font-size:.95em;">${e.label}</b> <span class="tag">+${e.exp} EXP</span>${e.placement?` <span class="tag">${["1st","2nd","3rd","4th","5th","6th"][e.placement-1]||e.placement+"th"}</span>`:""}
-        <div class="small" style="opacity:.85;">${e.art||""}${e.lit?` · ${e.lit}`:""}${e.link?` · <a href="${e.link}" target="_blank" style="color:#c98a3a;">link</a>`:""}</div>
+        <div class="small" style="opacity:.85;">${e.art||""}${e.lit?` · ${e.lit}`:""}${e.link?` · <a href="${e.link}" target="_blank" style="color:var(--equi-accent);">link</a>`:""}</div>
       </div>
     </div>`).join("")}</div>`:
     `<div class="small" style="opacity:.6;">No art logged yet.</div>`;
 
   const photoHtml = h.profileImage
-    ? `<img src="${h.profileImage}" onclick="openLightbox('${jsStr(h.profileImage)}','${jsStr(h.name)}')" style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;object-fit:cover;border:3px solid #c98a3a;cursor:zoom-in;" />`
-    : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;border:3px solid #4a392a;display:flex;align-items:center;justify-content:center;font-size:3.5em;background:#15100c;"></div>`;
+    ? `<img src="${h.profileImage}" onclick="openLightbox('${jsStr(h.profileImage)}','${jsStr(h.name)}')" style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;object-fit:cover;border:3px solid var(--equi-accent);cursor:zoom-in;" />`
+    : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);"></div>`;
 
   const refColumnHtml = (h.referenceImage || bankAccount.linked)
-    ? `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:20px;padding-top:20px;border-top:1px solid #4a392a;">
+    ? `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:20px;padding-top:20px;border-top:1px solid var(--equi-line);">
         <div class="small" style="text-align:center;">Reference / Registration${h.referenceLink?` · <a href="${h.referenceLink}" target="_blank">View on site</a>`:""}</div>
         ${h.referenceImage
-          ? `<img src="${h.referenceImage}" onclick="openLightbox('${jsStr(h.referenceImage)}','${jsStr(h.name+' — Reference / Registration')}')" style="width:min(560px,92%);max-height:460px;border-radius:10px;object-fit:contain;border:3px solid var(--accent, #c98a3a);cursor:zoom-in;background:#15100c;box-shadow:0 6px 20px rgba(0,0,0,.45);" />`
-          : `<div style="width:min(560px,92%);height:260px;border-radius:10px;border:3px solid #4a392a;display:flex;align-items:center;justify-content:center;font-size:1em;background:#15100c;color:#8a7a6a;text-align:center;padding:10px;">No reference sheet uploaded yet.</div>`}
+          ? `<img src="${h.referenceImage}" onclick="openLightbox('${jsStr(h.referenceImage)}','${jsStr(h.name+' — Reference / Registration')}')" style="width:min(560px,92%);max-height:460px;border-radius:10px;object-fit:contain;border:3px solid var(--accent, var(--equi-accent));cursor:zoom-in;background:var(--equi-ink);box-shadow:0 6px 20px rgba(0,0,0,.45);" />`
+          : `<div style="width:min(560px,92%);height:260px;border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:1em;background:var(--equi-ink);color:#8a7a6a;text-align:center;padding:10px;">No reference sheet uploaded yet.</div>`}
         ${bankAccount.linked?`
           <button id="pp_ref_change_btn" class="secondary" style="font-size:.92em;">Change Image</button>
           <div id="pp_ref_url_wrap" style="display:none;width:100%;max-width:420px;">
@@ -9235,30 +9110,30 @@ function renderHorseProfilePage(app, h){
 
   app.innerHTML=`
     <style>
-      body { background:#1b1410; color:#f1e6d8; font-family:Georgia,serif; margin:0; padding:0; }
-      .pcard { background:#241a14; border:1px solid #4a392a; border-radius:10px; padding:clamp(18px,3vw,28px); margin-bottom:20px; }
-      .pcard h3 { color:#c98a3a; margin-top:0; font-family:"Palatino Linotype",Georgia,serif; }
-      .pcard .small { font-size:1em; color:#b5a392; }
-      a { color:#c98a3a; }
+      body { background:var(--equi-bg); color:var(--equi-text); font-family:var(--equi-serif); margin:0; padding:0; }
+      .pcard { background:var(--equi-panel); border:1px solid var(--equi-line); border-radius:10px; padding:clamp(18px,3vw,28px); margin-bottom:20px; }
+      .pcard h3 { color:var(--equi-accent); margin-top:0; font-family:var(--equi-display); }
+      .pcard .small { font-size:1em; color:var(--equi-dim); }
+      a { color:var(--equi-accent); }
       .statbar-wrap { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
-      .statbar-bg { flex:1; height:8px; background:#15100c; border-radius:4px; overflow:hidden; }
-      .statbar-fill { height:100%; background:linear-gradient(90deg,#7a9b6e,#c98a3a); }
-      .expbar-bg { height:10px; background:#15100c; border-radius:5px; overflow:hidden; margin-top:6px; }
-      .expbar-fill { height:100%; background:linear-gradient(90deg,#8a6fb0,#c98a3a); }
-      .tag { display:inline-block; font-size:.97em; padding:4px 10px; border-radius:10px; background:#15100c; color:#b5a392; border:1px solid #4a392a; margin-left:5px; }
-      .slot { width:26px; height:26px; border-radius:50%; border:1px solid #c98a3a; display:inline-flex; align-items:center; justify-content:center; font-size:1.1em; margin-right:6px; }
-      .slot.filled { background:#c98a3a; color:#15100c; }
-      .artlog-panel { background:#15100c; border:1px solid #4a392a; border-radius:6px; padding:12px; overflow-y:auto; }
-      .artlog-entry { padding:10px 0; border-bottom:1px dashed #2c2118; }
+      .statbar-bg { flex:1; height:8px; background:var(--equi-ink); border-radius:4px; overflow:hidden; }
+      .statbar-fill { height:100%; background:linear-gradient(90deg,var(--equi-good),var(--equi-accent)); }
+      .expbar-bg { height:10px; background:var(--equi-ink); border-radius:5px; overflow:hidden; margin-top:6px; }
+      .expbar-fill { height:100%; background:linear-gradient(90deg,#8a6fb0,var(--equi-accent)); }
+      .tag { display:inline-block; font-size:.97em; padding:4px 10px; border-radius:10px; background:var(--equi-ink); color:var(--equi-dim); border:1px solid var(--equi-line); margin-left:5px; }
+      .slot { width:26px; height:26px; border-radius:50%; border:1px solid var(--equi-accent); display:inline-flex; align-items:center; justify-content:center; font-size:1.1em; margin-right:6px; }
+      .slot.filled { background:var(--equi-accent); color:var(--equi-ink); }
+      .artlog-panel { background:var(--equi-ink); border:1px solid var(--equi-line); border-radius:6px; padding:12px; overflow-y:auto; }
+      .artlog-entry { padding:10px 0; border-bottom:1px dashed var(--equi-raised); }
       .artlog-entry:last-child { border-bottom:none; }
-      .artlog-thumb { width:60px; height:60px; border-radius:5px; object-fit:cover; border:1px solid #4a392a; }
+      .artlog-thumb { width:60px; height:60px; border-radius:5px; object-fit:cover; border:1px solid var(--equi-line); }
       .breedslots { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
-      .worth-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #2c2118; font-size:1.04em; }
-      .worth-row:last-child { border-bottom:none; font-weight:bold; color:#c98a3a; }
+      .worth-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--equi-raised); font-size:1.04em; }
+      .worth-row:last-child { border-bottom:none; font-weight:bold; color:var(--equi-accent); }
     </style>
 
     <div style="width:100%;margin:0 auto;padding:clamp(16px,3vw,32px);">
-      <div style="margin-bottom:12px;"><span data-act="back-to-roster" style="color:#c98a3a;text-decoration:none;cursor:pointer;">← Back to Stable Manager</span></div>
+      <div style="margin-bottom:12px;"><span data-act="back-to-roster" style="color:var(--equi-accent);text-decoration:none;cursor:pointer;">← Back to Stable Manager</span></div>
 
       <div class="pcard">
         <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
@@ -9275,8 +9150,8 @@ function renderHorseProfilePage(app, h){
           ${h.stableName?`<div class="small" style="text-align:center;">Stable: ${h.stableLink?`<a href="${h.stableLink}" target="_blank">${h.stableName}</a>`:h.stableName}</div>`:""}
         </div>
         <div style="flex:1;min-width:220px;">
-          <h1 style="margin:0 0 4px;color:#c98a3a;font-size:1.9em;">${h.name}</h1>
-          ${(h.badges||[]).length?`<div style="margin-bottom:6px;">${h.badges.map(b=>`<span class="tag" style="background:#3a2a10;color:#e8c86a;border-color:#c98a3a;">${b}</span>`).join(" ")}</div>`:""}
+          <h1 style="margin:0 0 4px;color:var(--equi-accent);font-size:1.9em;">${h.name}</h1>
+          ${(h.badges||[]).length?`<div style="margin-bottom:6px;">${h.badges.map(b=>`<span class="tag" style="background:#3a2a10;color:#e8c86a;border-color:var(--equi-accent);">${b}</span>`).join(" ")}</div>`:""}
           <div class="small" style="font-size:1.1em;">${h.breed}${h.gender?` · ${h.gender}`:""} · Age ${h.age} (${h.stage})</div>
           ${fullPhenotype(h)?`<div class="small">Phenotype: ${fullPhenotype(h)}</div>`:""}
           ${h.genotype?`<div class="small">Genotype: ${h.genotype}</div>`:""}
@@ -9286,7 +9161,7 @@ function renderHorseProfilePage(app, h){
             <h3 style="margin-bottom:8px;">Stats</h3>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 14px;">${statBars}</div>
           </div>
-          <div style="margin-top:16px;font-size:.98em;color:#b5a392;">Net Worth: <b style="color:#c98a3a;">฿${netWorth.toLocaleString()}</b> &nbsp;|&nbsp; Breeding Slot: <b style="color:#c98a3a;">฿${slotPrice.toLocaleString()}</b></div>
+          <div style="margin-top:16px;font-size:.98em;color:var(--equi-dim);">Net Worth: <b style="color:var(--equi-accent);">฿${netWorth.toLocaleString()}</b> &nbsp;|&nbsp; Breeding Slot: <b style="color:var(--equi-accent);">฿${slotPrice.toLocaleString()}</b></div>
           <details style="margin-top:4px;">
             <summary style="cursor:pointer;font-size:.85em;color:#8a7a6a;">Breakdown</summary>
             <div style="margin-top:6px;font-size:.85em;max-width:280px;">
@@ -9296,7 +9171,7 @@ function renderHorseProfilePage(app, h){
               <div class="worth-row" style="padding:4px 0;"><span>Total Genotype Value</span><span>฿${genoPrice.toLocaleString()}</span></div>
               <div class="worth-row" style="padding:4px 0;"><span>Show Earnings</span><span>฿${showEarnings.toLocaleString()}</span></div>
               ${h.customNetWorth!==null&&h.customNetWorth!==undefined&&h.customNetWorth!==""?`<div class="worth-row" style="padding:4px 0;"><span style="color:#d4a030;">⚠ Custom override</span><span>฿${Number(h.customNetWorth).toLocaleString()}</span></div>`:""}
-              <div class="worth-row" style="padding:4px 0;margin-top:2px;padding-top:6px;border-top:1px solid #4a392a;"><span>NET WORTH</span><span>฿${netWorth.toLocaleString()}</span></div>
+              <div class="worth-row" style="padding:4px 0;margin-top:2px;padding-top:6px;border-top:1px solid var(--equi-line);"><span>NET WORTH</span><span>฿${netWorth.toLocaleString()}</span></div>
               <div class="worth-row" style="padding:4px 0;"><span>Breeding Slot (5%)</span><span>฿${slotPrice.toLocaleString()}</span></div>
             </div>
           </details>
@@ -9341,7 +9216,7 @@ function renderHorseProfilePage(app, h){
 
       <div style="text-align:center;margin:20px 0;">
         <div class="small" style="margin-bottom:6px;">Shareable link to this profile:</div>
-        <input readonly value="${shareUrl.toString()}" onclick="this.select()" style="max-width:480px;width:100%;text-align:center;padding:8px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:6px;font-family:monospace;" />
+        <input readonly value="${shareUrl.toString()}" onclick="this.select()" style="max-width:480px;width:100%;text-align:center;padding:8px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:6px;font-family:monospace;" />
       </div>
     </div>
   `;
@@ -9432,13 +9307,13 @@ function showProfileModal(horseId){
 
   function field(id, label, val, placeholder, type='input'){
     const inp = type==='textarea'
-      ? `<textarea id="${id}" rows="4" placeholder="${placeholder}" style="width:100%;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;margin-top:3px;box-sizing:border-box;font-family:Georgia,serif;resize:vertical;">${val||''}</textarea>`
-      : `<input id="${id}" value="${val||''}" placeholder="${placeholder}" style="width:100%;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;margin-top:3px;box-sizing:border-box;" />`;
-    return `<div style="margin-bottom:10px;"><label style="font-size:.98em;color:#b5a392;text-transform:uppercase;display:block;">${label}</label>${inp}</div>`;
+      ? `<textarea id="${id}" rows="4" placeholder="${placeholder}" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;margin-top:3px;box-sizing:border-box;font-family:var(--equi-serif);resize:vertical;">${val||''}</textarea>`
+      : `<input id="${id}" value="${val||''}" placeholder="${placeholder}" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;margin-top:3px;box-sizing:border-box;" />`;
+    return `<div style="margin-bottom:10px;"><label style="font-size:.98em;color:var(--equi-dim);text-transform:uppercase;display:block;">${label}</label>${inp}</div>`;
   }
 
-  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid #c98a3a;border-radius:10px;padding:24px;max-width:760px;width:100%;color:#f1e6d8;font-family:Georgia,serif;margin:auto;">
-    <h3 style="margin-top:0;color:#c98a3a;">Edit Profile — ${h.name}</h3>
+  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid var(--equi-accent);border-radius:10px;padding:24px;max-width:760px;width:100%;color:var(--equi-text);font-family:var(--equi-serif);margin:auto;">
+    <h3 style="margin-top:0;color:var(--equi-accent);">Edit Profile — ${h.name}</h3>
     <div style="display:flex;gap:10px;">
       <div style="flex:1;">${field('pm_breed','Breed',h.breed,'e.g. Thoroughbred')}</div>
       <div style="width:110px;">${field('pm_age','Age',h.age,'e.g. 5')}</div>
@@ -9449,8 +9324,8 @@ function showProfileModal(horseId){
       <div style="width:150px;">${field('pm_height','Height (optional)',h.height,'e.g. 16.2 hh')}</div>
     </div>
     <div style="margin-bottom:10px;">
-      <label style="font-size:.98em;color:#b5a392;text-transform:uppercase;display:block;">Discipline</label>
-      <select id="pm_discipline" style="width:100%;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;margin-top:3px;box-sizing:border-box;font-family:Georgia,serif;">
+      <label style="font-size:.98em;color:var(--equi-dim);text-transform:uppercase;display:block;">Discipline</label>
+      <select id="pm_discipline" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;margin-top:3px;box-sizing:border-box;font-family:var(--equi-serif);">
         <option value="">— none chosen —</option>
         ${Object.keys(DISCIPLINES).map(d=>`<option value="${d}"${h.discipline===d?' selected':''}>${d} — ${DISCIPLINES[d].stats.map(x=>STAT_LABELS[x]).join(', ')}</option>`).join("")}
       </select>
@@ -9464,9 +9339,9 @@ function showProfileModal(horseId){
     ${field('pm_stablelink','Stable Link (optional)',h.stableLink,'https://…')}
     ${field('pm_personality','Personality',h.personality,'Describe this horse - personality, quirks, and character...','textarea')}
     ${field('pm_history','History',h.horseHistory,'Background story, significant events, journey so far…','textarea')}
-    <button id="pm_save" style="width:100%;background:#c98a3a;color:#241a14;border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Save</button>
-    <button id="pm_cancel" style="margin-top:8px;width:100%;background:#2c2118;color:#f1e6d8;border:1px solid #4a392a;padding:10px;border-radius:6px;cursor:pointer;font-size:1.1em;">Cancel</button>
-    <div id="pm_status" style="margin-top:8px;font-size:.92em;color:#b5a392;text-align:center;min-height:1.2em;"></div>
+    <button id="pm_save" style="width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Save</button>
+    <button id="pm_cancel" style="margin-top:8px;width:100%;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);padding:10px;border-radius:6px;cursor:pointer;font-size:1.1em;">Cancel</button>
+    <div id="pm_status" style="margin-top:8px;font-size:.92em;color:var(--equi-dim);text-align:center;min-height:1.2em;"></div>
   </div>`;
   document.body.appendChild(overlay);
 
@@ -9528,7 +9403,7 @@ function showNetWorthModal(horseId){
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;';
 
   function inp(style=''){
-    return `style="padding:6px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:4px;${style}"`;
+    return `style="padding:6px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:4px;${style}"`;
   }
 
   const baseOpts = GENO_BASE_PRICES.map(p=>`<option value="${p.value}" ${h.genoBasePrice===p.value?"selected":""}>${p.label} — ฿${p.value}</option>`).join("");
@@ -9544,55 +9419,55 @@ function showNetWorthModal(horseId){
         .map(m=>`<option value="${m.value}|${m.label}">${m.label} (+฿${m.value})</option>`).join("")}
     </optgroup>`).join("");
   const genoNote = h.genotype
-    ? `<p class="small" style="color:#7a9b6e;margin:4px 0 10px;">Base genetics: <b>${h.genotype}</b> (${h.phenotype||""}) — set on the Roster tab. This section is for extra fictitious/rare markings and mane types on top of that.</p>`
-    : `<p class="small" style="color:#b5a392;margin:4px 0 10px;">No structured genetics set yet — use "Set Genetics" on the roster card to pick real coat color alleles. This section is for extra fictitious/rare markings and mane types.</p>`;
+    ? `<p class="small" style="color:var(--equi-good);margin:4px 0 10px;">Base genetics: <b>${h.genotype}</b> (${h.phenotype||""}) — set on the Roster tab. This section is for extra fictitious/rare markings and mane types on top of that.</p>`
+    : `<p class="small" style="color:var(--equi-dim);margin:4px 0 10px;">No structured genetics set yet — use "Set Genetics" on the roster card to pick real coat color alleles. This section is for extra fictitious/rare markings and mane types.</p>`;
 
   const existingMods = h.genoModifiers.map((m,i)=>`
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
       <span style="flex:1;font-size:1.02em;">${m.label}</span>
-      <span style="color:#c98a3a;font-size:1.02em;">+฿${m.value}</span>
-      <button data-remove="${i}" style="background:#b1473f;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:.98em;">✕</button>
+      <span style="color:var(--equi-accent);font-size:1.02em;">+฿${m.value}</span>
+      <button data-remove="${i}" style="background:var(--equi-bad);color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:.98em;">✕</button>
     </div>`).join("") || `<div class="small" style="opacity:.6;">No modifiers added yet.</div>`;
 
   const currentNW = calcNetWorth(h);
   const currentSlot = calcSlotPrice(h);
 
-  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid #c98a3a;border-radius:10px;padding:24px;max-width:540px;width:100%;color:#f1e6d8;font-family:Georgia,serif;margin:auto;">
-    <h3 style="margin-top:0;color:#c98a3a;">Net Worth — ${h.name}</h3>
-    <p style="color:#b5a392;font-size:1.02em;margin-top:0;">Based on the Lightblood Pricing Guide. Breeding slot = Net Worth × 5%.</p>
+  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid var(--equi-accent);border-radius:10px;padding:24px;max-width:540px;width:100%;color:var(--equi-text);font-family:var(--equi-serif);margin:auto;">
+    <h3 style="margin-top:0;color:var(--equi-accent);">Net Worth — ${h.name}</h3>
+    <p style="color:var(--equi-dim);font-size:1.02em;margin-top:0;">Based on the Lightblood Pricing Guide. Breeding slot = Net Worth × 5%.</p>
 
-    <label style="font-size:.98em;color:#b5a392;text-transform:uppercase;display:block;margin-bottom:3px;">Genotype Base Price</label>
-    <select id="nw_base" style="width:100%;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;margin-bottom:12px;">
+    <label style="font-size:.98em;color:var(--equi-dim);text-transform:uppercase;display:block;margin-bottom:3px;">Genotype Base Price</label>
+    <select id="nw_base" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;margin-bottom:12px;">
       <option value="0">— Select base —</option>
       ${baseOpts}
     </select>
 
-    <label style="font-size:.98em;color:#b5a392;text-transform:uppercase;display:block;margin-bottom:3px;">Add Modifier</label>
+    <label style="font-size:.98em;color:var(--equi-dim);text-transform:uppercase;display:block;margin-bottom:3px;">Add Modifier</label>
     ${genoNote}
     <div style="display:flex;gap:6px;margin-bottom:10px;">
-      <select id="nw_mod_pick" style="flex:1;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;">
+      <select id="nw_mod_pick" style="flex:1;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;">
         <option value="">— Pick modifier —</option>
         ${modGroups}
       </select>
-      <button id="nw_add_mod" style="background:#c98a3a;color:#241a14;border:none;padding:7px 14px;border-radius:5px;cursor:pointer;font-weight:bold;white-space:nowrap;">+ Add</button>
+      <button id="nw_add_mod" style="background:var(--equi-accent);color:var(--equi-panel);border:none;padding:7px 14px;border-radius:5px;cursor:pointer;font-weight:bold;white-space:nowrap;">+ Add</button>
     </div>
 
-    <div id="nw_mod_list" style="background:#15100c;border:1px solid #4a392a;border-radius:5px;padding:8px;min-height:36px;margin-bottom:12px;">
+    <div id="nw_mod_list" style="background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:5px;padding:8px;min-height:36px;margin-bottom:12px;">
       ${existingMods}
     </div>
 
-    <label style="font-size:.98em;color:#b5a392;text-transform:uppercase;display:block;margin-bottom:3px;">Custom Net Worth Override <span style="opacity:.6;">(optional — leave blank to use calculated value)</span></label>
-    <input id="nw_custom" type="number" value="${h.customNetWorth!==null&&h.customNetWorth!==undefined&&h.customNetWorth!==""?h.customNetWorth:''}" placeholder="e.g. 5000" style="width:100%;padding:7px;background:#15100c;border:1px solid #4a392a;color:#f1e6d8;border-radius:5px;box-sizing:border-box;margin-bottom:12px;" />
+    <label style="font-size:.98em;color:var(--equi-dim);text-transform:uppercase;display:block;margin-bottom:3px;">Custom Net Worth Override <span style="opacity:.6;">(optional — leave blank to use calculated value)</span></label>
+    <input id="nw_custom" type="number" value="${h.customNetWorth!==null&&h.customNetWorth!==undefined&&h.customNetWorth!==""?h.customNetWorth:''}" placeholder="e.g. 5000" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;box-sizing:border-box;margin-bottom:12px;" />
 
-    <div id="nw_preview" style="background:#15100c;border:1px solid #4a392a;border-radius:6px;padding:10px;margin-bottom:12px;font-size:1.04em;">
+    <div id="nw_preview" style="background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:6px;padding:10px;margin-bottom:12px;font-size:1.04em;">
       <div style="display:flex;justify-content:space-between;"><span>Genotype Value</span><span>฿${calcGenoPrice(h).toLocaleString()}</span></div>
       <div style="display:flex;justify-content:space-between;"><span>Show Earnings</span><span>฿${calcShowEarnings(h).toLocaleString()}</span></div>
-      <div style="display:flex;justify-content:space-between;padding-top:6px;margin-top:6px;border-top:1px solid #2c2118;font-weight:bold;color:#c98a3a;"><span>Net Worth</span><span>฿${currentNW.toLocaleString()}</span></div>
-      <div style="display:flex;justify-content:space-between;color:#c98a3a;"><span>Slot Price (5%)</span><span>฿${currentSlot.toLocaleString()}</span></div>
+      <div style="display:flex;justify-content:space-between;padding-top:6px;margin-top:6px;border-top:1px solid var(--equi-raised);font-weight:bold;color:var(--equi-accent);"><span>Net Worth</span><span>฿${currentNW.toLocaleString()}</span></div>
+      <div style="display:flex;justify-content:space-between;color:var(--equi-accent);"><span>Slot Price (5%)</span><span>฿${currentSlot.toLocaleString()}</span></div>
     </div>
 
-    <button id="nw_save" style="width:100%;background:#c98a3a;color:#241a14;border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Save</button>
-    <button id="nw_cancel" style="margin-top:8px;width:100%;background:#2c2118;color:#f1e6d8;border:1px solid #4a392a;padding:10px;border-radius:6px;cursor:pointer;font-size:1.1em;">Cancel</button>
+    <button id="nw_save" style="width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Save</button>
+    <button id="nw_cancel" style="margin-top:8px;width:100%;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);padding:10px;border-radius:6px;cursor:pointer;font-size:1.1em;">Cancel</button>
   </div>`;
   document.body.appendChild(overlay);
 
@@ -9609,8 +9484,8 @@ function showNetWorthModal(horseId){
       <div style="display:flex;justify-content:space-between;"><span>Genotype Value</span><span>฿${geno.toLocaleString()}</span></div>
       <div style="display:flex;justify-content:space-between;"><span>Show Earnings</span><span>฿${shows.toLocaleString()}</span></div>
       ${custom!==""?`<div style="display:flex;justify-content:space-between;color:#d4a030;"><span>⚠ Custom override</span><span>฿${Number(custom).toLocaleString()}</span></div>`:""}
-      <div style="display:flex;justify-content:space-between;padding-top:6px;margin-top:6px;border-top:1px solid #2c2118;font-weight:bold;color:#c98a3a;"><span>Net Worth</span><span>฿${nw.toLocaleString()}</span></div>
-      <div style="display:flex;justify-content:space-between;color:#c98a3a;"><span>Slot Price (5%)</span><span>฿${slot.toLocaleString()}</span></div>`;
+      <div style="display:flex;justify-content:space-between;padding-top:6px;margin-top:6px;border-top:1px solid var(--equi-raised);font-weight:bold;color:var(--equi-accent);"><span>Net Worth</span><span>฿${nw.toLocaleString()}</span></div>
+      <div style="display:flex;justify-content:space-between;color:var(--equi-accent);"><span>Slot Price (5%)</span><span>฿${slot.toLocaleString()}</span></div>`;
   }
 
   overlay.querySelector('#nw_base').onchange=refreshPreview;
@@ -9632,8 +9507,8 @@ function showNetWorthModal(horseId){
     list.innerHTML=h.genoModifiers.length ? h.genoModifiers.map((m,i)=>`
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
         <span style="flex:1;font-size:1.02em;">${m.label}</span>
-        <span style="color:#c98a3a;font-size:1.02em;">+฿${m.value}</span>
-        <button data-remove="${i}" style="background:#b1473f;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:.98em;">✕</button>
+        <span style="color:var(--equi-accent);font-size:1.02em;">+฿${m.value}</span>
+        <button data-remove="${i}" style="background:var(--equi-bad);color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:.98em;">✕</button>
       </div>`).join("") : `<div class="small" style="opacity:.6;">No modifiers added yet.</div>`;
     list.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{
       h.genoModifiers.splice(Number(b.dataset.remove),1);
