@@ -348,9 +348,12 @@ function bankCall(payload){
   });
 }
 
+// All three pages now live in this repo, so these are plain relative paths.
+// (They used to be absolute URLs to the old separate repos — which, after
+// consolidation, meant every cross-link took a redirect round-trip.)
 const APPS = {
-  stable: "https://pocketcaster.github.io/Equistories-stable-manager/",
-  shows:  "https://pocketcaster.github.io/equistories-shows/",
+  stable: "stable.html",
+  shows:  "shows.html",
 };
 
 const DEFAULT_DISCORD = "https://discord.gg/54nC2p2qp9";
@@ -585,7 +588,7 @@ function renderSpotlight(h, profiles){
                <span>${STAT_LABELS[k]}</span><b style="color:var(--accent);">${(h.stats&&h.stats[k])||0}</b></span>`).join("")}
           </div>
           <div class="small" style="margin-top:8px;">Owned &amp; drawn by
-            <a href="${__APPS.stable}?player=${encodeURIComponent(owner)}"><b>${__esc(ownerName)}</b></a></div>
+            <a href="?player=${encodeURIComponent(owner)}"><b>${__esc(ownerName)}</b></a></div>
         </div>
       </div>
       <h4 style="margin:14px 0 4px;color:var(--accent);">Art log <span class="small muted">(${(h.artLog||[]).length} entries — every stat point came from these)</span></h4>
@@ -916,6 +919,108 @@ async function renderBank(v){
 // ============================================================
 //  MEMBERS
 // ============================================================
+// ============================================================
+//  MEMBER PROFILE — the canonical one for the whole site.
+//
+//  This used to live in the Stable Manager, and the Hub linked OUT to it, so
+//  clicking a member's name threw you out of the community into the tracker
+//  and there was no way back. The profile belongs here: it's the social layer,
+//  and everything it shows (profiles / horses / riders) is world-readable.
+//
+//  Reached as ?player=<userId> from anywhere on the site, so a profile link is
+//  the same URL no matter which page produced it.
+// ============================================================
+let __memberView = { uid: null };
+
+function memberHref(uid){ return "?player=" + encodeURIComponent(uid); }
+
+async function renderMemberProfile(v, uid){
+  v.innerHTML = `<div class="card"><div class="small">Loading ${__esc(uid)}…</div></div>`;
+  const DB = await __waitForDB();
+  if(!DB){ v.innerHTML='<div class="card"><div class="small">Database unavailable.</div></div>'; return; }
+
+  const [prof, horses, riders] = await Promise.all([
+    DB.get('profiles', uid).catch(()=>null),
+    DB.listAll('horses').catch(()=>[]),
+    DB.listAll('riders').catch(()=>[]),
+  ]);
+  const mine   = horses.filter(h=>h.__owner===uid);
+  const theirs = riders.filter(r=>r.__owner===uid);
+  const p      = prof || {};
+  const name   = (p.displayName||'').trim() || uid;
+  const who    = me();
+  const isSelf = who && who.userId === uid;
+
+  const avatar = p.avatar
+    ? `<img src="${__esc(p.avatar)}" referrerpolicy="no-referrer" alt="${__esc(name)}"
+         style="width:min(200px,42vw);height:min(200px,42vw);border-radius:12px;object-fit:cover;border:2px solid var(--accent);flex:0 0 auto;" />`
+    : `<div style="width:min(200px,42vw);height:min(200px,42vw);border-radius:12px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:3.2em;background:var(--deep);flex:0 0 auto;">&#128100;</div>`;
+
+  const discord = p.discord
+    ? (/^https?:\/\//.test(p.discord.trim())
+        ? `<a href="${__esc(p.discord.trim())}" target="_blank" rel="noopener">Discord &#8599;</a>`
+        : `<span class="small">Discord: <b>${__esc(p.discord)}</b></span>`)
+    : "";
+
+  const links = (Array.isArray(p.links)?p.links:[]).filter(l=>l && l.url).map(l=>
+    `<a class="tag" href="${__esc(l.url)}" target="_blank" rel="noopener" style="margin:2px;">${__esc(l.label||l.url)} &#8599;</a>`).join(" ");
+
+  const horseList = mine.length ? mine.map(h=>
+    `<a class="linkbox" href="${APPS.stable}?horse=${encodeURIComponent(h.id)}" style="display:flex;gap:10px;align-items:center;">
+       ${h.image?`<img src="${__esc(h.image)}" referrerpolicy="no-referrer" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex:0 0 auto;" />`:''}
+       <span style="min-width:0;"><b>${__esc(h.name||'Unnamed')}</b>
+       <span class="small muted">${__esc(h.breed||'—')}${h.level?` · Lv ${h.level}`:''}</span></span>
+     </a>`).join("") : '<span class="small muted">No horses yet.</span>';
+
+  const riderList = theirs.length ? theirs.map(r=>
+    `<a class="linkbox" href="${APPS.stable}?rider=${encodeURIComponent(r.id)}" style="display:flex;gap:10px;align-items:center;">
+       ${r.image?`<img src="${__esc(r.image)}" referrerpolicy="no-referrer" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex:0 0 auto;" />`:''}
+       <span style="min-width:0;"><b>${__esc(r.name||'Unnamed')}</b>
+       <span class="small muted">${r.pp?`${r.pp} PP`:''}</span></span>
+     </a>`).join("") : '<span class="small muted">No riders yet.</span>';
+
+  v.innerHTML = `
+    <div class="card">
+      <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;">
+        ${avatar}
+        <div style="flex:1;min-width:240px;">
+          <h2 style="margin:0;">${__esc(name)}${premiumBadge(uid)}</h2>
+          <div class="small muted">${__esc(uid)}${p.pronouns?` · ${__esc(p.pronouns)}`:''}</div>
+          ${p.bio?`<p style="white-space:pre-wrap;margin:10px 0 0;">${__esc(p.bio)}</p>`:''}
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            ${discord} ${links}
+          </div>
+          <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+            ${isSelf
+              ? `<a class="btn" href="${APPS.stable}" style="text-decoration:none;">Edit my profile &#8594;</a>`
+              : `<button class="btn" data-msg-to="${__esc(uid)}">Send a message</button>`}
+            <button class="ghost" data-member-back>&#8592; All members</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">Horses <span class="small muted">(${mine.length})</span></h3>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">${horseList}</div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">Riders <span class="small muted">(${theirs.length})</span></h3>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">${riderList}</div>
+    </div>`;
+
+  const back = v.querySelector('[data-member-back]');
+  if(back) back.onclick = ()=>{ __memberView.uid=null; history.replaceState({}, '', location.pathname); tab="Members"; render(); };
+
+  const msg = v.querySelector('[data-msg-to]');
+  if(msg) msg.onclick = ()=>{
+    __msgView = { mode:"compose", to: msg.dataset.msgTo, replyTo:null };
+    __memberView.uid = null;
+    tab = "Messages"; render();
+  };
+}
+
 async function renderMembers(v){
   v.innerHTML = `<div class="card"><h2>Members</h2>
     <p class="small">Everyone in the community. Click a name to see their stable, riders and links.</p>
@@ -935,7 +1040,7 @@ async function renderMembers(v){
         const av=p.avatar
           ? `<img src="${__esc(p.avatar)}" referrerpolicy="no-referrer" style="width:130px;height:130px;border-radius:8px;object-fit:cover;border:1px solid var(--accent);flex:0 0 auto;" />`
           : `<div style="width:130px;height:130px;border-radius:8px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:3em;background:var(--deep);flex:0 0 auto;">&#128100;</div>`;
-        return `<a class="linkbox" href="${__APPS.stable}?player=${encodeURIComponent(uid)}" style="display:flex;gap:14px;align-items:center;">
+        return `<a class="linkbox" href="${memberHref(uid)}" data-member="${__esc(uid)}" style="display:flex;gap:14px;align-items:center;">
           ${av}
           <span style="min-width:0;">
             <b>${__esc(name)}${premiumBadge(uid)}</b>
@@ -943,6 +1048,16 @@ async function renderMembers(v){
             ${p.discord?`<span class="small muted">Discord: ${__esc(p.discord)}</span>`:''}
           </span></a>`;
       }).join("") + `</div>`;
+  // Open profiles in-page rather than reloading — the href stays a real link so
+  // it can still be copied, shared or middle-clicked.
+  $("mList").querySelectorAll('[data-member]').forEach(function(a){
+    a.onclick=function(ev){
+      ev.preventDefault();
+      __memberView.uid=a.dataset.member;
+      history.pushState({player:a.dataset.member}, '', memberHref(a.dataset.member));
+      render();
+    };
+  });
 }
 
 // ============================================================
@@ -1557,7 +1672,7 @@ async function renderShowBoard(v){
             <b style="color:var(--accent);font-size:1.15em;">${esc(g.title)}</b>
             ${closed?`<span class="tag">CLOSED</span>`:''}
           </div>
-          <div class="small">hosted by <a href="${APPS.stable}?player=${encodeURIComponent(g.poster)}">${esc(g.poster)}</a>
+          <div class="small">hosted by <a href="?player=${encodeURIComponent(g.poster)}">${esc(g.poster)}</a>
             · ${esc((g.createdAt||'').slice(0,10))}${g.updatedAt?` · edited ${esc(String(g.updatedAt).slice(0,10))}`:''}</div>
           <div style="margin-top:8px;white-space:pre-wrap;">${esc(teaser)}</div>
           ${long?`<details style="margin-top:6px;"><summary style="cursor:pointer;color:var(--accent);">Read the full guide</summary>
@@ -1999,6 +2114,14 @@ async function adoptSharedSession(){
 
 function render(){
   if(!me()){ renderGate(); adoptSharedSession(); return; }
+  // A ?player= link from anywhere on the site opens that member's profile here.
+  if(!__memberView.__booted){
+    __memberView.__booted = true;
+    try{
+      var __pp = new URLSearchParams(location.search).get('player');
+      if(__pp){ __memberView.uid = __pp; tab = "Members"; }
+    }catch(e){}
+  }
   renderNav();
   // Quietly check for new mail so the badge is right on every tab (cached ~45s).
   if(!__msgCache.loadedAt && !__msgCache.loading){
@@ -2011,7 +2134,7 @@ function render(){
   v.innerHTML = `<div class="card"><div class="small">Loading…</div></div>`;
   if(tab==="Home") renderHome(v);
   else if(tab==="Bank") renderBank(v);
-  else if(tab==="Members") renderMembers(v);
+  else if(tab==="Members"){ if(__memberView.uid) renderMemberProfile(v, __memberView.uid); else renderMembers(v); }
   else if(tab==="Community") renderCommunity(v);
   else if(tab==="Messages") renderMessages(v);
   else if(tab==="Forum") renderForum(v);

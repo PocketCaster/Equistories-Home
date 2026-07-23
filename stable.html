@@ -2160,6 +2160,12 @@ function render(){
 
   const playerProfileId = params.get('player');
   if(playerProfileId){
+    // Profiles live on the Hub now. Forward any older ?player= link there so
+    // shared links keep working and everyone ends up in the same place.
+    window.location.replace("index.html?player=" + encodeURIComponent(playerProfileId));
+    return;
+  }
+  if(false){
     app.innerHTML='<div style="padding:40px;text-align:center;color:#b5a392;font-family:Georgia,serif;">Loading player profile…</div>';
     const stableOverride = params.get('stable');
     if(stableOverride && !STABLE_URL) STABLE_URL = stableOverride;
@@ -2656,7 +2662,14 @@ function playerShareLink(userId){
   if(STABLE_URL) url.searchParams.set('stable', STABLE_URL);
   return url.toString();
 }
+// Member profiles are the Community Hub's job now — one profile, one URL,
+// reachable the same way from every page. The tracker used to render its own
+// copy, which is how clicking a name stranded you in the tracker with no way
+// back to the community.
 function goToPlayerProfile(userId){
+  window.location.href = "index.html?player=" + encodeURIComponent(userId);
+}
+function __legacyGoToPlayerProfile(userId){
   const url=new URL(window.location.href);
   url.searchParams.set('player', userId);
   url.searchParams.delete('horse'); url.searchParams.delete('rider');
