@@ -24,6 +24,16 @@
    introducing a fourth typeface nothing else uses. */
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Lora:ital,wght@0,400;0,500;1,400&family=Caveat:wght@500;600&display=swap');
 
+/* Reserve room for the vertical scrollbar on EVERY page. Without this, a page
+   short enough not to scroll is ~15px wider than one that does, and because the
+   header is centred, the crest and wordmark visibly jump left/right as you move
+   between pages. `overflow-y:scroll` is the fallback for older browsers. */
+html{ scrollbar-gutter: stable; overflow-y: scroll; }
+
+html{
+  scrollbar-gutter: stable;      /* keeps the page width identical everywhere */
+  overflow-y: scroll;            /* fallback for browsers without the above  */
+}
 html:root{
   /* ---- canonical palette -------------------------------------------------
      Manager and Shows were already byte-identical; the Hub had drifted a few
@@ -109,11 +119,15 @@ html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); lett
   opacity:.55;
 }
 .equi-hd__wrap{
-  max-width: min(1700px, 94vw);
+  width: 100%;
+  max-width: 1700px;
   margin: 0 auto;
   padding: 18px clamp(16px,2vw,32px) 0;
 }
-.equi-hd__brand{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+.equi-hd__brand{
+  display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  min-height: clamp(96px, 11vw, 168px);   /* == the crest height */
+}
 .equi-hd__logo{
   height: clamp(96px, 11vw, 168px);
   width: auto; display:block;
@@ -133,6 +147,7 @@ html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); lett
 .equi-hd__tagline{
   color: var(--equi-dim);
   margin: 2px 0 0;
+  min-height: 1.35em;
   font-family: 'Caveat', cursive;
   font-size: 1.3rem;
 }
