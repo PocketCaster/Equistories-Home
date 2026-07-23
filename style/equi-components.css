@@ -133,3 +133,66 @@ html body .small{ font-size: .88em; }
 html body .muted{ color: var(--equi-dim); }
 html body a{ color: var(--equi-accent); }
 html body hr{ border: none; border-top: 1px solid var(--equi-line); }
+
+/* ==========================================================================
+   TRACKER → HUB HARMONISATION
+   The Stable Manager grew its own tab bar and page frame before the Hub
+   existed. Both already use `.tab` / `.tabs`, so the two only needed to agree
+   on the details. The Manager scopes its rules as `#app .tab` (id + class), so
+   these carry `html body #app` to outrank them — same trick as the rest of
+   this file, no markup changes.
+   ========================================================================== */
+html body #app .tabs{
+  display: flex; gap: 4px; flex-wrap: wrap;
+  margin: 16px 0 0; padding: 0;
+  border-bottom: 1px solid var(--equi-line);
+}
+html body #app .tab{
+  background: transparent;
+  color: var(--equi-dim);
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 9px 16px;
+  font-family: var(--equi-serif);
+  font-size: .97rem;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+html body #app .tab:hover{
+  color: var(--equi-text);
+  background: rgba(201,138,58,.06);
+}
+html body #app .tab.active{
+  background: var(--equi-panel);
+  color: var(--equi-accent);
+  border-color: var(--equi-line);
+  font-weight: 600;
+}
+
+/* Match the Hub's page frame: same max width, same gutters, so the two pages
+   line up instead of one being noticeably wider than the other. */
+html body #app{
+  max-width: min(1700px, 94vw);
+  margin: 0 auto;
+  padding: 0 clamp(16px, 2vw, 32px);
+}
+
+/* The Hub's headings are Playfair and brass; the tracker's were mixed. */
+html body #app h2,
+html body #app h3{
+  font-family: var(--equi-display);
+  color: var(--equi-accent);
+}
+
+/* Hub-style link tiles, so lists of horses/riders read the same in both. */
+html body .linkbox{
+  display: block;
+  background: var(--equi-ink);
+  border: 1px solid var(--equi-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-decoration: none;
+  color: var(--equi-text);
+}
+html body .linkbox:hover{ border-color: var(--equi-accent); }
