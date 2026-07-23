@@ -949,6 +949,101 @@ let __memberView = { uid: null };
 
 function memberHref(uid){ return "?player=" + encodeURIComponent(uid); }
 
+// Editing your own profile happens HERE now, not in a modal over in the
+// tracker. Same field set the tracker's modal used, so nothing is lost and
+// existing profiles load unchanged.
+let __memberEdit = { on:false, links:null };
+
+function newHubProfile(){
+  return { displayName:"", pronouns:"", avatar:"", discord:"", bio:"", links:[], joinedAt:"" };
+}
+
+async function saveMemberProfile(uid, prof){
+  const DB = await __waitForDB();
+  if(!DB) return false;
+  try{ await DB.put('profiles', uid, uid, prof); return true; }
+  catch(e){ console.error('[Hub] saveProfile failed:', e); return false; }
+}
+
+function renderMemberEditor(v, uid, p){
+  const links = __memberEdit.links || (Array.isArray(p.links)? p.links.map(l=>({...l})) : []);
+  __memberEdit.links = links;
+
+  v.innerHTML = `
+    <div class="card">
+      <h2 style="margin-top:0;">My profile</h2>
+      <p class="small">Your public community profile — it shows your horses, riders and how to reach you. Account name: <b>${__esc(uid)}</b>.</p>
+
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">
+        <div><label for="mp_name">Display name (optional)</label>
+          <input id="mp_name" value="${__esc(p.displayName||'')}" placeholder="${__esc(uid)}" /></div>
+        <div><label for="mp_pronouns">Pronouns (optional)</label>
+          <input id="mp_pronouns" value="${__esc(p.pronouns||'')}" placeholder="She/Her" /></div>
+      </div>
+
+      <label for="mp_avatar">Avatar image link (optional)</label>
+      <input id="mp_avatar" value="${__esc(p.avatar||'')}" placeholder="https://…/portrait.png" />
+      <div id="mp_avatar_prev" style="margin-top:8px;"></div>
+      <p class="small muted">This must be a direct link to the image file — one ending in .png or .jpg — not the gallery page it sits on.</p>
+
+      <label for="mp_discord">Discord (username or invite/profile link)</label>
+      <input id="mp_discord" value="${__esc(p.discord||'')}" placeholder="yourname" />
+
+      <label for="mp_bio">Bio (optional)</label>
+      <textarea id="mp_bio" style="min-height:110px;">${__esc(p.bio||'')}</textarea>
+
+      <label>Links (DeviantArt, Toyhouse, etc.)</label>
+      <div id="mp_links"></div>
+      <button class="ghost" id="mp_addlink" style="margin-top:6px;">+ Add link</button>
+
+      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button class="btn" id="mp_save">Save profile</button>
+        <button class="ghost" id="mp_cancel">Cancel</button>
+        <span class="small" id="mp_msg"></span>
+      </div>
+    </div>`;
+
+  function drawPreview(){
+    const url=v.querySelector('#mp_avatar').value.trim();
+    v.querySelector('#mp_avatar_prev').innerHTML = url
+      ? `<img src="${__esc(url)}" referrerpolicy="no-referrer" onerror="this.style.display='none'"
+             style="width:130px;height:130px;object-fit:cover;border-radius:8px;border:1px solid var(--accent);" />`
+      : "";
+  }
+  function drawLinks(){
+    v.querySelector('#mp_links').innerHTML = links.map((l,i)=>`
+      <div class="row" style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+        <input data-lk="${i}" value="${__esc(l.label||'')}" placeholder="Label" style="flex:0 0 150px;" />
+        <input data-lu="${i}" value="${__esc(l.url||'')}" placeholder="https://…" style="flex:1;min-width:180px;" />
+        <button class="ghost" data-lx="${i}">✕</button>
+      </div>`).join("");
+    v.querySelectorAll('[data-lk]').forEach(i=>i.oninput=()=>{ links[+i.dataset.lk].label=i.value; });
+    v.querySelectorAll('[data-lu]').forEach(i=>i.oninput=()=>{ links[+i.dataset.lu].url=i.value; });
+    v.querySelectorAll('[data-lx]').forEach(b=>b.onclick=()=>{ links.splice(+b.dataset.lx,1); drawLinks(); });
+  }
+  drawPreview(); drawLinks();
+  v.querySelector('#mp_avatar').oninput = drawPreview;
+  v.querySelector('#mp_addlink').onclick = ()=>{ links.push({label:"",url:""}); drawLinks(); };
+  v.querySelector('#mp_cancel').onclick  = ()=>{ __memberEdit={on:false,links:null}; renderMemberProfile(v, uid); };
+
+  v.querySelector('#mp_save').onclick = async ()=>{
+    const msg=v.querySelector('#mp_msg');
+    msg.textContent="Saving…";
+    const next = { ...newHubProfile(), ...p,
+      displayName: v.querySelector('#mp_name').value.trim(),
+      pronouns:    v.querySelector('#mp_pronouns').value.trim(),
+      avatar:      v.querySelector('#mp_avatar').value.trim(),
+      discord:     v.querySelector('#mp_discord').value.trim(),
+      bio:         v.querySelector('#mp_bio').value.trim(),
+      links: links.filter(l=>(l.label||l.url)).map(l=>({label:(l.label||'').trim(), url:(l.url||'').trim()})),
+      joinedAt: p.joinedAt || new Date().toISOString(),
+    };
+    const ok = await saveMemberProfile(uid, next);
+    if(ok){ __memberEdit={on:false,links:null}; renderMemberProfile(v, uid); }
+    else { msg.textContent="Couldn't save — try again."; }
+  };
+}
+
 async function renderMemberProfile(v, uid){
   v.innerHTML = `<div class="card"><div class="small">Loading ${__esc(uid)}…</div></div>`;
   const DB = await __waitForDB();
@@ -965,6 +1060,8 @@ async function renderMemberProfile(v, uid){
   const name   = (p.displayName||'').trim() || uid;
   const who    = me();
   const isSelf = who && who.userId === uid;
+
+  if(isSelf && __memberEdit.on){ renderMemberEditor(v, uid, p); return; }
 
   const avatar = p.avatar
     ? `<img src="${__esc(p.avatar)}" referrerpolicy="no-referrer" alt="${__esc(name)}"
@@ -1007,7 +1104,7 @@ async function renderMemberProfile(v, uid){
           </div>
           <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
             ${isSelf
-              ? `<a class="btn" href="${APPS.stable}" style="text-decoration:none;">Edit my profile &#8594;</a>`
+              ? `<button class="btn" data-member-edit>Edit my profile</button>`
               : `<button class="btn" data-msg-to="${__esc(uid)}">Send a message</button>`}
             <button class="ghost" data-member-back>&#8592; All members</button>
           </div>
@@ -1024,6 +1121,9 @@ async function renderMemberProfile(v, uid){
       <h3 style="margin-top:0;">Riders <span class="small muted">(${theirs.length})</span></h3>
       <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">${riderList}</div>
     </div>`;
+
+  const ed = v.querySelector('[data-member-edit]');
+  if(ed) ed.onclick = ()=>{ __memberEdit={on:true,links:null}; renderMemberProfile(v, uid); };
 
   const back = v.querySelector('[data-member-back]');
   if(back) back.onclick = ()=>{ __memberView.uid=null; history.replaceState({}, '', location.pathname); tab="Members"; render(); };
@@ -1742,6 +1842,78 @@ async function renderShowBoard(v){
 //  See the MESSAGES_RULES note below for the exact rule to publish.
 // ============================================================
 let __msgCache = { inbox:[], sent:[], loadedAt:0, loading:false };
+
+// ---- show results, in the inbox ----------------------------------------
+// Placements waiting to be recorded on a horse. Built the same way the tracker
+// builds it: read our own `entered` receipts, fetch each show by id, find our
+// row in the published results.
+//
+// The CLAIM itself is handed to the tracker rather than done here. Adding a
+// show to a horse appends to compHistory and artLog, awards EXP and re-runs the
+// level check — that model lives in the tracker, and a second copy of it here
+// would drift out of step the first time either side changed. So the button
+// opens the tracker with the claim already identified and it finishes the job.
+let __resultsCache = { items:[], loadedAt:0, loading:false };
+
+async function loadHubResults(force){
+  const who=me(); if(!who) return __resultsCache;
+  if(__resultsCache.loading) return __resultsCache;
+  if(!force && __resultsCache.loadedAt && Date.now()-__resultsCache.loadedAt<45000) return __resultsCache;
+  const DB=await __waitForDB(); if(!DB || !DB.listByOwner) return __resultsCache;
+  __resultsCache.loading=true;
+  try{
+    const receipts = await DB.listByOwner('entered', who.userId) || [];
+    const docs = await Promise.all(receipts.map(async rc=>{
+      try{ return {rc, doc: await DB.get('shows', rc.showId)}; }catch(e){ return {rc, doc:null}; }
+    }));
+    const items=[];
+    for(const {rc, doc} of docs){
+      if(!doc) continue;
+      const sh = doc.show || {};
+      const results = (doc.published && doc.published.results) || null;
+      if(!results){
+        items.push({ pending:true, showId:rc.showId, horseId:rc.horseId,
+                     horseName:rc.horseName||'', title: sh.title || rc.showTitle || 'A show' });
+        continue;
+      }
+      const row = results.find(r=>r.id===rc.horseId);
+      if(!row) continue;
+      items.push({ pending:false, showId:rc.showId, horseId:rc.horseId,
+        horseName: rc.horseName || row.name || '',
+        title: sh.title || rc.showTitle || 'A show',
+        placement: row.placement>=1 ? row.placement : null,
+        hasArt: !!row.artUrl });
+    }
+    items.sort((a,b)=> String(b.showId).localeCompare(String(a.showId)));
+    __resultsCache.items=items; __resultsCache.loadedAt=Date.now();
+  }catch(e){ console.warn('[Hub] results load failed:', e && e.message); }
+  finally{ __resultsCache.loading=false; }
+  return __resultsCache;
+}
+function resultsWaiting(){ return __resultsCache.items.filter(i=>!i.pending).length; }
+
+function renderResultsInbox(host){
+  const items=__resultsCache.items;
+  if(!items.length){
+    host.innerHTML='<div class="small muted">No show results yet. Shows you enter appear here once the host publishes.</div>';
+    return;
+  }
+  host.innerHTML = items.map(it=>{
+    const who = esc(it.horseName || 'your horse');
+    if(it.pending){
+      return `<div style="padding:6px 0;border-top:1px solid var(--line);">
+        <b>${esc(it.title)}</b> <span class="small muted">· ${who} · results not posted yet</span></div>`;
+    }
+    const place = it.placement ? (["1st","2nd","3rd","4th","5th","6th"][it.placement-1]||it.placement+"th") : "Participant";
+    const href = `${APPS.stable}?claim=${encodeURIComponent(it.showId)}&h=${encodeURIComponent(it.horseId)}`;
+    return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--line);">
+      <span style="flex:1;min-width:180px;"><b>${esc(it.title)}</b>
+        <span class="small muted">· ${esc(place)} · ${who}${it.hasArt?' · art attached':''}</span></span>
+      <a class="btn" href="${href}" style="text-decoration:none;padding:3px 12px;">Add to horse</a>
+    </div>`;
+  }).join("");
+}
+
 let __msgView = { mode:"inbox", to:"", replyTo:null };
 
 function msgId(){ return 'm_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
@@ -1847,6 +2019,16 @@ function renderMessages(v){
 
     v.innerHTML=`
       <div class="card">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <b style="color:var(--accent);">Show results</b>
+          <span class="small muted">Placements waiting to go on a horse.</span>
+          <span style="flex:1;"></span>
+          <button class="ghost" id="res_reload" style="padding:2px 9px;font-size:.85em;">Refresh</button>
+        </div>
+        <div id="res_list" style="margin-top:6px;"><div class="small muted">Checking…</div></div>
+      </div>
+
+      <div class="card">
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
           <button class="ghost" data-mtab="inbox" style="${mode==='inbox'?'font-weight:bold;':''}">Inbox${msgUnread()?' ('+msgUnread()+')':''}</button>
           <button class="ghost" data-mtab="sent" style="${mode==='sent'?'font-weight:bold;':''}">Sent</button>
@@ -1882,6 +2064,14 @@ function renderMessages(v){
         </div>
         <div style="margin-top:8px;">${blocked.length?blocked.map(b=>`<span class="tag" style="margin-right:6px;">${esc(b)} <span data-munblock="${esc(b)}" style="cursor:pointer;color:#e0906a;">✕</span></span>`).join(""):'<span class="small muted">No one blocked.</span>'}</div>
       </div>`;
+
+    const resHost=v.querySelector('#res_list');
+    if(resHost){
+      renderResultsInbox(resHost);
+      loadHubResults(true).then(()=>renderResultsInbox(resHost));
+      const rr=v.querySelector('#res_reload');
+      if(rr) rr.onclick=()=>{ __resultsCache.loadedAt=0; loadHubResults(true).then(()=>renderResultsInbox(resHost)); };
+    }
 
     v.querySelectorAll('[data-mtab]').forEach(b=>b.onclick=()=>{ __msgView.mode=b.dataset.mtab; renderMessages(v); });
     v.querySelectorAll('[data-mreply]').forEach(b=>b.onclick=()=>{
@@ -1929,7 +2119,8 @@ function renderNav(){
   // regular members.
   const visibleTabs = (who && isAdminMember(who.userId)) ? TABS.concat(["Admin"]) : TABS;
   $("nav").innerHTML = visibleTabs.map(t=>{
-    const badge = (t==="Messages" && msgUnread()) ? ` <span style="background:#c9a84c;color:#140e07;border-radius:9px;padding:0 6px;font-size:.82em;font-weight:bold;">${msgUnread()}</span>` : "";
+    const __n = (t==="Messages") ? (msgUnread()+resultsWaiting()) : 0;
+    const badge = __n ? ` <span style="background:#c9a84c;color:#140e07;border-radius:9px;padding:0 6px;font-size:.82em;font-weight:bold;">${__n}</span>` : "";
     return `<div class="tab ${t===tab?'active':''}" data-tab="${t}">${t}${badge}</div>`;
   }).join("")
     + `<span style="margin-left:auto;display:flex;align-items:center;gap:10px;padding:0 4px;">
@@ -2140,9 +2331,10 @@ function render(){
   renderNav();
   // Quietly check for new mail so the badge is right on every tab (cached ~45s).
   if(!__msgCache.loadedAt && !__msgCache.loading){
+    loadHubResults();
     loadMessages().then(c=>{
       if(c && c.inbox && c.inbox.length) renderNav();
-      if(window.EquiNav) window.EquiNav.setBadge('hub', msgUnread());
+      if(window.EquiNav && window.EquiNav.setBadge) window.EquiNav.setBadge('hub', msgUnread()+resultsWaiting());
     });
   }
   const v=$("view");
@@ -2438,7 +2630,7 @@ async function breedRegistry(body, DB, who, breed){
         <div class="thumb" ${img?`style="background-image:url('${esc(img)}')"`:''}></div>
         <div style="flex:1;min-width:0;">
           <b>${esc(h.name||'Unnamed')}</b>
-          <div class="small">owned by ${esc(owner)}${h.importLink?` · <a href="${esc(h.importLink)}" target="_blank" rel="noopener">import</a>`:''}</div>
+          <div class="small">owned by ${owner && owner!=="—" ? `<a href="?player=${encodeURIComponent(owner)}">${esc(owner)}</a>` : esc(owner)}${h.importLink?` · <a href="${esc(h.importLink)}" target="_blank" rel="noopener">import</a>`:''}</div>
         </div>
         <a class="small" href="${horseLink}" target="_blank" rel="noopener">Profile →</a>
       </div>`;

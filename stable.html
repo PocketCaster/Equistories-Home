@@ -384,7 +384,7 @@ const RIDER_TITLES = [
   { min:50,  max:64,       name:"Respected Equestrian",note:"Accomplished rider, often asked for advice." },
   { min:65,  max:79,       name:"Champion Rider",      note:"Proven in competition and reputation." },
   { min:80,  max:99,       name:"Master Equestrian",   note:"Near-legendary, admired for versatility." },
-  { min:100, max:Infinity, name:"Custom Prestige Title",note:"Awarded by admin — a title all your own." },
+  { min:100, max:Infinity, name:"Olympian",             note:"These riders have mastered their skills and have learned how to truly connect and bond with their horses, not just as horse and rider, but as partners." },
 ];
 
 function riderTitle(pp){
@@ -2057,6 +2057,35 @@ function render(){
     return;
   }
 
+  // Handoff from the Hub's results inbox: finish the claim here, where horse
+  // records, EXP and levelling live, then confirm.
+  const claimShowId = params.get('claim');
+  if(claimShowId){
+    const claimHorseId = params.get('h') || '';
+    app.innerHTML='<div style="padding:40px;text-align:center;color:var(--equi-dim);">Adding the show to your horse…</div>';
+    (async()=>{
+      await loadShowInbox(true);
+      const it = showInbox.items.find(x=>!x.pending && x.receipt &&
+                 x.receipt.showId===claimShowId &&
+                 (!claimHorseId || x.receipt.horseId===claimHorseId));
+      let out;
+      if(!it)            out={ok:false,msg:"Couldn't find that show result on this account."};
+      else if(!it.horse) out={ok:false,msg:"That horse isn't in this stable any more."};
+      else               out= await ingestShowRecord(it.horse, it.rec);
+      const back = "index.html";
+      app.innerHTML=`<div style="max-width:560px;margin:60px auto;text-align:center;">
+        <div class="card">
+          <h3 style="margin-top:0;">${out.ok?'Added':'Nothing added'}</h3>
+          <p>${escAttr(out.msg||'')}</p>
+          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px;">
+            <a class="btn" href="${back}" style="text-decoration:none;">&#8592; Back to the Hub</a>
+            <a class="secondary" href="stable.html" style="text-decoration:none;padding:9px 18px;border-radius:6px;">Open my stable</a>
+          </div>
+        </div></div>`;
+    })();
+    return;
+  }
+
   const playerProfileId = params.get('player');
   if(playerProfileId){
     // Profiles live on the Hub now. Forward any older ?player= link there so
@@ -2135,7 +2164,7 @@ function render(){
           ${t==="roster"?"Stable Roster":t==="riders"?"Riders":t==="prestige"?"Rider Prestige":t==="train"?"Training":t==="compete"?"Competitions":t==="tack"?"Inventory":t==="breeding"?"Breeding":"Admin"}
         </div>`).join("")}
       <div style="flex:1;"></div>
-      <span class="small" style="color:var(--dim);margin-right:6px;">${bankAccount.userId}</span>
+      <span class="small" style="color:var(--dim);margin-right:6px;">${memberLink(bankAccount.userId)}</span>
       <button id="btn_myprofile" class="secondary" style="font-size:.98em;padding:4px 10px;margin-top:0;">My Profile${inboxUnreadCount()?` <span style="background:var(--equi-accent);color:#1c1510;border-radius:9px;padding:0 6px;font-weight:bold;font-size:.85em;">${inboxUnreadCount()}</span>`:''}</button>
       <button id="btn_signout" class="secondary" style="font-size:.98em;padding:4px 10px;margin-top:0;">Sign Out</button>
     </div>
@@ -2149,7 +2178,11 @@ function render(){
     b.onclick=()=>{ activeTab=b.dataset.tab; render(); };
   });
   const myProfileBtn=app.querySelector('#btn_myprofile');
-  if(myProfileBtn) myProfileBtn.onclick=()=>showPlayerProfileModal();
+  // Profiles live on the Community Hub — viewing AND editing. The tracker used
+  // to pop its own modal, which meant two places to keep in step.
+  if(myProfileBtn) myProfileBtn.onclick=()=>{
+    window.location.href = "index.html?player=" + encodeURIComponent(bankAccount.userId||"");
+  };
   // Quietly check for new results so the badge is current on every tab. Cached
   // for a minute, so this doesn't hit the database on every re-render.
   if(bankAccount.userId && !showInbox.loadedAt && !showInbox.loading){
@@ -2565,6 +2598,13 @@ function playerShareLink(userId){
 // reachable the same way from every page. The tracker used to render its own
 // copy, which is how clicking a name stranded you in the tracker with no way
 // back to the community.
+// One place that turns a member name into a link to their Hub profile, so a
+// username is clickable everywhere it appears rather than only in some views.
+function memberLink(userId, label){
+  const u=String(userId||'').trim();
+  if(!u) return escAttr(label||'');
+  return `<a href="index.html?player=${encodeURIComponent(u)}" class="member-link">${escAttr(label||u)}</a>`;
+}
 function goToPlayerProfile(userId){
   window.location.href = "index.html?player=" + encodeURIComponent(userId);
 }
@@ -5682,8 +5722,11 @@ function buildShowHistory(){
 
   // Claim a show ribbon: paste a code from EquiStories Shows to hang a ribbon on
   // the horse you entered. Uses the normal saveHorse path — same as a local show.
+  // (Show results now live in the Hub's inbox — Messages tab. The claim itself
+  //  still happens here, via ?claim=, because horses and the EXP model are here.)
+
   const claim=el('div');
-  claim.style.cssText='margin-bottom:16px;padding:12px;border:1px solid var(--equi-line);border-radius:8px;background:#1c1510;';
+  claim.style.cssText='margin-bottom:16px;padding:12px;border:1px solid var(--equi-line);border-radius:8px;background:var(--equi-ink);';
   claim.innerHTML=`
     <div class="small" style="color:var(--equi-dim);margin-bottom:6px;">Claim a show ribbon</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -6234,7 +6277,7 @@ async function renderGeneticsRequests(container){
       <div style="border:1px solid var(--equi-line);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--equi-ink);">
         <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
           <b style="color:var(--accent,#d29a3e);font-size:1.05em;">${escAttr(r.breedName||'(unnamed breed)')}</b>
-          <span class="small" style="opacity:.6;">by ${escAttr(r.owner||'?')} · ${String(r.submittedAt||'').slice(0,10)}</span>
+          <span class="small" style="opacity:.6;">by ${r.owner?memberLink(r.owner):'?'} · ${String(r.submittedAt||'').slice(0,10)}</span>
         </div>
         <div class="small" style="margin:8px 0;white-space:pre-wrap;">${escAttr(r.desc||'')}</div>
         ${r.special?`<div class="small" style="margin:6px 0;"><b>Special:</b> ${escAttr(r.special)}</div>`:''}
@@ -9169,7 +9212,7 @@ function renderHorseProfilePage(app, h){
               <input type="text" id="pp_photo_url" placeholder="Paste a direct link to the photo (.jpg/.png/.gif)" value="${escAttr(h.profileImage||"")}" style="max-width:min(300px,55vw);width:100%;font-size:.9em;" />
             </div>
           `:""}
-          ${h.ownerName?`<div class="small" style="text-align:center;">Owner: ${h.ownerLink?`<a href="${h.ownerLink}" target="_blank">${h.ownerName}</a>`:h.ownerName}</div>`:""}
+          ${(h.ownerName||h.owner)?`<div class="small" style="text-align:center;">Owner: ${memberLink(h.owner||h.ownerName, h.ownerName||h.owner)}</div>`:""}
           ${h.riderName?`<div class="small" style="text-align:center;">Rider: ${h.riderName}</div>`:""}
           ${h.stableName?`<div class="small" style="text-align:center;">Stable: ${h.stableLink?`<a href="${h.stableLink}" target="_blank">${h.stableName}</a>`:h.stableName}</div>`:""}
         </div>
