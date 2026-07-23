@@ -114,33 +114,37 @@ html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); lett
    boxed tab row with your name and Sign out at the right-hand end. The crest
    from the tracker now sits beside the wordmark.
    ========================================================================== */
-.equi-hd{
+html body .equi-hd{
+  font-family: var(--equi-serif);
+  font-size: 16px;          /* fixed base for the header, independent of :root */
+  line-height: 1.4;
+  text-align: left;
   background: linear-gradient(180deg, #2c1f16, var(--equi-bg));
   border-bottom: 1px solid var(--equi-line);
   position: relative;
   font-family: var(--equi-serif);
 }
-.equi-hd::after{
+html body .equi-hd::after{
   content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px;
   background: var(--equi-gold-shine);
   opacity:.55;
 }
-.equi-hd__wrap{
+html body .equi-hd__wrap{
   width: 100%;
   max-width: 1700px;
   margin: 0 auto;
   padding: 18px clamp(16px,2vw,32px) 0;
 }
-.equi-hd__brand{
+html body .equi-hd__brand{
   display:flex; align-items:center; gap:16px; flex-wrap:wrap;
   min-height: clamp(96px, 11vw, 168px);   /* == the crest height */
 }
-.equi-hd__logo{
+html body .equi-hd__logo{
   height: clamp(96px, 11vw, 168px);
   width: auto; display:block;
   filter: drop-shadow(0 2px 7px rgba(0,0,0,.5));
 }
-.equi-hd__title{
+html body .equi-hd__title{
   margin:0;
   font-family: var(--equi-display);
   font-weight:700;
@@ -151,7 +155,7 @@ html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); lett
   -webkit-text-fill-color: transparent;
   line-height:1.15;
 }
-.equi-hd__tagline{
+html body .equi-hd__tagline{
   color: var(--equi-dim);
   margin: 2px 0 0;
   min-height: 1.35em;
@@ -161,12 +165,12 @@ html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); lett
 
 /* Tab row — the Hub writes its own tabs in here; the other pages get links
    across the site. Either way the styling is identical. */
-.equi-hd__nav{
+html body .equi-hd__nav{
   display:flex; gap:4px; flex-wrap:wrap;
   margin-top:14px;
   align-items:center;
 }
-.equi-hd__nav .tab{
+html body .equi-hd__nav .tab{
   padding:9px 18px;
   font-size:clamp(14px,.85vw,20px);
   border:1px solid var(--equi-line);
@@ -179,60 +183,60 @@ html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); lett
   text-decoration:none;
   display:inline-block;
 }
-.equi-hd__nav .tab:hover{ color: var(--equi-text); }
-.equi-hd__nav .tab.active{
+html body .equi-hd__nav .tab:hover{ color: var(--equi-text); }
+html body .equi-hd__nav .tab.active{
   background: var(--equi-gold-shine);
   color:#241a14;
   font-weight:700;
 }
-.equi-hd__user{
+html body .equi-hd__user{
   margin-left:auto;
   display:flex; align-items:center; gap:10px;
   padding:0 4px;
 }
-.equi-hd__user .small{ font-size:clamp(13px,.8vw,18px); color: var(--equi-dim); }
-.equi-hd__user button{
+html body .equi-hd__user .small{ font-size:clamp(13px,.8vw,18px); color: var(--equi-dim); }
+html body .equi-hd__user button{
   padding:4px 12px; font-size:.9em; margin-top:0;
   background:#2c2118; color: var(--equi-text);
   border:1px solid var(--equi-line); border-radius:6px;
   cursor:pointer; font-family: var(--equi-serif);
 }
-.equi-hd__user button:hover{ border-color: var(--equi-accent); }
+html body .equi-hd__user button:hover{ border-color: var(--equi-accent); }
 
 @media (max-width: 620px){
-  .equi-hd__wrap{ padding-top:12px; }
-  .equi-hd__logo{ height:74px; }
-  .equi-hd__brand{ gap:12px; }
-  .equi-hd__tagline{ font-size:17px; }
-  .equi-hd__nav .tab{ padding:8px 12px; font-size:14px; }
-  .equi-hd__user{ margin-left:0; width:100%; }
+  html body .equi-hd__wrap{ padding-top:12px; }
+  html body .equi-hd__logo{ height:74px; }
+  html body .equi-hd__brand{ gap:12px; }
+  html body .equi-hd__tagline{ font-size:17px; }
+  html body .equi-hd__nav .tab{ padding:8px 12px; font-size:14px; }
+  html body .equi-hd__user{ margin-left:0; width:100%; }
 }
 
 /* Links across the site, sitting under the tagline. Plain HTML in every page,
    so navigation survives even if no JavaScript runs. */
-.equi-hd__apps{ margin-top:6px; display:flex; gap:14px; flex-wrap:wrap; }
-.equi-hd__app{
+html body .equi-hd__apps{ margin-top:6px; display:flex; gap:14px; flex-wrap:wrap; }
+html body .equi-hd__app{
   color: var(--equi-dim);
   text-decoration:none;
   font-size:14px;
   border-bottom:1px solid transparent;
 }
-.equi-hd__app:hover{ color: var(--equi-text); border-bottom-color: var(--equi-line); }
-.equi-hd__app.is-here{ color: var(--equi-accent); border-bottom-color: var(--equi-accent); }
-.equi-hd__words{ min-width:0; }
+html body .equi-hd__app:hover{ color: var(--equi-text); border-bottom-color: var(--equi-line); }
+html body .equi-hd__app.is-here{ color: var(--equi-accent); border-bottom-color: var(--equi-accent); }
+html body .equi-hd__words{ min-width:0; }
 
 /* Member names are links to their Hub profile wherever they appear. */
 .member-link{ color: var(--equi-accent); text-decoration:none; }
 .member-link:hover{ text-decoration:underline; }
 
 /* Name / My Profile / Sign out sit together at the right of the tab row. */
-.equi-hd__user a.ghost,
-.equi-hd__user button{
+html body .equi-hd__user a.ghost,
+html body .equi-hd__user button{
   padding:4px 12px; font-size:clamp(13px,.8vw,18px); margin-top:0;
   background:#2c2118; color: var(--equi-text);
   border:1px solid var(--equi-line); border-radius:6px;
   cursor:pointer; text-decoration:none; font-family: var(--equi-serif);
   display:inline-block; line-height:1.5;
 }
-.equi-hd__user a.ghost:hover,
-.equi-hd__user button:hover{ border-color: var(--equi-accent); }
+html body .equi-hd__user a.ghost:hover,
+html body .equi-hd__user button:hover{ border-color: var(--equi-accent); }

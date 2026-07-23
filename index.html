@@ -27,17 +27,17 @@
   body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--equi-serif); line-height:1.6; }
   a{ color:var(--accent); }
 
-  header{ border-bottom:1px solid var(--line); background:linear-gradient(180deg,#2c1f16,#1b1410); position:relative; }
-  header::after{ content:''; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:var(--gold-shine); opacity:.55; }
+  /* header styling lives in equi-shell.css (.equi-hd) — one definition only */
+
   .wrap{ width:100%; max-width:1700px; margin:0 auto; padding:0 clamp(16px,2vw,32px); }
-  h1{ margin:0; font-family:var(--equi-display); font-weight:700; font-size:clamp(1.8rem,4vw,2.6rem);
+  #view h1{ margin:0; font-family:var(--equi-display); font-weight:700; font-size:clamp(1.8rem,4vw,2.6rem);
       background:var(--gold-shine); -webkit-background-clip:text; background-clip:text; color:transparent; letter-spacing:.5px; }
-  .tagline{ color:var(--dim); margin:2px 0 0; font-family:'Caveat',cursive; font-size:1.3rem; }
-  nav{ display:flex; gap:4px; flex-wrap:wrap; margin-top:14px; }
-  .tab{ padding:9px 18px; border:1px solid var(--line); border-bottom:none;
+  #view .tagline{ color:var(--dim); margin:2px 0 0; font-family:'Caveat',cursive; font-size:1.3rem; }
+  /* nav layout lives in equi-shell.css (.equi-hd__nav) */
+  #nav .tab, #view .tab{ padding:9px 18px; border:1px solid var(--line); border-bottom:none;
         border-radius:8px 8px 0 0; cursor:pointer; background:#1e1610; color:var(--dim);
         font-family:var(--equi-display); font-size:.98em; letter-spacing:.02em; }
-  .tab.active{ background:var(--gold-shine); color:#241a14; font-weight:700; }
+  #nav .tab.active, #view .tab.active{ background:var(--gold-shine); color:#241a14; font-weight:700; }
 
   .card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px; margin:16px 0;
          box-shadow:0 2px 14px rgba(0,0,0,.25), inset 0 0 0 1px rgba(201,168,76,.07); }
