@@ -1,0 +1,135 @@
+/* ==========================================================================
+   EquiStories — shared components  (load AFTER equi-shell.css)
+
+   Stage 2 of unification. equi-shell.css matched the chrome — palette, type,
+   top bar. This file matches the things INSIDE the pages: buttons, inputs,
+   cards.
+
+   THE IDEA: unify by ROLE, not by renaming your markup.
+   The three apps already agreed on what buttons mean, they just spelled it
+   differently:
+
+       role        Hub                Manager        Shows
+       primary     bare <button>      .btn           .primary
+       secondary   .ghost  (x49)      .secondary(x48).ghost  (x29)
+       danger      —                  .danger (x12)  .danger (x8)
+
+   So each role is styled here across ALL its spellings. Not one class in your
+   HTML has to change, and the Hub's signature gradient becomes the primary
+   button everywhere instead of three different looks.
+
+   SPECIFICITY: selectors are prefixed `html body` so this wins from <head>
+   over the apps' own blocks (the Manager's <style> lives in the body). Inline
+   style="" attributes still win over everything here — deliberate, since a lot
+   of buttons carry inline sizing and those stay exactly as they are.
+
+   TO BACK OUT: delete the one <link> line from the three pages. Nothing else
+   references this file.
+   ========================================================================== */
+
+/* ---- surfaces ---------------------------------------------------------- */
+html body .card,
+html body .panel{
+  background: var(--equi-panel);
+  border: 1px solid var(--equi-line);
+  border-radius: 10px;
+}
+
+/* ---- form controls ----------------------------------------------------- */
+html body input[type="text"],
+html body input[type="number"],
+html body input[type="email"],
+html body input[type="password"],
+html body input[type="search"],
+html body input:not([type]),
+html body select,
+html body textarea{
+  background: var(--equi-raised);
+  color: var(--equi-text);
+  border: 1px solid var(--equi-line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: var(--equi-serif);
+  font-size: .95rem;
+}
+html body input[type="text"]:focus,
+html body input[type="number"]:focus,
+html body input[type="email"]:focus,
+html body input[type="password"]:focus,
+html body input:not([type]):focus,
+html body select:focus,
+html body textarea:focus{
+  outline: none;
+  border-color: var(--equi-accent);
+  box-shadow: 0 0 0 2px rgba(201,138,58,.18);
+}
+html body input::placeholder,
+html body textarea::placeholder{ color: var(--equi-dim); opacity: .62; }
+
+/* ---- buttons: shared shape -------------------------------------------- */
+html body button{
+  font-family: var(--equi-serif);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: filter .12s ease, border-color .12s ease, color .12s ease;
+}
+html body button:disabled{ opacity: .5; cursor: not-allowed; }
+
+/* ---- role: PRIMARY ----------------------------------------------------- */
+/* The Hub's gradient, promoted to the site-wide "this is the main action". */
+html body button.btn,
+html body button.primary,
+html body .btn,
+html body .primary{
+  background: linear-gradient(135deg, var(--equi-accent), var(--equi-rust));
+  color: #fff6ea;
+  border: 1px solid transparent;
+  font-weight: 600;
+}
+html body button.btn:hover:not(:disabled),
+html body button.primary:hover:not(:disabled){
+  filter: brightness(1.07);
+  color: #fff6ea;
+}
+
+/* ---- role: SECONDARY --------------------------------------------------- */
+/* Calm outlined button — the workhorse. Both .ghost and .secondary land here
+   so the Hub, Manager and Shows finally agree on what a secondary action
+   looks like. */
+html body button.ghost,
+html body button.secondary{
+  background: var(--equi-raised);
+  color: var(--equi-text);
+  border: 1px solid var(--equi-line);
+  font-weight: 400;
+}
+html body button.ghost:hover:not(:disabled),
+html body button.secondary:hover:not(:disabled){
+  border-color: var(--equi-accent);
+  color: var(--equi-accent);
+}
+
+/* ---- role: DANGER ------------------------------------------------------ */
+html body button.danger{
+  background: transparent;
+  color: var(--equi-bad);
+  border: 1px solid var(--equi-bad);
+}
+html body button.danger:hover:not(:disabled){
+  background: var(--equi-bad);
+  color: #fff6ea;
+}
+
+/* ---- small shared bits ------------------------------------------------- */
+html body .tag{
+  background: var(--equi-raised);
+  border: 1px solid var(--equi-line);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: .84em;
+  color: var(--equi-dim);
+}
+html body .small{ font-size: .88em; }
+html body .muted{ color: var(--equi-dim); }
+html body a{ color: var(--equi-accent); }
+html body hr{ border: none; border-top: 1px solid var(--equi-line); }
