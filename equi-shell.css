@@ -31,6 +31,13 @@
 html{ scrollbar-gutter: stable; overflow-y: scroll; }
 
 html{
+  /* One responsive root size for the whole site. Each page used to declare its
+     own copy of this; if any page's stylesheet was stale or lost the cascade,
+     that page rendered at a different scale and the header visibly changed
+     size between pages. Declaring it here, in the file every page loads first,
+     makes that impossible. */
+  font-size: clamp(16px, 0.6vw + 14px, 23px);
+  -webkit-text-size-adjust: 100%;
   scrollbar-gutter: stable;      /* keeps the page width identical everywhere */
   overflow-y: scroll;            /* fallback for browsers without the above  */
 }
@@ -137,7 +144,7 @@ html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); lett
   margin:0;
   font-family: var(--equi-display);
   font-weight:700;
-  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-size: clamp(30px, 3.4vw, 60px);   /* px, not rem — see above */
   background: var(--equi-gold-shine);
   -webkit-background-clip: text;
   background-clip: text;
@@ -149,7 +156,7 @@ html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); lett
   margin: 2px 0 0;
   min-height: 1.35em;
   font-family: 'Caveat', cursive;
-  font-size: 1.3rem;
+  font-size: clamp(17px, 1.2vw, 30px);
 }
 
 /* Tab row — the Hub writes its own tabs in here; the other pages get links
@@ -161,6 +168,7 @@ html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); lett
 }
 .equi-hd__nav .tab{
   padding:9px 18px;
+  font-size:clamp(14px,.85vw,20px);
   border:1px solid var(--equi-line);
   border-bottom:none;
   border-radius:8px 8px 0 0;
@@ -168,7 +176,6 @@ html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); lett
   background:#1e1610;
   color: var(--equi-dim);
   font-family: var(--equi-serif);
-  font-size:1rem;
   text-decoration:none;
   display:inline-block;
 }
@@ -183,7 +190,7 @@ html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); lett
   display:flex; align-items:center; gap:10px;
   padding:0 4px;
 }
-.equi-hd__user .small{ font-size:.92em; color: var(--equi-dim); }
+.equi-hd__user .small{ font-size:clamp(13px,.8vw,18px); color: var(--equi-dim); }
 .equi-hd__user button{
   padding:4px 12px; font-size:.9em; margin-top:0;
   background:#2c2118; color: var(--equi-text);
@@ -196,8 +203,8 @@ html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); lett
   .equi-hd__wrap{ padding-top:12px; }
   .equi-hd__logo{ height:74px; }
   .equi-hd__brand{ gap:12px; }
-  .equi-hd__tagline{ font-size:1.08rem; }
-  .equi-hd__nav .tab{ padding:8px 12px; font-size:.92rem; }
+  .equi-hd__tagline{ font-size:17px; }
+  .equi-hd__nav .tab{ padding:8px 12px; font-size:14px; }
   .equi-hd__user{ margin-left:0; width:100%; }
 }
 
@@ -207,7 +214,7 @@ html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); lett
 .equi-hd__app{
   color: var(--equi-dim);
   text-decoration:none;
-  font-size:.9rem;
+  font-size:14px;
   border-bottom:1px solid transparent;
 }
 .equi-hd__app:hover{ color: var(--equi-text); border-bottom-color: var(--equi-line); }
@@ -221,7 +228,7 @@ html h1, html h2, html h3, .equi-display{ font-family: var(--equi-display); lett
 /* Name / My Profile / Sign out sit together at the right of the tab row. */
 .equi-hd__user a.ghost,
 .equi-hd__user button{
-  padding:4px 12px; font-size:.9em; margin-top:0;
+  padding:4px 12px; font-size:clamp(13px,.8vw,18px); margin-top:0;
   background:#2c2118; color: var(--equi-text);
   border:1px solid var(--equi-line); border-radius:6px;
   cursor:pointer; text-decoration:none; font-family: var(--equi-serif);

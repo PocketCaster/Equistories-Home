@@ -31,7 +31,7 @@ html:root{
    PART 1 — the Hub's design system, applied to the tracker
    ========================================================================== */
 
-html{ font-size: clamp(16px, 0.6vw + 14px, 23px); -webkit-text-size-adjust:100%; }
+/* root font-size now comes from equi-shell.css, shared by all pages */
 html, body{
   margin:0; padding:0;
   background: var(--equi-bg);
@@ -43,7 +43,8 @@ html, body{
 
 /* Page frame — identical to the Hub's .wrap */
 #app{
-  max-width: min(1700px, 94vw);
+  width: 100%;
+  max-width: 1700px;
   margin: 0 auto;
   padding: 0 clamp(16px,2vw,32px);
 }

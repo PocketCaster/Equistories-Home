@@ -7,7 +7,7 @@
 <style>
   /* Same responsive root size the Hub and Stable Manager use, so the three
      apps read at identical scale. */
-  html { font-size: clamp(16px, 0.6vw + 14px, 23px); -webkit-text-size-adjust:100%; }
+  /* root font-size now comes from equi-shell.css, shared by all pages */
   :root{
     /* Hub palette, mapped onto this app's names:
        --bg = hub --bg, --ink = hub --deep (inputs/insets), --panel = hub --panel,
@@ -19,7 +19,7 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--parchment);font:1rem/1.6 Georgia,'Palatino Linotype',serif}
   /* Same content width as the Hub, so the apps fill the screen consistently. */
-  .wrap{max-width:min(1700px,94vw);margin:0 auto;padding:32px clamp(16px,2vw,32px) 80px}
+  .wrap{width:100%;max-width:1700px;margin:0 auto;padding:32px clamp(16px,2vw,32px) 80px}
 
   header{border-bottom:1px solid var(--line);background:linear-gradient(180deg,#2c1f16,var(--equi-bg))}
   header .wrap{padding:22px 20px 18px}
