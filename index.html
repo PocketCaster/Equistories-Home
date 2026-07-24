@@ -192,146 +192,13 @@
 <script src="equi-nav.js" data-app="hub"></script>
 
 
+<script src="equi-constants.js"></script>
+<script src="equi-bank.js"></script>
+
 <script>
 window.__equiDBReady = new Promise(r => { window.__equiDBResolve = r; });
 </script>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, orderBy, limit }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword,
-         createUserWithEmailAndPassword, sendPasswordResetEmail,
-         signOut as fbSignOut, onAuthStateChanged }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyAJfBnY0sDc6W_yzzrpm8NKkNZv1cu7jMU",
-  authDomain: "equistories-rpg.firebaseapp.com",
-  projectId: "equistories-rpg",
-  storageBucket: "equistories-rpg.firebasestorage.app",
-  messagingSenderId: "801283742596",
-  appId: "1:801283742596:web:370951947bf862efcfdbd1"
-};
-
-let db=null, authOk=false, auth=null;
-const ready = (async()=>{
-  try{
-    const app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    auth = getAuth(app);
-    await new Promise(res=>{ const un=onAuthStateChanged(auth, ()=>{ un(); res(); }); });
-    if(!auth.currentUser){
-      try { await signInAnonymously(auth); } catch(e){ console.warn('[EquiDB] anon auth off:', e.code||e); }
-    }
-    authOk = !!auth.currentUser;
-    return true;
-  }catch(e){ console.error('[EquiDB] init failed:', e); db=null; return false; }
-})();
-
-const friendlyAuth = e => ({
-  'auth/invalid-email':"That email address doesn't look right.",
-  'auth/user-not-found':'No account found with that email.',
-  'auth/wrong-password':'Incorrect password.',
-  'auth/invalid-credential':'Incorrect email or password.',
-  'auth/email-already-in-use':'That email already has an account — sign in instead.',
-  'auth/weak-password':'Password must be at least 6 characters.',
-  'auth/too-many-requests':'Too many attempts. Wait a minute and try again.',
-  'auth/network-request-failed':'Network problem — check your connection.',
-}[e && e.code] || (e && e.message) || 'Something went wrong.');
-
-window.EquiAuth = {
-  ready,
-  get user(){ return auth && auth.currentUser && !auth.currentUser.isAnonymous ? auth.currentUser : null; },
-  get email(){ const u=this.user; return u ? u.email : ''; },
-  async token(){ const u=this.user; if(!u) return null; try{ return await u.getIdToken(); }catch(e){ return null; } },
-  async signIn(email,password){
-    try{ const c=await signInWithEmailAndPassword(auth,email,password); return {success:true,user:c.user}; }
-    catch(e){ return {success:false,error:friendlyAuth(e)}; }
-  },
-  async signUp(email,password){
-    try{ const c=await createUserWithEmailAndPassword(auth,email,password); return {success:true,user:c.user}; }
-    catch(e){ return {success:false,error:friendlyAuth(e)}; }
-  },
-  async resetPassword(email){
-    try{ await sendPasswordResetEmail(auth,email); return {success:true}; }
-    catch(e){ return {success:false,error:friendlyAuth(e)}; }
-  },
-  // Swap the random email-account session for one whose uid IS the bank userId.
-  // After this, Firestore rules can trust request.auth.uid as the true owner.
-  async upgradeToOwner(customToken){
-    try{ await signInWithCustomToken(auth, customToken); return true; }
-    catch(e){ console.error('[EquiAuth] owner upgrade failed:', e.code||e); return false; }
-  },
-  async signOut(){
-    try{ await fbSignOut(auth); }catch(e){}
-    try{ await signInAnonymously(auth); }catch(e){}
-  },
-};
-
-window.EquiDB = {
-  ready,
-  get available(){ return !!db; },
-  get authed(){ return authOk; },
-  async put(col,id,owner,obj){
-    if(!db) return false;
-    await setDoc(doc(db,col,String(id)), { owner:String(owner), id:String(id),
-      json:JSON.stringify(obj), updatedAt:new Date().toISOString() });
-    return true;
-  },
-  // Breeds need their staff list readable by Firestore RULES (which can't parse
-  // the json string), so we mirror it as a flat top-level array. Same envelope
-  // otherwise — reads still come back through get()/listAll() unchanged.
-  async putBreed(id, owner, obj){
-    if(!db) return false;
-    const staffUids = Array.isArray(obj.staff) ? obj.staff.map(String) : [];
-    await setDoc(doc(db,'breeds',String(id)), { owner:String(owner), id:String(id),
-      json:JSON.stringify(obj), staffUids, updatedAt:new Date().toISOString() });
-    return true;
-  },
-  async get(col,id){
-    if(!db) return null;
-    const s=await getDoc(doc(db,col,String(id)));
-    if(!s.exists()) return null;
-    try{ return JSON.parse(s.data().json); }catch(e){ return null; }
-  },
-  async remove(col,id){ if(!db) return false; await deleteDoc(doc(db,col,String(id))); return true; },
-  // Like put(), but keeps one field OUTSIDE the json blob so security rules and
-  // queries can see it. Firestore can't read inside the blob — a private message
-  // needs `to` hoisted here so a rule can restrict reads to the recipient.
-  async putWithField(col,id,owner,obj,field,value){
-    if(!db) return false;
-    const rec={ owner:String(owner), id:String(id),
-      json:JSON.stringify(obj), updatedAt:new Date().toISOString() };
-    rec[field]=String(value);
-    await setDoc(doc(db,col,String(id)), rec);
-    return true;
-  },
-  async listByField(col,field,value){
-    if(!db) return [];
-    const snap=await getDocs(query(collection(db,col), where(field,'==',String(value))));
-    const out=[]; snap.forEach(d=>{ try{ const o=JSON.parse(d.data().json); o.__owner=d.data().owner; o.__id=d.id; out.push(o); }catch(e){} });
-    return out;
-  },
-  async listByOwner(col,owner){
-    if(!db) return [];
-    const snap=await getDocs(query(collection(db,col), where('owner','==',String(owner))));
-    const out=[]; snap.forEach(d=>{ try{ out.push(JSON.parse(d.data().json)); }catch(e){} });
-    return out;
-  },
-  // The hub needs whole-collection reads (every member, every show) — the player
-  // apps never do, which is why this only lives here.
-  async listAll(col){
-    if(!db) return [];
-    const snap=await getDocs(collection(db,col));
-    const out=[];
-    snap.forEach(d=>{ try{ const v=JSON.parse(d.data().json); v.__owner=d.data().owner; v.__id=d.id; out.push(v); }catch(e){} });
-    return out;
-  },
-};
-ready.then(v=>{ try{ window.__equiDBResolve(v); }catch(e){} })
-     .catch(()=>{ try{ window.__equiDBResolve(false); }catch(e){} });
-</script>
+<script type="module" src="equi-core.js"></script>
 
 
 <main class="wrap" id="view" style="padding-bottom:60px;"></main>
@@ -341,28 +208,11 @@ ready.then(v=>{ try{ window.__equiDBResolve(v); }catch(e){} })
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-// The three apps that make up EquiStories.
+// OLD APPS SCRIPT — still needed for business accounts, notifications, and
+// transaction history (not yet ported to Railway). Auth/token/core money
+// actions now go through railwayCall()/upgradeToOwnerSession() from
+// equi-bank.js. Don't remove this until everything below is migrated too.
 const BANK_URL = "https://script.google.com/macros/s/AKfycby9WLxUPDAPg9EH5aTPATzTkHd8XeSKXuQ0WYqyQoHusEbws85qxwaML6cSovDod80/exec";
-
-// RAILWAY BANK SERVER — replaces Apps Script for auth/token actions and core
-// money moves. Business accounts, notifications, and transaction history are
-// NOT yet ported (still on Apps Script via bankCall below) — do not remove
-// BANK_URL/bankCall until those are migrated too, or those features break.
-const RAILWAY_URL = "https://your-bank-service.up.railway.app"; // <-- set your real Railway domain here
-
-async function railwayCall(path, { method='POST', idToken=null, body=null } = {}){
-  try{
-    const headers = { 'Content-Type': 'application/json' };
-    if(idToken) headers['Authorization'] = 'Bearer ' + idToken;
-    const opts = { method, headers };
-    if(body) opts.body = JSON.stringify(body);
-    const res = await fetch(RAILWAY_URL + path, opts);
-    const data = await res.json();
-    return data; // { success, ...fields } — flat, unlike the old Apps Script { success, data:{...} } shape
-  }catch(e){
-    return { success:false, error:"Couldn't reach the bank server." };
-  }
-}
 
 // The hub uses the same Bank account as the other apps, and the same
 // localStorage session — sign in on any of the three and you're signed in on all
@@ -390,9 +240,9 @@ const APPS = {
 };
 
 const DEFAULT_DISCORD = "https://discord.gg/54nC2p2qp9";
-const STATS = ["stamina","strength","scope","speed","handiness","boldness","balance","gaits","harmony"];
-const STAT_LABELS = {stamina:"Stamina",strength:"Strength",scope:"Scope",speed:"Speed",
-  handiness:"Handiness",boldness:"Boldness",balance:"Balance",gaits:"Gaits",harmony:"Harmony"};
+// STATS, STAT_LABELS, ADMIN_MEMBERS, RAILWAY_URL now come from
+// equi-constants.js; railwayCall()/upgradeToOwnerSession() from equi-bank.js.
+// Both load before this script — see <head>.
 const statTotal = h => STATS.reduce((n,k)=>n+(Number(h.stats&&h.stats[k])||0), 0);
 const imgOk = u => typeof u==='string' && u && !u.startsWith('data:');
 const TABS = ["Home","Bank","Shops","Breeds","Members","Community","Messages","Forum"];
@@ -404,27 +254,7 @@ async function waitForDB(ms=8000){
   return (window.EquiDB && window.EquiDB.available) ? window.EquiDB : null;
 }
 function me(){
-  try{ const b=JSON.parse(localStorage.getItem("equi-lite-bank")||"null");
-       return (b && b.linked && b.userId) ? b : null; }catch(e){ return null; }
-}
-
-// Ask the bank for a token whose uid IS our bank userId, then adopt it. Without
-// this, Firestore rules can't tell who owns what, and writes from a login made
-// directly on the Hub (rather than adopted from Stable Manager) will fail.
-async function upgradeToOwnerSession(){
-  try{
-    if(!window.EquiAuth || !window.EquiAuth.user) return false;
-    const idToken = await window.EquiAuth.token();
-    if(!idToken) return false;
-    const r = await railwayCall('/getFirestoreToken', { idToken, body:{} });
-    if(r?.success && r.token){
-      const ok = await window.EquiAuth.upgradeToOwner(r.token);
-      if(ok) console.log('[Hub] signed in to Firestore as owner:', r.userId);
-      return ok;
-    }
-    console.warn('[Hub] owner token unavailable:', r?.error||'unknown');
-  }catch(e){ console.error('[Hub] upgrade error:', e); }
-  return false;
+  return equiSession(); // from equi-constants.js — same localStorage key, one implementation
 }
 
 // So people show up on the Members list the moment they sign in, even if they've
@@ -3175,13 +3005,14 @@ async function breedApproveOrder(body, DB, who, breed, order, designEl, noteEl){
 // ============================================================
 const SHOP_THEME_DEFAULTS = { accent:"#d29a3e", panel:"#140e07", head:"#c9a84c" };
 // Premium storefronts: these owners may replace their shop's standard hero with
-// their own custom HTML (rendered in a scripts-disabled sandbox so it can't touch
-// anyone's session). Edit this list to grant more accounts; matched by bank userId.
 // Premium members (by bank userId). One source of truth for every premium
 // perk: custom shop look, multiple shops, profile CSS, the name badge, and the
-// higher stat-gear cap. Admins (below) are premium + uncapped.
+// higher stat-gear cap. Admins (ADMIN_MEMBERS, from equi-constants.js) are
+// premium + uncapped.
 const PREMIUM_MEMBERS = ["PocketCaster"];
-const ADMIN_MEMBERS   = ["PocketCaster"];   // uncapped gear; site owner(s)
+// ADMIN_MEMBERS / isAdminMember() now come from equi-constants.js — do NOT
+// redeclare them here, `const` redeclaration across script tags throws and
+// breaks the whole page.
 // Back-compat alias — old code referenced PREMIUM_SHOP_OWNERS.
 const PREMIUM_SHOP_OWNERS = PREMIUM_MEMBERS;
 // Premium status = on the permanent list OR holding an unexpired premiumUntil
@@ -3203,7 +3034,6 @@ function hasActiveStoredPremium(uid){
   return !!until && until > Date.now();
 }
 function isPremiumMember(uid){ return !!uid && (PREMIUM_MEMBERS.includes(uid) || hasActiveStoredPremium(uid)); }
-function isAdminMember(uid){ return !!uid && ADMIN_MEMBERS.includes(uid); }
 // Per-stat gear cap: regular +2, premium +3, admin unlimited.
 function gearStatCap(uid){ return isAdminMember(uid) ? Infinity : (isPremiumMember(uid) ? 3 : 2); }
 // A small crown badge shown beside premium members' names across the hub.

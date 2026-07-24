@@ -6036,16 +6036,110 @@ function renderTackInventory(){
   const wrap=el('div');
   wrap.appendChild(el('div','small','<div style="margin-bottom:10px;color:var(--equi-dim);">Your stable\'s collection — <b>tack</b> for horses and <b>attire</b> for riders. This is your display case; items also appear in the per-image dropdowns when you log training or offsite art. Show-relevant tack can still be equipped from a horse\'s roster card (the Show app reads what\'s equipped at entry time).</div>'));
 
-  // Every admin tool that used to live here (freeform "Add Tack Item",
-  // "Set Bonuses" editor) has moved to the Admin Hub (admin.html) — this
-  // page is just the normal read-only saddlebag view for everyone now,
-  // admin or not. One admin surface, not two.
-  if (isStableAdmin()) {
+  // "Add Tack Item" (freeform stats/EXP, no cost) and "Set Bonuses" (writes to
+  // the shared config/global doc) are ADMIN-ONLY tools — not a way for
+  // regular players to grant themselves items or edit site-wide bonuses.
+  // Legitimate players get tack through shop purchases; this exists for you
+  // to seed/test items and manage sets. Enforced here AND by the Firestore
+  // rule on config/global — this check is defense-in-depth, not the real gate.
+  if (!isStableAdmin()) {
     wrap.appendChild(el('div','card small',
-      'Admin tools (items, set bonuses) now live in one place: <a class="btn" href="admin.html" style="margin-left:6px;">Open the Admin Hub →</a>'));
+      '<b>Adding tack directly here is an admin tool.</b> To get tack, purchase it from a shop — it\'ll show up here automatically once bought.'));
+    return wrap;
   }
 
+  const form=el('div','card',`
+    <h3>Add Tack Item</h3>
+    <p class="small" style="margin-top:0;">Add tack to your shared inventory. Then equip pieces on individual horses from their roster card.</p>
+    <div class="row">
+      <div><label>Item Name</label><input id="tk_name" placeholder="e.g. XC Saddle, Egg-bar Shoes" /></div>
+      <div><label>Category</label>
+        <select id="tk_cat">
+          <option>Saddle</option><option>Bridle</option><option>Shoes</option>
+          <option>Boots</option><option>Blanket</option><option>Other</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:8px;">
+      <label>Item Image</label>
+      <input type="text" id="tk_image_url" placeholder="Paste a direct link to the item photo (.jpg/.png/.gif)" style="width:100%;max-width:420px;" />
+      <div id="tk_image_preview" style="margin-top:6px;"></div>
+    </div>
+    <div style="margin-top:8px;">
+      <label>Stat Bonuses While Equipped <span class="small">(optional)</span></label>
+      <div class="row">
+        ${STATS.map(s=>`<div style="min-width:90px;"><label style="font-size:.96em;">${STAT_LABELS[s]}</label><input type="number" id="tk_stat_${s}" value="0" style="padding:4px 6px;" /></div>`).join("")}
+      </div>
+    </div>
+    <div class="row" style="margin-top:8px;">
+      <div style="min-width:120px;"><label>EXP bonus <span class="small">(when depicted)</span></label><input type="number" id="tk_exp" value="0" style="padding:4px 6px;" /></div>
+      <div style="min-width:200px;"><label>Part of a set? <span class="small">(optional)</span></label>
+        <select id="tk_set">
+          <option value="">— no set —</option>
+          ${(state.tackSets||[]).map(s=>`<option value="${s.id}">${escAttr(s.name)}</option>`).join("")}
+        </select>
+      </div>
+    </div>
+    <button id="tk_add" style="margin-top:10px;">+ Add to Inventory</button>
+  `);
+  wrap.appendChild(form);
+
+  let tackImage=null;
+  // FIX: tack item photos are saved as part of state.tackInventory in the
+  // same synced payload as everything else, so a file upload here (even
+  // resized) could still push that whole save over the JSONP/Sheets size
+  // limit. Now a pasted direct image link, same as the rest of the app.
+  form.querySelector('#tk_image_url').oninput=()=>{
+    tackImage = form.querySelector('#tk_image_url').value.trim() || null;
+    form.querySelector('#tk_image_preview').innerHTML = urlImagePreviewHTML(tackImage, 'Tack Item');
+  };
+
+  form.querySelector('#tk_add').onclick=async()=>{
+    const name=form.querySelector('#tk_name').value.trim();
+    if(!name){ alert("Give the tack item a name first!"); return; }
+    const cat=form.querySelector('#tk_cat').value;
+    const stats={};
+    STATS.forEach(s=>{
+      const v=Number(form.querySelector(`#tk_stat_${s}`).value)||0;
+      if(v!==0) stats[s]=v;
+    });
+    const item={ id:uid2(), name, category:cat, image:tackImage, stats };
+    const exp=Number(form.querySelector('#tk_exp').value)||0;
+    const setId=form.querySelector('#tk_set').value||null;
+    if(exp) item.exp=exp;
+    if(setId) item.setId=setId;
+    if(!state.tackInventory) state.tackInventory=[];
+    state.tackInventory.push(item);
+    addLog(`Added "${name}" (${cat}) to the tack inventory.`);
+    tackImage=null;
+    await save(); render();
+  };
+
   const inv = state.tackInventory||[];
+
+  // ── SET BONUSES: managed centrally in the Admin Hub now (admin.html), so
+  //    there's one place to edit them instead of two. This is a read-only
+  //    summary here — assignment to a set still happens per-item in a shop's
+  //    Manage screen (the "Part of a set?" dropdown), and the "Add Tack Item"
+  //    tool above can still assign a personal test item to an existing set.
+  const setsCard=el('div','card');
+  const setsList=(state.tackSets||[]).map(set=>{
+    const members=inv.filter(it=>it.setId===set.id);
+    const b=set.bonus||{};
+    const bstr=[...Object.entries(b.stats||{}).map(([s,v])=>`+${v} ${STAT_LABELS[s]||s}`),
+                b.exp?`+${b.exp} EXP`:''].filter(Boolean).join(" · ");
+    return `<div style="border:1px solid var(--equi-line);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--equi-ink);">
+      <b style="color:var(--equi-accent-2);">◈ ${escAttr(set.name)}</b>
+      <div class="small" style="margin-top:4px;">Bonus when all worn together: <b style="color:var(--good);">${bstr||'none set'}</b></div>
+      <div class="small" style="margin-top:4px;opacity:.8;">Members (${members.length}): ${members.map(m=>escAttr(m.name)).join(", ")||'none yet'}</div>
+    </div>`;
+  }).join("");
+  setsCard.innerHTML=`
+    <h3>Set Bonuses <span class="small">(admin)</span></h3>
+    ${setsList||'<div class="small" style="opacity:.7;margin-bottom:8px;">No sets yet.</div>'}
+    <a class="btn" href="admin.html" style="margin-top:8px;display:inline-block;">Manage Set Bonuses in the Admin Hub →</a>
+  `;
+  wrap.appendChild(setsCard);
 
   const invCard=el('div','card');
   invCard.innerHTML=`<h3>Owned Tack (${inv.length})</h3>`;

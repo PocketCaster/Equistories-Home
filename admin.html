@@ -89,14 +89,6 @@ async function boot(){
       </div>
       <p class="small muted" style="margin-top:10px;">Shop owners assign items to a set from the dropdown when adding tack in their shop's Manage screen. Deleting a set here does not remove items — they just lose the set link.</p>
     </div>
-
-    <div class="card">
-      <h3>Item Override <span class="small muted">(edit ANY item in ANY shop — a failsafe, use sparingly)</span></h3>
-      <p class="small muted" style="margin-top:0;">Search by item name or shop owner. This bypasses normal shop ownership — the item stays owned by its original shop, you're just fixing its data directly.</p>
-      <input id="a_item_search" placeholder="Search items…" style="max-width:360px;" />
-      <div id="a_itemResults" style="margin-top:10px;max-height:280px;overflow:auto;"></div>
-      <div id="a_itemEditor" style="margin-top:14px;"></div>
-    </div>
   `;
 
   // ---- Community content: load + save (config/hub) ----
@@ -189,95 +181,6 @@ async function boot(){
     if(ok){ $("a_set_name").value=""; STATS.forEach(s=>{ $("a_set_stat_"+s).value=0; }); $("a_set_exp").value=0; drawSets(); }
     else alert("Failed to save set.");
   };
-
-  // ---- Item Override: search + edit ANY shop item ----
-  let allItems = [];
-  try{ allItems = await EquiDB.listAll('shopItems'); }catch(e){}
-
-  function renderItemResults(filterText){
-    const box = $("a_itemResults");
-    const q = (filterText||"").trim().toLowerCase();
-    const matches = !q ? [] : allItems.filter(it =>
-      String(it.name||"").toLowerCase().includes(q) || String(it.__owner||"").toLowerCase().includes(q)
-    ).slice(0, 30);
-
-    if(!q){ box.innerHTML = `<p class="small muted">Type to search ${allItems.length} items across all shops.</p>`; return; }
-    box.innerHTML = matches.length ? matches.map(it=>`
-      <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid var(--equi-line,#333);border-radius:6px;padding:6px 10px;margin-bottom:4px;">
-        <span class="small">${esc(it.name)} <span class="muted">— ${esc(it.category||'')} · shop: ${esc(it.__owner||'?')}</span></span>
-        <button class="ghost" data-edititem="${esc(it.id)}" style="padding:3px 10px;">Edit</button>
-      </div>`).join("") : `<p class="small muted">No matches.</p>`;
-
-    box.querySelectorAll('[data-edititem]').forEach(btn=>btn.onclick=()=>{
-      const item = allItems.find(i=>i.id===btn.dataset.edititem);
-      if(item) renderItemEditor(item);
-    });
-  }
-  $("a_item_search").oninput = ()=> renderItemResults($("a_item_search").value);
-  renderItemResults("");
-
-  function renderItemEditor(item){
-    const box = $("a_itemEditor");
-    const stats = item.stats || {};
-    box.innerHTML = `
-      <div style="border:1px solid var(--equi-line,#333);border-radius:8px;padding:12px;">
-        <h4 style="margin-top:0;">Editing: ${esc(item.name)} <span class="small muted">(shop: ${esc(item.__owner||'?')})</span></h4>
-        <label class="small">Name</label><input id="ie_name" value="${esc(item.name||'')}" />
-        <label class="small">Category</label><input id="ie_cat" value="${esc(item.category||'')}" />
-        <label class="small">Description</label><textarea id="ie_desc" rows="2">${esc(item.description||'')}</textarea>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
-          <div><label class="small">Price (✦)</label><input id="ie_price" type="number" value="${Number(item.price)||0}" /></div>
-          <div><label class="small">Active</label><select id="ie_active"><option value="true" ${item.active!==false?'selected':''}>Yes</option><option value="false" ${item.active===false?'selected':''}>No</option></select></div>
-        </div>
-        <label class="small" style="margin-top:8px;display:block;">Stats (tack, applied when equipped)</label>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          ${STATS.map(s=>`<div style="min-width:78px;"><label class="small">${STAT_LABELS[s]}</label><input type="number" id="ie_stat_${s}" value="${Number(stats[s])||0}" style="width:100%;padding:4px 6px;" /></div>`).join("")}
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;">
-          <div><label class="small">EXP bonus</label><input id="ie_exp" type="number" value="${Number(item.exp)||0}" /></div>
-          <div><label class="small">PP bonus (apparel)</label><input id="ie_pp" type="number" value="${Number(item.pp)||0}" /></div>
-          <div><label class="small">Uses (consumables)</label><input id="ie_uses" type="number" value="${Number(item.uses)||0}" /></div>
-        </div>
-        <label class="small" style="margin-top:8px;display:block;">Part of a set?</label>
-        <select id="ie_setId">
-          <option value="">— no set —</option>
-          ${tackSets.map(s=>`<option value="${esc(s.id)}" ${item.setId===s.id?'selected':''}>${esc(s.name)}</option>`).join("")}
-        </select>
-        <div style="margin-top:12px;display:flex;gap:8px;">
-          <button id="ie_save">Save changes</button>
-          <button class="ghost" id="ie_cancel">Cancel</button>
-          <span id="ie_status" class="small"></span>
-        </div>
-      </div>`;
-
-    $("ie_cancel").onclick = ()=>{ box.innerHTML = ""; };
-    $("ie_save").onclick = async ()=>{
-      $("ie_status").textContent = "Saving…";
-      const newStats = {};
-      STATS.forEach(s=>{ const v=Number($("ie_stat_"+s).value)||0; if(v!==0) newStats[s]=v; });
-      const updated = { ...item,
-        name: $("ie_name").value.trim(),
-        category: $("ie_cat").value.trim(),
-        description: $("ie_desc").value,
-        price: Number($("ie_price").value)||0,
-        active: $("ie_active").value === "true",
-        stats: newStats,
-        exp: Number($("ie_exp").value)||0,
-        pp: Number($("ie_pp").value)||0,
-        uses: Number($("ie_uses").value)||0,
-        setId: $("ie_setId").value || undefined,
-      };
-      delete updated.__owner; // hoisted field, not part of the json blob
-      // IMPORTANT: preserve the item's ORIGINAL owner (its shop), not the
-      // admin's own uid — the admin is editing the item, not taking it over.
-      const ok = await EquiDB.put('shopItems', item.id, item.__owner, updated);
-      $("ie_status").textContent = ok ? "Saved." : "Failed — check the console.";
-      if(ok){
-        const idx = allItems.findIndex(i=>i.id===item.id);
-        if(idx>-1) allItems[idx] = { ...updated, id:item.id, __owner:item.__owner };
-      }
-    };
-  }
 }
 
 boot();
