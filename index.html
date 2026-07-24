@@ -344,6 +344,26 @@ const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&
 // The three apps that make up EquiStories.
 const BANK_URL = "https://script.google.com/macros/s/AKfycby9WLxUPDAPg9EH5aTPATzTkHd8XeSKXuQ0WYqyQoHusEbws85qxwaML6cSovDod80/exec";
 
+// RAILWAY BANK SERVER — replaces Apps Script for auth/token actions and core
+// money moves. Business accounts, notifications, and transaction history are
+// NOT yet ported (still on Apps Script via bankCall below) — do not remove
+// BANK_URL/bankCall until those are migrated too, or those features break.
+const RAILWAY_URL = "https://your-bank-service.up.railway.app"; // <-- set your real Railway domain here
+
+async function railwayCall(path, { method='POST', idToken=null, body=null } = {}){
+  try{
+    const headers = { 'Content-Type': 'application/json' };
+    if(idToken) headers['Authorization'] = 'Bearer ' + idToken;
+    const opts = { method, headers };
+    if(body) opts.body = JSON.stringify(body);
+    const res = await fetch(RAILWAY_URL + path, opts);
+    const data = await res.json();
+    return data; // { success, ...fields } — flat, unlike the old Apps Script { success, data:{...} } shape
+  }catch(e){
+    return { success:false, error:"Couldn't reach the bank server." };
+  }
+}
+
 // The hub uses the same Bank account as the other apps, and the same
 // localStorage session — sign in on any of the three and you're signed in on all
 // of them (they share an origin).
@@ -396,10 +416,10 @@ async function upgradeToOwnerSession(){
     if(!window.EquiAuth || !window.EquiAuth.user) return false;
     const idToken = await window.EquiAuth.token();
     if(!idToken) return false;
-    const r = await bankCall({ action:'getFirestoreToken', idToken });
-    if(r?.success && r.data?.token){
-      const ok = await window.EquiAuth.upgradeToOwner(r.data.token);
-      if(ok) console.log('[Hub] signed in to Firestore as owner:', r.data.userId);
+    const r = await railwayCall('/getFirestoreToken', { idToken, body:{} });
+    if(r?.success && r.token){
+      const ok = await window.EquiAuth.upgradeToOwner(r.token);
+      if(ok) console.log('[Hub] signed in to Firestore as owner:', r.userId);
       return ok;
     }
     console.warn('[Hub] owner token unavailable:', r?.error||'unknown');
@@ -2442,11 +2462,11 @@ function renderGate(){
   async function afterAuth(){
     say("Checking your stable…","muted");
     const token = await window.EquiAuth.token();
-    const who = await bankCall({action:"getMyAccount", idToken:token});
-    if(who?.success && who.data?.linked){
-      localStorage.setItem("equi-lite-bank", JSON.stringify({userId:who.data.userId, password:"", linked:true}));
+    const who = await railwayCall('/getMyAccount', { idToken: token, body:{} });
+    if(who?.success && who.linked){
+      localStorage.setItem("equi-lite-bank", JSON.stringify({userId:who.userId, password:"", linked:true}));
       await upgradeToOwnerSession();
-      await ensureProfile(who.data.userId);
+      await ensureProfile(who.userId);
       render();
     } else {
       window.__gateMode = "link";
@@ -2488,13 +2508,13 @@ function renderGate(){
       if(!userId||!oldPass){ say("Enter your old User ID and password.","bad"); return; }
       linkBtn.disabled=true; say("Linking…","muted");
       const token=await window.EquiAuth.token();
-      const r=await bankCall({action:"linkFirebaseAccount", idToken:token, userId, password:oldPass});
+      const r=await railwayCall('/claimLegacyAccount', { idToken: token, body:{ legacyUserId:userId, legacyPassword:oldPass } });
       linkBtn.disabled=false;
       if(r?.success){
-        localStorage.setItem("equi-lite-bank", JSON.stringify({userId:r.data.userId, password:"", linked:true}));
+        localStorage.setItem("equi-lite-bank", JSON.stringify({userId:r.userId, password:"", linked:true}));
         await upgradeToOwnerSession();
-        await ensureProfile(r.data.userId);
-        say(`Linked! Welcome back, ${r.data.displayName}.`,"good");
+        await ensureProfile(r.userId);
+        say(`Linked! Welcome back, ${r.displayName}.`,"good");
         render();
       } else say(r?.error||"Could not link that account.","bad");
     };
@@ -2505,13 +2525,13 @@ function renderGate(){
       if(!userId){ say("Pick a User ID.","bad"); return; }
       newBtn.disabled=true; say("Creating your stable…","muted");
       const token=await window.EquiAuth.token();
-      const r=await bankCall({action:"registerFirebaseAccount", idToken:token, userId, displayName:userId});
+      const r=await railwayCall('/registerBankAccount', { idToken: token, body:{ bankUserId:userId, displayName:userId } });
       newBtn.disabled=false;
       if(r?.success){
-        localStorage.setItem("equi-lite-bank", JSON.stringify({userId:r.data.userId, password:"", linked:true}));
+        localStorage.setItem("equi-lite-bank", JSON.stringify({userId:r.userId, password:"", linked:true}));
         await upgradeToOwnerSession();
-        await ensureProfile(r.data.userId);
-        say(`Welcome to EquiStories, ${r.data.displayName}!`,"good");
+        await ensureProfile(r.userId);
+        say(`Welcome to EquiStories, ${r.displayName}!`,"good");
         render();
       } else say(r?.error||"Could not create that account.","bad");
     };
@@ -2528,13 +2548,13 @@ async function adoptSharedSession(){
     await window.EquiAuth.ready;
     if(me() || !window.EquiAuth.user) return;
     const token=await window.EquiAuth.token(); if(!token) return;
-    const who=await bankCall({action:"getMyAccount", idToken:token});
-    if(who?.success && who.data?.linked){
+    const who=await railwayCall('/getMyAccount', { idToken: token, body:{} });
+    if(who?.success && who.linked){
       localStorage.setItem("equi-lite-bank", JSON.stringify({
-        userId:who.data.userId, password:"", linked:true }));
-      console.log('[Hub] adopted shared session:', who.data.userId);
+        userId:who.userId, password:"", linked:true }));
+      console.log('[Hub] adopted shared session:', who.userId);
       await upgradeToOwnerSession();
-      await ensureProfile(who.data.userId);
+      await ensureProfile(who.userId);
       render();
     }
   }catch(e){ console.warn('[Hub] session adopt failed:', e); }
@@ -2568,7 +2588,7 @@ function render(){
   else if(tab==="Community") renderCommunity(v);
   else if(tab==="Messages") renderMessages(v);
   else if(tab==="Forum") renderForum(v);
-  else if(tab==="Admin"){ const w=me(); if(w && isAdminMember(w.userId)) renderAdminPanel(v); else { tab="Home"; renderHome(v); } }
+  else if(tab==="Admin"){ const w=me(); if(w && isAdminMember(w.userId)) location.href="admin.html"; else { tab="Home"; renderHome(v); } }
   else if(tab==="Shops") renderShops(v);
   else if(tab==="Breeds") renderBreeds(v);
   else renderForum(v);
