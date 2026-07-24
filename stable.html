@@ -1263,10 +1263,10 @@ async function mergeShopInventory(userId){
       else cat=validList.find(x=>x.toLowerCase()===String(cat).toLowerCase());
       if(isApparel){
         target.push({ id:stableId, name:e.name||'Shop item', category:cat, image:e.image||null,
-          stats:{}, pp:Number(e.pp)||0, fromShop:e.shopName||'a shop' });
+          stats:{}, pp:Number(e.pp)||0, fromShop:e.shopName||'a shop', setId:e.setId||undefined });
       } else {
         target.push({ id:stableId, name:e.name||'Shop item', category:cat, image:e.image||null,
-          stats:hasStats?e.stats:{}, exp:Number(e.exp)||0, fromShop:e.shopName||'a shop' });
+          stats:hasStats?e.stats:{}, exp:Number(e.exp)||0, fromShop:e.shopName||'a shop', setId:e.setId||undefined });
       }
       added++;
     }
@@ -5134,7 +5134,7 @@ function renderTraining(){
   if(treatPool.length && consBox){
     consNone.style.display='none';
     consBox.innerHTML=treatPool.map(c=>{
-      const eff = c.effect==='exp' ? `+${c.effectValue} EXP` : `+${c.effectValue} ${STAT_LABELS[c.effectStat]||c.effectStat}`;
+      const eff = c.effect==='exp' ? `+${c.effectValue} EXP` : `+${c.effectValue} ${c.effectStat==='all' ? 'all stats' : (STAT_LABELS[c.effectStat]||c.effectStat)}`;
       return `<button type="button" class="pill" data-cons="${escAttr(c.invId)}" title="${escAttr(eff)} · ${c.left} left">${escAttr(c.name)} <span style="opacity:.7;">(${eff}${c.left>1?` · ${c.left} left`:''})</span></button>`;
     }).join("");
     consBox.querySelectorAll('[data-cons]').forEach(b=>b.onclick=()=>{
@@ -5361,7 +5361,16 @@ function renderTraining(){
       const c=(state.consumables||[]).find(x=>x.invId===invId);
       if(!c) return;
       if(c.effect==='exp'){ expGain+=Number(c.effectValue)||0; sources.push(`${c.name} (+${c.effectValue} EXP)`); }
-      else if(c.effect==='stat'){ const st=c.effectStat; const v=Number(c.effectValue)||0; allStats[st]=(allStats[st]||0)+v; sources.push(`${c.name} (+${v} ${STAT_LABELS[st]||st})`); }
+      else if(c.effect==='stat'){
+        const st=c.effectStat; const v=Number(c.effectValue)||0;
+        if(st==='all'){
+          STATS.forEach(s=>{ allStats[s]=(allStats[s]||0)+v; });
+          sources.push(`${c.name} (+${v} to all stats)`);
+        } else {
+          allStats[st]=(allStats[st]||0)+v;
+          sources.push(`${c.name} (+${v} ${STAT_LABELS[st]||st})`);
+        }
+      }
       treatsToSpend.push(invId);
     });
 
@@ -6219,9 +6228,28 @@ function renderArtLog(){
 // TACK INVENTORY TAB (global pool of owned tack)
 // ============================================
 
+// Hardcoded admin list for this page — mirrors ADMIN_MEMBERS in the Hub.
+// Keep these two lists in sync until "shared core" (see README-SHELL.md) exists.
+const STABLE_ADMIN_MEMBERS = ["PocketCaster"];
+function isStableAdmin(){
+  return !!(bankAccount && bankAccount.linked && STABLE_ADMIN_MEMBERS.includes(bankAccount.userId));
+}
+
 function renderTackInventory(){
   const wrap=el('div');
   wrap.appendChild(el('div','small','<div style="margin-bottom:10px;color:var(--equi-dim);">Your stable\'s collection — <b>tack</b> for horses and <b>attire</b> for riders. This is your display case; items also appear in the per-image dropdowns when you log training or offsite art. Show-relevant tack can still be equipped from a horse\'s roster card (the Show app reads what\'s equipped at entry time).</div>'));
+
+  // "Add Tack Item" (freeform stats/EXP, no cost) and "Set Bonuses" (writes to
+  // the shared config/global doc) are ADMIN-ONLY tools — not a way for
+  // regular players to grant themselves items or edit site-wide bonuses.
+  // Legitimate players get tack through shop purchases; this exists for you
+  // to seed/test items and manage sets. Enforced here AND by the Firestore
+  // rule on config/global — this check is defense-in-depth, not the real gate.
+  if (!isStableAdmin()) {
+    wrap.appendChild(el('div','card small',
+      '<b>Adding tack directly here is an admin tool.</b> To get tack, purchase it from a shop — it\'ll show up here automatically once bought.'));
+    return wrap;
+  }
 
   const form=el('div','card',`
     <h3>Add Tack Item</h3>

@@ -3571,6 +3571,11 @@ async function renderShopManage(v, DB, who){
     (await DB.listAll('redemptions')).forEach(r=>{ if(r && r.kind==='code_claim' && r.codeId) codeClaims[r.codeId]=(codeClaims[r.codeId]||0)+1; });
   }catch(e){}
   const isPremium = PREMIUM_SHOP_OWNERS.includes(who.userId);
+  // Admin-managed set bonuses (created in the Stable Manager's admin-only
+  // Set Bonuses tool). Shop owners pick from these when adding a tack item —
+  // they don't create sets themselves, since a set's bonus affects the whole
+  // site's power balance, same reasoning as why that tool is admin-gated.
+  let globalTackSets=[]; try{ const g=await DB.get('config','global'); globalTackSets=(g&&g.tackSets)||[]; }catch(e){}
 
   v.innerHTML = `
     <div class="shop-crumb">
@@ -3723,7 +3728,7 @@ async function renderShopManage(v, DB, who){
       </div>
       <div id="it_effStat" class="hide" style="margin-top:6px;">
         <div class="grid" style="grid-template-columns:1fr 1fr; gap:10px; max-width:360px;">
-          <div><label class="small">Stat</label><select id="it_eff_stat">${STATS.map(st=>`<option value="${st}">${STAT_LABELS[st]}</option>`).join("")}</select></div>
+          <div><label class="small">Stat</label><select id="it_eff_stat"><option value="all">All Stats</option>${STATS.map(st=>`<option value="${st}">${STAT_LABELS[st]}</option>`).join("")}</select></div>
           <div><label class="small">Points per use</label><input id="it_eff_statval" type="number" min="0" value="1" /></div>
         </div>
       </div>
@@ -3742,7 +3747,15 @@ async function renderShopManage(v, DB, who){
           ${STATS.map(s=>`<div><label class="small">${STAT_LABELS[s]}</label><input type="number" id="it_stat_${s}" value="0" max="${gearStatCap(who.userId)===Infinity?'':gearStatCap(who.userId)}" style="padding:5px;" /></div>`).join("")}
         </div>
         <p class="small muted" style="margin-top:6px;">${gearStatCap(who.userId)===Infinity?'Admin: no per-stat cap.':`Max <b>+${gearStatCap(who.userId)}</b> per stat${isPremiumMember(who.userId)?' (premium)':' — premium members can make +3'}.`}</p>
-        <div style="margin-top:8px;max-width:160px;"><label class="small">EXP bonus</label><input type="number" id="it_exp" value="0" /></div>
+        <div style="margin-top:8px;max-width:280px;"><label class="small">EXP bonus</label><input type="number" id="it_exp" value="0" /></div>
+        <div style="margin-top:8px;max-width:280px;">
+          <label class="small">Part of a set? <span class="muted">(optional — extra bonus when the whole set is depicted together)</span></label>
+          <select id="it_setId">
+            <option value="">— no set —</option>
+            ${globalTackSets.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("")}
+          </select>
+          <p class="small muted" style="margin:4px 0 0;">Don't see the set you need? Sets are created by an admin — ask to have one added.</p>
+        </div>
       </div>
       <div id="it_apparelFields" class="hide" style="margin-top:8px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;">
         <p class="small muted" style="margin:0 0 8px;">Prestige Points this apparel grants when depicted on a rider.</p>
@@ -3943,6 +3956,7 @@ async function renderShopManage(v, DB, who){
       });
       if(Object.keys(tkStats).length) rec.stats=tkStats;
       const tkExp=Number($("it_exp").value)||0; if(tkExp) rec.exp=tkExp;
+      const tkSetId=$("it_setId")?$("it_setId").value:""; if(tkSetId) rec.setId=tkSetId;
       if(capped){ $("it_msg").textContent = `Note: stat bonuses were capped at +${cap} per stat (${isPremiumMember(who.userId)?'premium':'standard'} limit).`; }
     } else if(wearKind==="apparel"){
       const tkPp=Number($("it_pp").value)||0; if(tkPp) rec.pp=tkPp;
