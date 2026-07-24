@@ -7,6 +7,9 @@
        have no nav of their own) and wires Sign out.
      • On the Community Hub it does nothing to #nav — the Hub's own renderNav()
        owns that element and always has.
+     • The Admin tab only appears for ADMIN_MEMBERS — invisible to everyone
+       else. admin.html itself also gates on load, so this is UX polish, not
+       the real security boundary (Firestore rules are).
 
    If this file fails to load, every page still shows its crest, wordmark,
    tagline, links across the site and tab row. That was not true of the earlier
@@ -21,6 +24,10 @@
   var current = (script && script.dataset && script.dataset.app) || "";
   if (current === "hub") return;   // the Hub fills its own #nav
 
+  // Keep in sync with the Hub/Stable Manager/admin.html ADMIN_MEMBERS lists
+  // until "shared core" exists (see README-SHELL.md).
+  var ADMIN_MEMBERS = ["PocketCaster"];
+
   function session() {
     try {
       var raw = localStorage.getItem("equi-lite-bank");
@@ -28,6 +35,10 @@
       var b = JSON.parse(raw);
       return (b && b.linked && b.userId) ? b : null;
     } catch (e) { return null; }
+  }
+
+  function isAdmin(who) {
+    return !!who && ADMIN_MEMBERS.indexOf(who.userId) !== -1;
   }
 
   function esc(s) {
@@ -41,14 +52,17 @@
     { key: "stable", label: "Stable Manager", href: "stable.html" },
     { key: "shows",  label: "Shows",          href: "shows.html"  }
   ];
+  var ADMIN_TAB = { key: "admin", label: "Admin", href: "admin.html" };
 
   function fill() {
     var nav = document.getElementById("nav");
     if (!nav) return;
     var who = session();
+    var tabs = TABS.slice();
+    if (isAdmin(who)) tabs.push(ADMIN_TAB);
 
     nav.innerHTML =
-      TABS.map(function (t) {
+      tabs.map(function (t) {
         return '<a class="tab' + (t.key === current ? " active" : "") + '" href="' +
                t.href + '">' + t.label + "</a>";
       }).join("") +
