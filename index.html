@@ -2663,7 +2663,7 @@ async function breedImportsView(body, DB, who, breed, staff){
       const rec={ id, owner:who.userId, breedId:breed.id, kind:"custom",
         horseName, refs:$("co_refs").value.trim(), price:Math.max(0,Number($("co_price").value)||0),
         note:"", status:"submitted", submittedAt:new Date().toISOString() };
-      try{ await DB.put('breedOrders', id, who.userId, rec); $("co_msg").textContent="Submitted — staff will review it."; $("co_name").value="";$("co_refs").value="";$("co_price").value="0"; }
+      try{ await DB.putWithField('breedOrders', id, who.userId, rec, 'breedId', rec.breedId); $("co_msg").textContent="Submitted — staff will review it."; $("co_name").value="";$("co_refs").value="";$("co_price").value="0"; }
       catch(err){ $("co_msg").textContent="Failed: "+(err.message||err); }
     };
   }
@@ -2683,7 +2683,7 @@ async function breedOrderPremade(body, DB, who, breed, imports, importId){
     designUrl:imp.designUrl||"", image:imp.image||"",
     status:"submitted", submittedAt:new Date().toISOString() };
   try{
-    await DB.put('breedOrders', orderId, who.userId, order);
+    await DB.putWithField('breedOrders', orderId, who.userId, order, 'breedId', order.breedId);
     // hold the import — best effort (only staff own the import doc; if this fails,
     // staff still see the order and can decline duplicates)
     try{ imp.status='pending'; imp.heldBy=who.userId; await DB.put('breedImports', imp.id, imp.owner||breed.owner, imp); }catch(e){}
@@ -2776,7 +2776,7 @@ async function breedClaimOrder(body, DB, who, breed, order){
   // 3) close out the order and mark the import sold
   try{
     order.status="placed"; order.horseId=horseId; order.placedAt=new Date().toISOString();
-    await DB.put('breedOrders', order.id, who.userId, order);
+    await DB.putWithField('breedOrders', order.id, who.userId, order, 'breedId', order.breedId);
   }catch(e){}
   alert(`“${order.horseName}” is now in your tracker and the ${breed.name} registry. Open the Stable Manager to add art and details.`);
   renderBreeds(document.getElementById('view'));
@@ -2878,7 +2878,7 @@ async function breedAdmin(body, DB, who, breed){
     const o=orders.find(x=>x.id===b.dataset.decline); if(!o) return;
     const note = body.querySelector(`[data-note="${CSS.escape(o.id)}"]`);
     o.status="declined"; o.reviewNote=(note&&note.value.trim())||""; o.reviewedBy=who.userId; o.decidedAt=new Date().toISOString();
-    try{ await DB.put('breedOrders', o.id, o.owner, o); }catch(e){ alert("Couldn't update the order (you may not have permission to write another player's order doc). Rules note in the guide covers this."); }
+    try{ await DB.putWithField('breedOrders', o.id, o.owner, o, 'breedId', o.breedId); }catch(e){ alert("Couldn't update the order (you may not have permission to write another player's order doc). Rules note in the guide covers this."); }
     // release the held import if any
     if(o.importId){ try{ const imp=await DB.get('breedImports',o.importId); if(imp && imp.status==='pending'){ imp.status='available'; delete imp.heldBy; await DB.put('breedImports', imp.id, imp.owner||breed.owner, imp); } }catch(e){} }
     renderBreeds(document.getElementById('view'));
@@ -2981,7 +2981,7 @@ async function breedApproveOrder(body, DB, who, breed, order, designEl, noteEl){
   order.decidedAt=new Date().toISOString();
   if(designEl && designEl.value.trim()) order.designUrl=designEl.value.trim();
   try{
-    await DB.put('breedOrders', order.id, order.owner, order);
+    await DB.putWithField('breedOrders', order.id, order.owner, order, 'breedId', order.breedId);
   }catch(err){
     alert("Couldn't approve — this needs the Firestore rule that lets breed staff update orders for their breed (see the rules guide). ("+(err.message||err)+")");
     return;
