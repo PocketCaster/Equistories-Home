@@ -51,203 +51,9 @@ try{
 }catch(e){}
 </script>
 
-<script type="module">
-// ============================================
-// FIRESTORE DATA LAYER  (fast replacement for the Apps Script + JSONP transport)
-// Loads as a module and exposes window.EquiDB for the main app script.
-// Docs are stored as { owner, id, json, updatedAt } — the same shape the Sheets
-// backend used (a JSON blob keyed by owner), so nothing else had to be redesigned
-// and Firestore's type quirks (no undefined, no nested arrays) can't bite us.
-// ============================================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, writeBatch }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-         sendPasswordResetEmail, signOut as fbSignOut, onAuthStateChanged, updatePassword }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyAJfBnY0sDc6W_yzzrpm8NKkNZv1cu7jMU",
-  authDomain: "equistories-rpg.firebaseapp.com",
-  projectId: "equistories-rpg",
-  storageBucket: "equistories-rpg.firebasestorage.app",
-  messagingSenderId: "801283742596",
-  appId: "1:801283742596:web:370951947bf862efcfdbd1"
-};
-
-let db=null, authOk=false, auth=null;
-const ready = (async()=>{
-  try{
-    const app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    auth = getAuth(app);
-    // Wait for Firebase to restore any existing session before we decide who the
-    // user is — otherwise a refresh briefly looks like a signed-out visitor.
-    await new Promise(res=>{ const un=onAuthStateChanged(auth, ()=>{ un(); res(); }); });
-    // No real account yet? Fall back to an anonymous session so existing players
-    // keep working during the migration. Once everyone has linked, Anonymous can
-    // be switched off in the Firebase console and this line becomes a no-op.
-    if(!auth.currentUser){
-      try { await signInAnonymously(auth); } catch(e){ console.warn('[EquiDB] anon auth off:', e.code||e); }
-    }
-    authOk = !!auth.currentUser;
-    return true;
-  }catch(e){ console.error('[EquiDB] init failed:', e); db=null; return false; }
-})();
-
-// Real identity: Google stores and checks the password, sends reset emails, and
-// rate-limits attacks. This app never sees a password.
-const friendly = e => ({
-  'auth/invalid-email':'That email address doesn\'t look right.',
-  'auth/user-not-found':'No account found with that email.',
-  'auth/wrong-password':'Incorrect password.',
-  'auth/invalid-credential':'Incorrect email or password.',
-  'auth/email-already-in-use':'That email already has an account — sign in instead.',
-  'auth/weak-password':'Password must be at least 6 characters.',
-  'auth/too-many-requests':'Too many attempts. Wait a minute and try again.',
-  'auth/network-request-failed':'Network problem — check your connection.',
-}[e && e.code] || (e && e.message) || 'Something went wrong.');
-
-window.EquiAuth = {
-  ready,
-  get user(){ return auth && auth.currentUser && !auth.currentUser.isAnonymous ? auth.currentUser : null; },
-  get email(){ const u=this.user; return u ? u.email : ''; },
-  async token(){
-    const u = this.user;
-    if(!u) return null;
-    try { return await u.getIdToken(); } catch(e){ return null; }
-  },
-  async signUp(email, password){
-    try { const c = await createUserWithEmailAndPassword(auth, email, password); return {success:true, user:c.user}; }
-    catch(e){ return {success:false, error:friendly(e)}; }
-  },
-  async signIn(email, password){
-    try { const c = await signInWithEmailAndPassword(auth, email, password); return {success:true, user:c.user}; }
-    catch(e){ return {success:false, error:friendly(e)}; }
-  },
-  async resetPassword(email){
-    try { await sendPasswordResetEmail(auth, email); return {success:true}; }
-    catch(e){ return {success:false, error:friendly(e)}; }
-  },
-  async changePassword(newPassword){
-    try { await updatePassword(auth.currentUser, newPassword); return {success:true}; }
-    catch(e){ return {success:false, error:friendly(e)}; }
-  },
-  // Swap the random email-account session for one whose uid IS the bank userId.
-  // After this, Firestore rules can trust request.auth.uid as the true owner.
-  async upgradeToOwner(customToken){
-    try { await signInWithCustomToken(auth, customToken); return true; }
-    catch(e){ console.error('[EquiAuth] owner upgrade failed:', e.code||e); return false; }
-  },
-  async signOut(){
-    try { await fbSignOut(auth); }catch(e){}
-    try { await signInAnonymously(auth); }catch(e){}   // keep writes working pre-migration
-  },
-};
-// Tell the main app script that the module has finished loading (success OR not).
-ready.then(v=>{ try{ window.__equiDBResolve(v); }catch(e){} })
-     .catch(()=>{ try{ window.__equiDBResolve(false); }catch(e){} });
-
-window.EquiDB = {
-  ready,
-  get available(){ return !!db; },
-  get authed(){ return authOk; },
-
-  async put(col, id, owner, obj){
-    if(!db) return false;
-    await setDoc(doc(db, col, String(id)), {
-      owner: String(owner), id: String(id),
-      json: JSON.stringify(obj),
-      updatedAt: new Date().toISOString(),
-    });
-    return true;
-  },
-  // Like put(), but keeps one EXTRA field outside the json blob so rules and
-  // queries can actually see it. Firestore can't read inside the blob, which is
-  // why a breeding reservation needs `reservedFor` hoisted out here.
-  async putWithField(col, id, owner, obj, field, value){
-    if(!db) return false;
-    const rec = {
-      owner: String(owner), id: String(id),
-      json: JSON.stringify(obj),
-      updatedAt: new Date().toISOString(),
-    };
-    rec[field] = String(value);
-    await setDoc(doc(db, col, String(id)), rec);
-    return true;
-  },
-  // Indexed lookup on any hoisted field, e.g. every reservation set aside for me.
-  async listByField(col, field, value){
-    if(!db) return [];
-    const snap = await getDocs(query(collection(db, col), where(field,'==',String(value))));
-    const out=[];
-    snap.forEach(d=>{
-      try{ const o=JSON.parse(d.data().json); o.__owner=d.data().owner; out.push(o); }catch(e){}
-    });
-    return out;
-  },
-  async get(col, id){
-    if(!db) return null;
-    const s = await getDoc(doc(db, col, String(id)));
-    if(!s.exists()) return null;
-    try { return JSON.parse(s.data().json); } catch(e){ return null; }
-  },
-  async remove(col, id){
-    if(!db) return false;
-    await deleteDoc(doc(db, col, String(id)));
-    return true;
-  },
-  // One indexed query instead of scanning every row of a sheet — this is the
-  // whole reason the app gets fast.
-  async listByOwner(col, owner){
-    if(!db) return [];
-    const snap = await getDocs(query(collection(db, col), where('owner','==',String(owner))));
-    const out=[];
-    snap.forEach(d=>{ try{ out.push(JSON.parse(d.data().json)); }catch(e){} });
-    return out;
-  },
-  // Read an ENTIRE collection (used for cross-owner things like breed genetics
-  // requests, which come from many different founders). Fine for small
-  // collections; don't use it on horses/riders.
-  async listAll(col){
-    if(!db) return [];
-    const snap = await getDocs(collection(db, col));
-    const out=[];
-    snap.forEach(d=>{ try{ out.push(JSON.parse(d.data().json)); }catch(e){} });
-    return out;
-  },
-  // Raw rows including the hoisted fields, for diagnostics — listAll() only
-  // returns the parsed json, which hides the very fields a query matches on.
-  async listAllRaw(col){
-    if(!db) return [];
-    const snap = await getDocs(collection(db, col));
-    const out=[];
-    snap.forEach(d=>{
-      const raw=d.data()||{};
-      let body={}; try{ body=JSON.parse(raw.json||"{}"); }catch(e){}
-      out.push({docId:d.id, owner:raw.owner, reservedFor:raw.reservedFor, body});
-    });
-    return out;
-  },
-  // Bulk write for the one-time migration (batched = far fewer round trips).
-  async putMany(col, owner, items){
-    if(!db) return 0;
-    let done=0;
-    for(let i=0;i<items.length;i+=400){
-      const batch = writeBatch(db);
-      items.slice(i,i+400).forEach(it=>{
-        batch.set(doc(db, col, String(it.id)), {
-          owner: String(owner), id: String(it.id),
-          json: JSON.stringify(it), updatedAt: new Date().toISOString(),
-        });
-      });
-      await batch.commit();
-      done += Math.min(400, items.length-i);
-    }
-    return done;
-  },
-};
-</script>
+<script src="equi-constants.js"></script>
+<script src="equi-bank.js"></script>
+<script type="module" src="equi-core.js"></script>
 
 <script>
 // Last-resort safety net: if anything throws hard enough to stop the app from
@@ -274,8 +80,8 @@ window.addEventListener('error', function(ev){
 const LOGO_DATA_URL = "equistories-logo.png";
 
 
-const STATS = ["stamina","strength","scope","speed","handiness","boldness","balance","gaits","harmony"];
-const STAT_LABELS = {stamina:"Stamina",strength:"Strength",scope:"Scope",speed:"Speed",handiness:"Handiness",boldness:"Boldness",balance:"Balance",gaits:"Gaits",harmony:"Harmony"};
+// STATS, STAT_LABELS, ADMIN_MEMBERS, RAILWAY_URL now come from
+// equi-constants.js (loaded in <head>, before this script).
 
 // Breeding slots: 2 at level 1, +1 per level through level 9, then +2 at
 // level 10 — so a maxed horse has 12 lifetime slots.
@@ -778,25 +584,11 @@ function calcLitExp(wc){
 const SHOW_EARNING_VALUES = {1:1000, 2:500, 3:250};
 const SHOW_EARNING_OTHER = 100;
 
+// OLD APPS SCRIPT bank URL — still used by gasPost() below for whatever
+// hasn't been ported to Railway yet (nothing in THIS file currently, but
+// kept for parity/rollback safety). railwayCall()/upgradeToOwnerSession()
+// now come from equi-bank.js.
 const BANK_URL = 'https://script.google.com/macros/s/AKfycby9WLxUPDAPg9EH5aTPATzTkHd8XeSKXuQ0WYqyQoHusEbws85qxwaML6cSovDod80/exec';
-
-// RAILWAY BANK SERVER — replaces Apps Script for auth/token actions and core
-// money moves. Keep BANK_URL/gasPost until anything still using it elsewhere
-// is confirmed migrated too.
-const RAILWAY_URL = "https://your-bank-service.up.railway.app"; // <-- set your real Railway domain here
-
-async function railwayCall(path, { method='POST', idToken=null, body=null } = {}){
-  try{
-    const headers = { 'Content-Type': 'application/json' };
-    if(idToken) headers['Authorization'] = 'Bearer ' + idToken;
-    const opts = { method, headers };
-    if(body) opts.body = JSON.stringify(body);
-    const res = await fetch(RAILWAY_URL + path, opts);
-    return await res.json();
-  }catch(e){
-    return { success:false, error:"Couldn't reach the bank server." };
-  }
-}
 
 // FIRESTORE-ONLY: the Google Sheets "Stable Data" backend is retired.
 // STABLE_URL stays as an (empty) variable so every legacy `if(!STABLE_URL)
@@ -1628,23 +1420,8 @@ async function saveGlobalBreeds(){
     JSON.stringify({ customBreeds: state.customBreeds, customGenes: state.customGenes, customMarkings: state.customMarkings, customMutations: state.customMutations }));
 }
 
-// Ask the bank for a token whose uid IS our bank userId, then adopt it. Without
-// this the Firestore rules can't tell who owns what.
-async function upgradeToOwnerSession(){
-  try{
-    if(!window.EquiAuth || !window.EquiAuth.user) return false;
-    const idToken = await window.EquiAuth.token();
-    if(!idToken) return false;
-    const r = await railwayCall('/getFirestoreToken', { idToken, body:{} });
-    if(r?.success && r.token){
-      const ok = await window.EquiAuth.upgradeToOwner(r.token);
-      if(ok) console.log('[EquiAuth] signed in to Firestore as owner:', r.userId);
-      return ok;
-    }
-    console.warn('[EquiAuth] owner token unavailable:', r?.error||'unknown');
-  }catch(e){ console.error('[EquiAuth] upgrade error:', e); }
-  return false;
-}
+// upgradeToOwnerSession() now comes from equi-bank.js (loaded in <head>).
+
 
 async function loadFromSheets(){
   const userId = bankAccount.userId;
@@ -6249,119 +6026,26 @@ function renderArtLog(){
 
 // Hardcoded admin list for this page — mirrors ADMIN_MEMBERS in the Hub.
 // Keep these two lists in sync until "shared core" (see README-SHELL.md) exists.
-const STABLE_ADMIN_MEMBERS = ["PocketCaster"];
+// isStableAdmin() now uses the shared ADMIN_MEMBERS/isAdminMember from
+// equi-constants.js instead of its own separate list.
 function isStableAdmin(){
-  return !!(bankAccount && bankAccount.linked && STABLE_ADMIN_MEMBERS.includes(bankAccount.userId));
+  return !!(bankAccount && bankAccount.linked && isAdminMember(bankAccount.userId));
 }
 
 function renderTackInventory(){
   const wrap=el('div');
   wrap.appendChild(el('div','small','<div style="margin-bottom:10px;color:var(--equi-dim);">Your stable\'s collection — <b>tack</b> for horses and <b>attire</b> for riders. This is your display case; items also appear in the per-image dropdowns when you log training or offsite art. Show-relevant tack can still be equipped from a horse\'s roster card (the Show app reads what\'s equipped at entry time).</div>'));
 
-  // "Add Tack Item" (freeform stats/EXP, no cost) and "Set Bonuses" (writes to
-  // the shared config/global doc) are ADMIN-ONLY tools — not a way for
-  // regular players to grant themselves items or edit site-wide bonuses.
-  // Legitimate players get tack through shop purchases; this exists for you
-  // to seed/test items and manage sets. Enforced here AND by the Firestore
-  // rule on config/global — this check is defense-in-depth, not the real gate.
-  if (!isStableAdmin()) {
+  // Every admin tool that used to live here (freeform "Add Tack Item",
+  // "Set Bonuses" editor) has moved to the Admin Hub (admin.html) — this
+  // page is just the normal read-only saddlebag view for everyone now,
+  // admin or not. One admin surface, not two.
+  if (isStableAdmin()) {
     wrap.appendChild(el('div','card small',
-      '<b>Adding tack directly here is an admin tool.</b> To get tack, purchase it from a shop — it\'ll show up here automatically once bought.'));
-    return wrap;
+      'Admin tools (items, set bonuses) now live in one place: <a class="btn" href="admin.html" style="margin-left:6px;">Open the Admin Hub →</a>'));
   }
 
-  const form=el('div','card',`
-    <h3>Add Tack Item</h3>
-    <p class="small" style="margin-top:0;">Add tack to your shared inventory. Then equip pieces on individual horses from their roster card.</p>
-    <div class="row">
-      <div><label>Item Name</label><input id="tk_name" placeholder="e.g. XC Saddle, Egg-bar Shoes" /></div>
-      <div><label>Category</label>
-        <select id="tk_cat">
-          <option>Saddle</option><option>Bridle</option><option>Shoes</option>
-          <option>Boots</option><option>Blanket</option><option>Other</option>
-        </select>
-      </div>
-    </div>
-    <div style="margin-top:8px;">
-      <label>Item Image</label>
-      <input type="text" id="tk_image_url" placeholder="Paste a direct link to the item photo (.jpg/.png/.gif)" style="width:100%;max-width:420px;" />
-      <div id="tk_image_preview" style="margin-top:6px;"></div>
-    </div>
-    <div style="margin-top:8px;">
-      <label>Stat Bonuses While Equipped <span class="small">(optional)</span></label>
-      <div class="row">
-        ${STATS.map(s=>`<div style="min-width:90px;"><label style="font-size:.96em;">${STAT_LABELS[s]}</label><input type="number" id="tk_stat_${s}" value="0" style="padding:4px 6px;" /></div>`).join("")}
-      </div>
-    </div>
-    <div class="row" style="margin-top:8px;">
-      <div style="min-width:120px;"><label>EXP bonus <span class="small">(when depicted)</span></label><input type="number" id="tk_exp" value="0" style="padding:4px 6px;" /></div>
-      <div style="min-width:200px;"><label>Part of a set? <span class="small">(optional)</span></label>
-        <select id="tk_set">
-          <option value="">— no set —</option>
-          ${(state.tackSets||[]).map(s=>`<option value="${s.id}">${escAttr(s.name)}</option>`).join("")}
-        </select>
-      </div>
-    </div>
-    <button id="tk_add" style="margin-top:10px;">+ Add to Inventory</button>
-  `);
-  wrap.appendChild(form);
-
-  let tackImage=null;
-  // FIX: tack item photos are saved as part of state.tackInventory in the
-  // same synced payload as everything else, so a file upload here (even
-  // resized) could still push that whole save over the JSONP/Sheets size
-  // limit. Now a pasted direct image link, same as the rest of the app.
-  form.querySelector('#tk_image_url').oninput=()=>{
-    tackImage = form.querySelector('#tk_image_url').value.trim() || null;
-    form.querySelector('#tk_image_preview').innerHTML = urlImagePreviewHTML(tackImage, 'Tack Item');
-  };
-
-  form.querySelector('#tk_add').onclick=async()=>{
-    const name=form.querySelector('#tk_name').value.trim();
-    if(!name){ alert("Give the tack item a name first!"); return; }
-    const cat=form.querySelector('#tk_cat').value;
-    const stats={};
-    STATS.forEach(s=>{
-      const v=Number(form.querySelector(`#tk_stat_${s}`).value)||0;
-      if(v!==0) stats[s]=v;
-    });
-    const item={ id:uid2(), name, category:cat, image:tackImage, stats };
-    const exp=Number(form.querySelector('#tk_exp').value)||0;
-    const setId=form.querySelector('#tk_set').value||null;
-    if(exp) item.exp=exp;
-    if(setId) item.setId=setId;
-    if(!state.tackInventory) state.tackInventory=[];
-    state.tackInventory.push(item);
-    addLog(`Added "${name}" (${cat}) to the tack inventory.`);
-    tackImage=null;
-    await save(); render();
-  };
-
   const inv = state.tackInventory||[];
-
-  // ── SET BONUSES: managed centrally in the Admin Hub now (admin.html), so
-  //    there's one place to edit them instead of two. This is a read-only
-  //    summary here — assignment to a set still happens per-item in a shop's
-  //    Manage screen (the "Part of a set?" dropdown), and the "Add Tack Item"
-  //    tool above can still assign a personal test item to an existing set.
-  const setsCard=el('div','card');
-  const setsList=(state.tackSets||[]).map(set=>{
-    const members=inv.filter(it=>it.setId===set.id);
-    const b=set.bonus||{};
-    const bstr=[...Object.entries(b.stats||{}).map(([s,v])=>`+${v} ${STAT_LABELS[s]||s}`),
-                b.exp?`+${b.exp} EXP`:''].filter(Boolean).join(" · ");
-    return `<div style="border:1px solid var(--equi-line);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--equi-ink);">
-      <b style="color:var(--equi-accent-2);">◈ ${escAttr(set.name)}</b>
-      <div class="small" style="margin-top:4px;">Bonus when all worn together: <b style="color:var(--good);">${bstr||'none set'}</b></div>
-      <div class="small" style="margin-top:4px;opacity:.8;">Members (${members.length}): ${members.map(m=>escAttr(m.name)).join(", ")||'none yet'}</div>
-    </div>`;
-  }).join("");
-  setsCard.innerHTML=`
-    <h3>Set Bonuses <span class="small">(admin)</span></h3>
-    ${setsList||'<div class="small" style="opacity:.7;margin-bottom:8px;">No sets yet.</div>'}
-    <a class="btn" href="admin.html" style="margin-top:8px;display:inline-block;">Manage Set Bonuses in the Admin Hub →</a>
-  `;
-  wrap.appendChild(setsCard);
 
   const invCard=el('div','card');
   invCard.innerHTML=`<h3>Owned Tack (${inv.length})</h3>`;

@@ -459,106 +459,9 @@ try{
 }catch(e){}
 </script>
 
-<script type="module">
-// Same Firestore project as the stable manager — both apps are same-origin and
-// share the 'equi_use_firestore' toggle, so turning it on in one turns it on here.
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-         sendPasswordResetEmail, signOut as fbSignOut, onAuthStateChanged }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyAJfBnY0sDc6W_yzzrpm8NKkNZv1cu7jMU",
-  authDomain: "equistories-rpg.firebaseapp.com",
-  projectId: "equistories-rpg",
-  storageBucket: "equistories-rpg.firebasestorage.app",
-  messagingSenderId: "801283742596",
-  appId: "1:801283742596:web:370951947bf862efcfdbd1"
-};
-
-let db=null, authOk=false, auth=null;
-const ready = (async()=>{
-  try{
-    const app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    auth = getAuth(app);
-    await new Promise(res=>{ const un=onAuthStateChanged(auth, ()=>{ un(); res(); }); });
-    if(!auth.currentUser){
-      try { await signInAnonymously(auth); } catch(e){ console.warn('[EquiDB] anon auth off:', e.code||e); }
-    }
-    authOk = !!auth.currentUser;
-    return true;
-  }catch(e){ console.error('[EquiDB] init failed:', e); db=null; return false; }
-})();
-
-const friendlyAuth = e => ({
-  'auth/invalid-email':"That email address doesn't look right.",
-  'auth/user-not-found':'No account found with that email.',
-  'auth/wrong-password':'Incorrect password.',
-  'auth/invalid-credential':'Incorrect email or password.',
-  'auth/email-already-in-use':'That email already has an account — sign in instead.',
-  'auth/weak-password':'Password must be at least 6 characters.',
-  'auth/too-many-requests':'Too many attempts. Wait a minute and try again.',
-}[e && e.code] || (e && e.message) || 'Something went wrong.');
-
-window.EquiAuth = {
-  ready,
-  get user(){ return auth && auth.currentUser && !auth.currentUser.isAnonymous ? auth.currentUser : null; },
-  get email(){ const u=this.user; return u ? u.email : ''; },
-  async token(){ const u=this.user; if(!u) return null; try{ return await u.getIdToken(); }catch(e){ return null; } },
-  async signIn(email,password){
-    try{ const c=await signInWithEmailAndPassword(auth,email,password); return {success:true,user:c.user}; }
-    catch(e){ return {success:false,error:friendlyAuth(e)}; }
-  },
-  async signUp(email,password){
-    try{ const c=await createUserWithEmailAndPassword(auth,email,password); return {success:true,user:c.user}; }
-    catch(e){ return {success:false,error:friendlyAuth(e)}; }
-  },
-  async resetPassword(email){
-    try{ await sendPasswordResetEmail(auth,email); return {success:true}; }
-    catch(e){ return {success:false,error:friendlyAuth(e)}; }
-  },
-  // Swap the random email-account session for one whose uid IS the bank userId.
-  // After this, Firestore rules can trust request.auth.uid as the true owner.
-  async upgradeToOwner(customToken){
-    try{ await signInWithCustomToken(auth, customToken); return true; }
-    catch(e){ console.error('[EquiAuth] owner upgrade failed:', e.code||e); return false; }
-  },
-  async signOut(){
-    try{ await fbSignOut(auth); }catch(e){}
-    try{ await signInAnonymously(auth); }catch(e){}
-  },
-};
-
-window.EquiDB = {
-  ready,
-  get available(){ return !!db; },
-  get authed(){ return authOk; },
-  async put(col, id, owner, obj){
-    if(!db) return false;
-    await setDoc(doc(db, col, String(id)), {
-      owner:String(owner), id:String(id), json:JSON.stringify(obj), updatedAt:new Date().toISOString() });
-    return true;
-  },
-  async get(col, id){
-    if(!db) return null;
-    const s = await getDoc(doc(db, col, String(id)));
-    if(!s.exists()) return null;
-    try { return JSON.parse(s.data().json); } catch(e){ return null; }
-  },
-  async remove(col, id){ if(!db) return false; await deleteDoc(doc(db, col, String(id))); return true; },
-  async listByOwner(col, owner){
-    if(!db) return [];
-    const snap = await getDocs(query(collection(db, col), where('owner','==',String(owner))));
-    const out=[]; snap.forEach(d=>{ try{ out.push(JSON.parse(d.data().json)); }catch(e){} });
-    return out;
-  },
-};
-ready.then(v=>{ try{ window.__equiDBResolve(v); }catch(e){} })
-     .catch(()=>{ try{ window.__equiDBResolve(false); }catch(e){} });
-</script>
+<script src="equi-constants.js"></script>
+<script src="equi-bank.js"></script>
+<script type="module" src="equi-core.js"></script>
 
 <script>
 "use strict";
@@ -2505,7 +2408,9 @@ bindPrizeInputs();
 // Only these hosts see the custom EXP bonus panel. Everything else about a
 // show is open to any host; awarding extra EXP is not, because it feeds
 // straight into horse progression.
-const EXP_BONUS_ADMINS = ["PocketCaster"];
+// Uses the shared ADMIN_MEMBERS list from equi-constants.js — same people
+// who get the site Admin tab also get to set custom show EXP bonuses.
+const EXP_BONUS_ADMINS = ADMIN_MEMBERS;
 function isExpBonusAdmin(){
   const b = hostLogin();
   return !!b && EXP_BONUS_ADMINS.some(u => u.toLowerCase() === String(b.userId||"").toLowerCase());
