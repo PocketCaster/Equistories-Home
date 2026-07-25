@@ -1010,11 +1010,16 @@ async function renderMemberProfile(v, uid){
       </div>
     </div>
 
-    <div class="tabs" style="margin-top:12px;">
-      ${["About","Horses","Riders","Status updates"].map(tb=>`<div class="tab${__profileTab===tb?' active':''}" data-ptab="${tb}">${tb}</div>`).join("")}
+    <div style="display:flex;gap:2px;margin-top:12px;border-bottom:1px solid var(--line);overflow-x:auto;">
+      ${["About","Horses","Riders","Status updates"].map(tb=>`
+        <div data-ptab="${tb}" style="padding:9px 16px;font-size:.94em;cursor:pointer;white-space:nowrap;
+          color:${__profileTab===tb?'var(--accent,#e8c766)':'var(--dim,#8a7860)'};
+          font-weight:${__profileTab===tb?'bold':'normal'};
+          border-bottom:2px solid ${__profileTab===tb?'var(--accent,#c9a84c)':'transparent'};
+          margin-bottom:-1px;">${tb}</div>`).join("")}
     </div>
 
-    <div id="profileTabBody"></div>
+    <div id="profileTabBody" style="margin-top:14px;"></div>
     </div>`;
 
   const ed = v.querySelector('[data-member-edit]');
@@ -1024,10 +1029,17 @@ async function renderMemberProfile(v, uid){
   const msg = v.querySelector('[data-msg-to]');
   if(msg) msg.onclick = ()=>{ __msgView = { mode:"compose", to: msg.dataset.msgTo, replyTo:null }; __memberView.uid = null; tab = "Messages"; render(); };
 
-  v.querySelectorAll('[data-ptab]').forEach(el=>el.onclick=()=>{ __profileTab = el.dataset.ptab; renderProfileTabBody(); });
+  function paintTabBar(){
+    v.querySelectorAll('[data-ptab]').forEach(el=>{
+      const active = el.dataset.ptab === __profileTab;
+      el.style.color = active ? 'var(--accent,#e8c766)' : 'var(--dim,#8a7860)';
+      el.style.fontWeight = active ? 'bold' : 'normal';
+      el.style.borderBottom = '2px solid ' + (active ? 'var(--accent,#c9a84c)' : 'transparent');
+    });
+  }
+  v.querySelectorAll('[data-ptab]').forEach(el=>el.onclick=()=>{ __profileTab = el.dataset.ptab; paintTabBar(); renderProfileTabBody(); });
 
   async function renderProfileTabBody(){
-    v.querySelectorAll('[data-ptab]').forEach(el=>el.classList.toggle('active', el.dataset.ptab===__profileTab));
     const body = v.querySelector('#profileTabBody');
     body.innerHTML = `<div class="card"><div class="small">Loading…</div></div>`;
 
