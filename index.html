@@ -981,7 +981,10 @@ async function renderMemberProfile(v, uid){
   const featuredRider = theirs.find(r=>r.id===p.featuredRiderId) || null;
 
   const bannerHtml = p.banner
-    ? `<div style="height:170px;border-radius:12px 12px 0 0;overflow:hidden;margin:-16px -16px 0;"><img src="${__esc(p.banner)}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;" /></div>`
+    ? `<div style="height:190px;border-radius:12px 12px 0 0;overflow:hidden;margin:-16px -16px 0;position:relative;">
+        <img src="${__esc(p.banner)}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;display:block;" />
+        <div style="position:absolute;inset:0;background:linear-gradient(to bottom, rgba(15,10,6,0) 45%, var(--panel,#0f0a06) 96%);"></div>
+      </div>`
     : (isSelf ? `<div style="height:90px;border-radius:12px 12px 0 0;margin:-16px -16px 0;border-bottom:1px dashed var(--line);display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:.85em;">Add a banner image in Edit my profile</div>` : "");
 
   const circleAvatar = p.avatar
