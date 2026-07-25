@@ -208,28 +208,9 @@ window.__equiDBReady = new Promise(r => { window.__equiDBResolve = r; });
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-// OLD APPS SCRIPT — still needed for business accounts, notifications, and
-// transaction history (not yet ported to Railway). Auth/token/core money
-// actions now go through railwayCall()/upgradeToOwnerSession() from
-// equi-bank.js. Don't remove this until everything below is migrated too.
-const BANK_URL = "https://script.google.com/macros/s/AKfycby9WLxUPDAPg9EH5aTPATzTkHd8XeSKXuQ0WYqyQoHusEbws85qxwaML6cSovDod80/exec";
-
-// The hub uses the same Bank account as the other apps, and the same
-// localStorage session — sign in on any of the three and you're signed in on all
-// of them (they share an origin).
-function bankCall(payload){
-  return new Promise(resolve=>{
-    const cb="hbCb_"+Date.now()+"_"+Math.random().toString(36).slice(2,6);
-    const sc=document.createElement("script");
-    let done=false;
-    const finish=d=>{ if(!done){ done=true; delete window[cb]; sc.remove(); resolve(d); } };
-    window[cb]=finish;
-    sc.onerror=()=>finish({success:false,error:"Couldn't reach the bank."});
-    setTimeout(()=>finish({success:false,error:"The bank didn't answer in time."}),15000);
-    sc.src=BANK_URL+"?callback="+cb+"&data="+encodeURIComponent(JSON.stringify(payload));
-    document.head.appendChild(sc);
-  });
-}
+// Apps Script bank is fully retired — everything now goes through
+// railwayCall() (from equi-bank.js). Nothing in this file talks to Google
+// Sheets/Apps Script anymore.
 
 // All three pages now live in this repo, so these are plain relative paths.
 // (They used to be absolute URLs to the old separate repos — which, after
@@ -616,8 +597,9 @@ async function renderBank(v){
 
   async function loadBalance(){
     $("bkBalance").textContent = '…';
-    const r = await bankCall({ action:'checkBalance', userId: who.userId });
-    $("bkBalance").textContent = (r && r.success) ? fmtBuxx(r.data.balance) : '—';
+    const token = await idToken();
+    const r = await railwayCall('/checkBalance', { method:'GET', idToken: token });
+    $("bkBalance").textContent = (r && r.success) ? fmtBuxx(r.balance) : '—';
   }
 
   let allTx=[], txFilter='all';
@@ -645,13 +627,15 @@ async function renderBank(v){
     }).join('');
   }
   async function loadHist(){
-    const r = await bankCall({ action:'getTransactionHistory', userId: who.userId });
+    const token = await idToken();
+    const r = await railwayCall('/getTransactionHistory', { method:'GET', idToken: token });
     allTx = (r && r.success) ? (r.data||[]) : [];
     drawHist();
   }
 
   async function loadNotifs(){
-    const r = await bankCall({ action:'getNotifications', userId: who.userId });
+    const token = await idToken();
+    const r = await railwayCall('/getNotifications', { method:'GET', idToken: token });
     const ns = (r && r.success) ? (r.data||[]) : [];
     const unread = ns.filter(n=>!n.read).length;
     const badge = $("bkUnread");
@@ -669,7 +653,7 @@ async function renderBank(v){
   // --- wiring ---
   $("bkRefresh").onclick = ()=>{ loadBalance(); loadHist(); loadNotifs(); };
   $("bkBell").onclick    = ()=>{ $("bkNotifs").classList.toggle('hide'); };
-  $("bkMarkAll").onclick = async ()=>{ await bankCall({action:'markNotificationsRead', userId:who.userId}); loadNotifs(); };
+  $("bkMarkAll").onclick = async ()=>{ const token=await idToken(); await railwayCall('/markNotificationsRead', { idToken: token, body:{} }); loadNotifs(); };
 
   $("bkFilters").onclick = e=>{
     const p=e.target.closest('.bk-pill'); if(!p) return;
@@ -683,7 +667,7 @@ async function renderBank(v){
     const btn=$("bkSend"); btn.disabled=true; say('bkSendMsg','Sending…');
     const token=await idToken();
     if(!token){ say('bkSendMsg','Session expired — sign out and back in.','bad'); btn.disabled=false; return; }
-    const r=await bankCall({action:'transferBuxx', fromUserId:who.userId, idToken:token, toUserId, amount, note});
+    const r=await railwayCall('/transferBuxx', { idToken: token, body:{ toUserId, amount, note } });
     btn.disabled=false;
     if(r&&r.success){ say('bkSendMsg',`Sent ${fmtBuxx(amount)} to ${toUserId}.`,'good');
       $("bkToUser").value='';$("bkToAmt").value='';$("bkToNote").value=''; loadBalance(); loadHist(); }
@@ -696,9 +680,9 @@ async function renderBank(v){
     const btn=$("bkPay"); btn.disabled=true; say('bkPayMsg','Paying…');
     const token=await idToken();
     if(!token){ say('bkPayMsg','Session expired — sign out and back in.','bad'); btn.disabled=false; return; }
-    const r=await bankCall({action:'payBusiness', fromUserId:who.userId, idToken:token, businessName, amount, note});
+    const r=await railwayCall('/payBusiness', { idToken: token, body:{ businessName, amount, note } });
     btn.disabled=false;
-    if(r&&r.success){ say('bkPayMsg',`Paid ${fmtBuxx(amount)} to ${r.data.businessName}.`,'good');
+    if(r&&r.success){ say('bkPayMsg',`Paid ${fmtBuxx(amount)} to ${businessName}.`,'good');
       $("bkBizName").value='';$("bkBizAmt").value='';$("bkBizNote").value=''; loadBalance(); loadHist(); }
     else say('bkPayMsg',(r&&r.error)||'Could not pay.','bad');
   };
@@ -707,7 +691,8 @@ async function renderBank(v){
     const amount=parseFloat($("bkDepAmt").value), proofUrl=$("bkDepProof").value.trim(), description=$("bkDepDesc").value.trim();
     if(!amount||!proofUrl){ say('bkDepMsg','Enter an amount and a proof link.','bad'); return; }
     const btn=$("bkDep"); btn.disabled=true; say('bkDepMsg','Submitting…');
-    const r=await bankCall({action:'submitDeposit', userId:who.userId, amount, proofUrl, description});
+    const token=await idToken();
+    const r=await railwayCall('/submitDeposit', { idToken: token, body:{ userId: who.userId, amount, proofUrl, description } });
     btn.disabled=false;
     if(r&&r.success){ say('bkDepMsg',`Deposit of ${fmtBuxx(amount)} submitted.`,'good');
       $("bkDepAmt").value='';$("bkDepProof").value='';$("bkDepDesc").value=''; loadBalance(); loadHist(); }
@@ -735,12 +720,12 @@ async function renderBank(v){
     const btn=$("bkNewBiz"); btn.disabled=true; say('bkNewBizMsg','Creating…');
     const token=await idToken();
     if(!token){ say('bkNewBizMsg','Session expired — sign out and back in.','bad'); btn.disabled=false; return; }
-    const r=await bankCall({action:'createBusinessAccount', ownerId:who.userId, idToken:token, businessName, passcode});
+    const r=await railwayCall('/createBusinessAccount', { idToken: token, body:{ businessName, passcode } });
     btn.disabled=false;
     if(r&&r.success){
       say('bkNewBizMsg','Business created — save your ID below.','good');
       $("bkNewBizName").value='';$("bkNewBizPass").value='';$("bkNewBizPass2").value='';
-      $("bkNewBizOut").innerHTML = idBox('Your Business ID', r.data.businessId, 'Write this down — you need it for balance checks & refunds');
+      $("bkNewBizOut").innerHTML = idBox('Your Business ID', r.businessId, 'Write this down — you need it for balance checks & refunds');
     } else say('bkNewBizMsg',(r&&r.error)||'Could not create.','bad');
   };
 
@@ -748,9 +733,9 @@ async function renderBank(v){
     const businessId=$("bkBizId").value.trim();
     if(!businessId){ say('bkBizBalMsg','Enter a Business ID.','bad'); return; }
     say('bkBizBalMsg','Checking…'); $("bkBizBalOut").innerHTML='';
-    const r=await bankCall({action:'getBusinessBalance', businessId});
+    const r=await railwayCall('/getBusinessBalance?businessId='+encodeURIComponent(businessId), { method:'GET' });
     if(r&&r.success){ say('bkBizBalMsg','');
-      $("bkBizBalOut").innerHTML = `<div class="bk-idbox"><div class="lab">${esc(r.data.businessName)}</div><div class="val">${fmtBuxx(r.data.balance)}</div></div>`;
+      $("bkBizBalOut").innerHTML = `<div class="bk-idbox"><div class="lab">${esc(r.businessName)}</div><div class="val">${fmtBuxx(r.balance)}</div></div>`;
     } else say('bkBizBalMsg',(r&&r.error)||'Not found.','bad');
   };
 
@@ -758,9 +743,9 @@ async function renderBank(v){
     const businessName=$("bkLookupName").value.trim(), passcode=$("bkLookupPass").value;
     if(!businessName||!passcode){ say('bkLookupMsg','Enter the name and passcode.','bad'); return; }
     say('bkLookupMsg','Looking up…'); $("bkLookupOut").innerHTML='';
-    const r=await bankCall({action:'lookupBusinessId', businessName, passcode});
+    const r=await railwayCall('/lookupBusinessId', { body:{ businessName, passcode } });
     if(r&&r.success){ say('bkLookupMsg','');
-      $("bkLookupOut").innerHTML = idBox(r.data.businessName, r.data.businessId, 'Your Business ID'); }
+      $("bkLookupOut").innerHTML = idBox(r.businessName, r.businessId, 'Your Business ID'); }
     else say('bkLookupMsg',(r&&r.error)||'No match.','bad');
   };
 
@@ -769,7 +754,7 @@ async function renderBank(v){
     const toUserId=$("bkRefUser").value.trim(), amount=parseFloat($("bkRefAmt").value), note=$("bkRefNote").value.trim();
     if(!businessId||!passcode||!toUserId||!amount){ say('bkRefundMsg','Fill in Business ID, passcode, player and amount.','bad'); return; }
     const btn=$("bkRefund"); btn.disabled=true; say('bkRefundMsg','Refunding…');
-    const r=await bankCall({action:'businessTransfer', businessId, passcode, toUserId, amount, note:note||'Refund from business'});
+    const r=await railwayCall('/businessTransfer', { body:{ businessId, passcode, toUserId, amount, note: note||'Refund from business' } });
     btn.disabled=false;
     if(r&&r.success){ say('bkRefundMsg',`Refunded ${fmtBuxx(amount)} to ${toUserId}.`,'good');
       $("bkRefAmt").value='';$("bkRefNote").value=''; loadHist(); }
@@ -2749,8 +2734,8 @@ async function breedClaimOrder(body, DB, who, breed, order){
     if(!breed.businessName){ alert("This breed has no business linked — ask staff to fix it before claiming."); return; }
     const token = await (async()=>{ try{ await window.EquiAuth.ready; return await window.EquiAuth.token(); }catch(e){ return null; } })();
     if(!token){ alert("Session expired — sign out and back in."); return; }
-    const pay = await bankCall({ action:'payBusiness', fromUserId:who.userId, idToken:token,
-      businessName:breed.businessName, amount:price, note:`${breed.name} import: ${order.horseName}` });
+    const pay = await railwayCall('/payBusiness', { idToken: token,
+      body:{ businessName:breed.businessName, amount:price, note:`${breed.name} import: ${order.horseName}` } });
     if(!pay || !pay.success){ alert((pay&&pay.error)||"Payment failed — nothing was created."); return; }
   }
 
@@ -3365,9 +3350,9 @@ async function buyFromShop(v, DB, who, shop, items, itemId){
 
   // Charge (skip the bank entirely if a ticket makes it free).
   if(charge > 0){
-    const pay = await bankCall({ action:'payBusiness', fromUserId:who.userId, idToken:token,
-      businessName:shop.businessName, amount:charge,
-      note:`Shop: ${shop.name} — ${item.name}${discount?` (ticket −✦${discount})`:''}` });
+    const pay = await railwayCall('/payBusiness', { idToken: token,
+      body:{ businessName:shop.businessName, amount:charge,
+      note:`Shop: ${shop.name} — ${item.name}${discount?` (ticket −✦${discount})`:''}` } });
     if(!pay || !pay.success){ msg.innerHTML = `<span style="color:var(--bad)">${esc((pay&&pay.error)||'Payment failed.')}</span>`; btn.disabled=false; return; }
   }
 
