@@ -14,7 +14,7 @@ const ADMIN_MEMBERS = ["PocketCaster"];
 function isAdminMember(uid){ return !!uid && ADMIN_MEMBERS.includes(uid); }
 
 // Your live Railway bank server's base URL (no trailing slash).
-const RAILWAY_URL = "https://your-bank-service.up.railway.app"; // <-- set this once, here, for the whole site
+const RAILWAY_URL = "https://equistories-bank-server-production.up.railway.app"; // <-- set this once, here, for the whole site
 
 const STATS = ["stamina","strength","scope","speed","handiness","boldness","balance","gaits","harmony"];
 const STAT_LABELS = {
