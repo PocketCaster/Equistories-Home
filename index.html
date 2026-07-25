@@ -3108,6 +3108,7 @@ function shopInvEntry(shop, item, qty){
     id:        shop.id + "_" + item.id,
     itemId:    item.id,
     name:      item.name,
+    image:     item.image || null,
     type:      consumable ? "consumable" : "shopgood",
     category:  item.category || "",
     desc:      item.desc || "",
