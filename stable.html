@@ -3526,29 +3526,12 @@ function renderRoster(){
             ${r.venue?`<span class="small" style="margin-left:6px;">${r.venue}${r.date?` · ${r.date}`:""}</span>`:(r.date?`<span class="small" style="margin-left:6px;">${r.date}</span>`:"")}
             ${r.note?`<div class="small" style="margin-top:2px;opacity:.8;">${r.note}</div>`:""}
           </div>`).join("");
-    // Gallery view: images keep their own aspect ratio in a masonry column
-    // layout instead of being cropped to a fixed thumbnail.
-    const galleryItems = (h.artLog||[]).filter(e=>e.image).map(e=>`
-      <div class="equi-gitem">
-        <img src="${escAttr(e.image)}" loading="lazy" referrerpolicy="no-referrer"
-             data-lightbox="${escAttr(e.image)}" data-caption="${escAttr(e.label||'')}"
-             style="cursor:zoom-in;" onerror="this.closest('.equi-gitem').style.display='none'" />
-        <div class="equi-gcap">
-          <b>${escAttr(e.label||'Untitled')}</b>
-          ${e.type==='competition'&&e.placement?` <span class="tag">${["1st","2nd","3rd","4th","5th","6th"][e.placement-1]||e.placement+"th"}</span>`:''}
-          <span class="tag">+${e.exp||0} EXP</span>
-          ${e.featuredRiderId?' <span class="tag">\u2605 rider</span>':''}
-          <div style="margin-top:4px;">
-            <span data-act="edit-training" data-id="${h.id}" data-entry="${e.id}" style="cursor:pointer;color:var(--equi-accent);font-weight:bold;">Edit</span>
-            <span data-act="delete-artlog" data-id="${h.id}" data-entry="${e.id}" style="cursor:pointer;color:var(--equi-rust);font-weight:bold;margin-left:8px;">&#10005; Delete</span>
-          </div>
-        </div>
-      </div>`).join("");
-
+    // Roster cards show a simple text log (same style as Competition
+    // History) — the full image mosaic belongs on the horse's Profile page
+    // only (renderHorseProfilePage has its own copy of that gallery).
     const artLogHtml = open ? `
-      ${galleryItems ? `<div class="equi-gallery" style="margin-top:10px;">${galleryItems}</div>` : ''}
       <div class="artlog-panel">
-        ${(h.artLog.length || showOnly.length) ? (h.artLog.filter(e=>!e.image).map(e=>`
+        ${(h.artLog.length || showOnly.length) ? (h.artLog.map(e=>`
           <div class="artlog-entry">
             ${e.image?`<img src="${e.image}" class="artlog-thumb" data-lightbox="${e.image}" data-caption="${e.label}" style="cursor:zoom-in;" />`:""}
             <b>${e.label}</b> ${e.type==="competition"&&e.placement?`<span class="tag">${["1st","2nd","3rd","4th","5th","6th"][e.placement-1]||e.placement+"th"}</span>`:""}
