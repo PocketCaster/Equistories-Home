@@ -6026,7 +6026,7 @@ function renderTackInventory(){
     invCard.innerHTML+=`<div class="small">No tack added yet.</div>`;
   } else {
     const grid=el('div');
-    grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:8px;';
+    grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:8px;';
     inv.forEach(item=>{
       const statsStr=Object.entries(item.stats||{}).map(([s,v])=>`+${v} ${STAT_LABELS[s]}`).join(", ");
       const extra=[];
@@ -6035,7 +6035,7 @@ function renderTackInventory(){
       const div=el('div');
       div.style.cssText='background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:8px;padding:8px;text-align:center;';
       div.innerHTML=`
-        ${item.image?`<img src="${item.image}" style="width:100%;height:90px;object-fit:cover;border-radius:5px;" />`:`<div style="height:90px;display:flex;align-items:center;justify-content:center;font-size:2em;color:var(--equi-line);"></div>`}
+        ${item.image?`<img src="${item.image}" style="width:100%;height:160px;object-fit:cover;border-radius:5px;" />`:`<div style="height:160px;display:flex;align-items:center;justify-content:center;font-size:2em;color:var(--equi-line);"></div>`}
         <div style="margin-top:6px;font-weight:bold;font-size:1.04em;">${item.name}</div>
         <div class="small">${item.category}</div>
         ${statsStr?`<div class="small" style="color:var(--good);margin-top:2px;">${statsStr}</div>`:""}
