@@ -9215,52 +9215,58 @@ function showProfileModal(horseId){
   const h=state.horses.find(x=>x.id===horseId);
   if(!h) return;
   const overlay=document.createElement('div');
-  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;color:var(--text);';
 
-  function field(id, label, val, placeholder, type='input'){
-    const inp = type==='textarea'
-      ? `<textarea id="${id}" rows="4" placeholder="${placeholder}" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;margin-top:3px;box-sizing:border-box;font-family:var(--equi-serif);resize:vertical;">${val||''}</textarea>`
-      : `<input id="${id}" value="${val||''}" placeholder="${placeholder}" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;margin-top:3px;box-sizing:border-box;" />`;
-    return `<div style="margin-bottom:10px;"><label style="font-size:.98em;color:var(--equi-dim);text-transform:uppercase;display:block;">${label}</label>${inp}</div>`;
-  }
+  overlay.innerHTML=`
+    <div class="card" style="max-width:760px;width:100%;margin-top:20px;background:var(--equi-panel);border:1px solid var(--equi-line);box-shadow:0 12px 40px rgba(0,0,0,.6);">
+      <h3 style="margin-top:0;color:var(--equi-accent);">Edit Profile — ${escAttr(h.name)}</h3>
 
-  overlay.innerHTML=`<div style="background:#2c1f16;border:2px solid var(--equi-accent);border-radius:10px;padding:24px;max-width:760px;width:100%;color:var(--equi-text);font-family:var(--equi-serif);margin:auto;">
-    <h3 style="margin-top:0;color:var(--equi-accent);">Edit Profile — ${h.name}</h3>
-    <div style="display:flex;gap:10px;">
-      <div style="flex:1;">${field('pm_breed','Breed',h.breed,'e.g. Thoroughbred')}</div>
-      <div style="width:110px;">${field('pm_age','Age',h.age,'e.g. 5')}</div>
-    </div>
-    <div class="small" style="margin:-4px 0 10px;opacity:.7;">Changing age here won't skip training age-up milestones — the horse's stage (foal/yearling/adult) still updates from those. Changing breed won't recompute existing genetics.</div>
-    <div style="display:flex;gap:10px;">
-      <div style="flex:1;">${field('pm_barn','Barn Name (optional)',h.barnName,'e.g. Fortune — the everyday name')}</div>
-      <div style="width:150px;">${field('pm_height','Height (optional)',h.height,'e.g. 16.2 hh')}</div>
-    </div>
-    <div style="margin-bottom:10px;">
-      <label style="font-size:.98em;color:var(--equi-dim);text-transform:uppercase;display:block;">Discipline</label>
-      <select id="pm_discipline" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;margin-top:3px;box-sizing:border-box;font-family:var(--equi-serif);">
-        <option value="">— none chosen —</option>
-        ${Object.keys(DISCIPLINES).map(d=>`<option value="${d}"${h.discipline===d?' selected':''}>${d} — ${DISCIPLINES[d].stats.map(x=>STAT_LABELS[x]).join(', ')}</option>`).join("")}
-      </select>
-      <div class="small" style="opacity:.7;margin-top:3px;">The stats for this discipline get highlighted on the horse's card, profile and training tab.</div>
-    </div>
-    ${field('pm_import','Import Sheet Link (optional)',h.importLink,'https://… reference/import sheet')}
-    ${field('pm_owner','Owner Name',h.ownerName,'e.g. @YourUsername')}
-    ${field('pm_ownerlink','Owner Link (optional)',h.ownerLink,'https://… (DeviantArt, Toyhouse…)')}
-    ${field('pm_rider','Rider Name (optional)',h.riderName,'e.g. Jane Smith')}
-    ${field('pm_stable','Stable / Boarding (optional)',h.stableName,'e.g. Willowbrook Stables')}
-    ${field('pm_stablelink','Stable Link (optional)',h.stableLink,'https://…')}
-    ${field('pm_personality','Personality',h.personality,'Describe this horse - personality, quirks, and character...','textarea')}
-    ${field('pm_history','History',h.horseHistory,'Background story, significant events, journey so far…','textarea')}
-    ${isPremiumMember(h.owner||h.ownerName||bankAccount.userId) ? `
-      <div style="margin-top:6px;border-top:1px solid var(--equi-line);padding-top:10px;">
-        <label style="font-size:.98em;color:var(--equi-accent);text-transform:uppercase;display:block;">Custom CSS <span style="color:var(--equi-brass-light);">&#9733; Premium</span></label>
+      <div class="row">
+        <div style="flex:1;min-width:200px;"><label>Breed</label><input id="pm_breed" value="${escAttr(h.breed||'')}" placeholder="e.g. Thoroughbred" /></div>
+        <div><label>Age</label><input id="pm_age" value="${escAttr(h.age||'')}" placeholder="e.g. 5" style="max-width:110px;" /></div>
+      </div>
+      <div class="small" style="margin-top:-2px;opacity:.7;">Changing age here won't skip training age-up milestones — the horse's stage (foal/yearling/adult) still updates from those. Changing breed won't recompute existing genetics.</div>
+
+      <div class="row" style="margin-top:8px;">
+        <div style="flex:1;min-width:200px;"><label>Barn Name <span class="small">(optional)</span></label><input id="pm_barn" value="${escAttr(h.barnName||'')}" placeholder="e.g. Fortune — the everyday name" /></div>
+        <div><label>Height <span class="small">(optional)</span></label><input id="pm_height" value="${escAttr(h.height||'')}" placeholder="e.g. 16.2 hh" style="max-width:150px;" /></div>
+      </div>
+
+      <div style="margin-top:8px;">
+        <label>Discipline</label>
+        <select id="pm_discipline">
+          <option value="">— none chosen —</option>
+          ${Object.keys(DISCIPLINES).map(d=>`<option value="${d}"${h.discipline===d?' selected':''}>${d} — ${DISCIPLINES[d].stats.map(x=>STAT_LABELS[x]).join(', ')}</option>`).join("")}
+        </select>
+        <div class="small" style="opacity:.7;margin-top:3px;">The stats for this discipline get highlighted on the horse's card, profile and training tab.</div>
+      </div>
+
+      <div style="margin-top:8px;"><label>Import Sheet Link <span class="small">(optional)</span></label><input id="pm_import" value="${escAttr(h.importLink||'')}" placeholder="https://… reference/import sheet" /></div>
+      <div class="row" style="margin-top:8px;">
+        <div style="flex:1;min-width:200px;"><label>Owner Name</label><input id="pm_owner" value="${escAttr(h.ownerName||'')}" placeholder="e.g. @YourUsername" /></div>
+        <div style="flex:1;min-width:200px;"><label>Owner Link <span class="small">(optional)</span></label><input id="pm_ownerlink" value="${escAttr(h.ownerLink||'')}" placeholder="https://… (DeviantArt, Toyhouse…)" /></div>
+      </div>
+      <div style="margin-top:8px;"><label>Rider Name <span class="small">(optional)</span></label><input id="pm_rider" value="${escAttr(h.riderName||'')}" placeholder="e.g. Jane Smith" /></div>
+      <div class="row" style="margin-top:8px;">
+        <div style="flex:1;min-width:200px;"><label>Stable / Boarding <span class="small">(optional)</span></label><input id="pm_stable" value="${escAttr(h.stableName||'')}" placeholder="e.g. Willowbrook Stables" /></div>
+        <div style="flex:1;min-width:200px;"><label>Stable Link <span class="small">(optional)</span></label><input id="pm_stablelink" value="${escAttr(h.stableLink||'')}" placeholder="https://…" /></div>
+      </div>
+      <div style="margin-top:8px;"><label>Personality</label><textarea id="pm_personality" style="min-height:90px;" placeholder="Describe this horse — personality, quirks, and character...">${(h.personality||'').replace(/</g,'&lt;')}</textarea></div>
+      <div style="margin-top:8px;"><label>History</label><textarea id="pm_history" style="min-height:90px;" placeholder="Background story, significant events, journey so far…">${(h.horseHistory||'').replace(/</g,'&lt;')}</textarea></div>
+
+      ${isPremiumMember(h.owner||h.ownerName||bankAccount.userId) ? `
+      <div style="margin-top:14px;border-top:1px solid var(--equi-line);padding-top:10px;">
+        <label>Custom CSS <span class="small" style="color:var(--equi-brass-light);">&#9733; Premium</span></label>
         <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.horse-profile-custom</code> so your styling stays on this horse's page. Hooks: <code>.pcard</code>, <code>h3</code>.</div>
-        <textarea id="pm_css" rows="6" placeholder=".horse-profile-custom .pcard{ background:#1a1006; }" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;box-sizing:border-box;font-family:monospace;font-size:.85em;">${escAttr(h.customCss||'')}</textarea>
+        <textarea id="pm_css" style="min-height:110px;font-family:monospace;font-size:.85em;" placeholder=".horse-profile-custom .pcard{ background:#1a1006; }">${escAttr(h.customCss||'')}</textarea>
       </div>` : ''}
-    <button id="pm_save" style="width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Save</button>
-    <button id="pm_cancel" style="margin-top:8px;width:100%;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);padding:10px;border-radius:6px;cursor:pointer;font-size:1.1em;">Cancel</button>
-    <div id="pm_status" style="margin-top:8px;font-size:.92em;color:var(--equi-dim);text-align:center;min-height:1.2em;"></div>
-  </div>`;
+
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button id="pm_save" class="btn">Save Profile</button>
+        <button id="pm_cancel" class="secondary">Cancel</button>
+        <span class="small" id="pm_status" style="align-self:center;"></span>
+      </div>
+    </div>`;
   document.body.appendChild(overlay);
 
   overlay.querySelector('#pm_cancel').onclick=()=>overlay.remove();
