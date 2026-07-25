@@ -982,24 +982,27 @@ async function renderMemberProfile(v, uid){
 
   const bannerHtml = p.banner
     ? `<div style="height:170px;border-radius:12px 12px 0 0;overflow:hidden;margin:-16px -16px 0;"><img src="${__esc(p.banner)}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;" /></div>`
-    : "";
+    : (isSelf ? `<div style="height:90px;border-radius:12px 12px 0 0;margin:-16px -16px 0;border-bottom:1px dashed var(--line);display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:.85em;">Add a banner image in Edit my profile</div>` : "");
+
+  const circleAvatar = p.avatar
+    ? `<img src="${__esc(p.avatar)}" referrerpolicy="no-referrer" alt="${__esc(name)}"
+         style="width:110px;height:110px;border-radius:50%;object-fit:cover;border:4px solid var(--accent,#c9a84c);box-shadow:0 0 0 3px var(--panel,#0f0a06);flex:0 0 auto;" />`
+    : `<div style="width:110px;height:110px;border-radius:50%;border:4px solid var(--accent,#c9a84c);box-shadow:0 0 0 3px var(--panel,#0f0a06);display:flex;align-items:center;justify-content:center;font-size:2.4em;background:var(--deep,#1a1208);flex:0 0 auto;">&#128100;</div>`;
+
+  const statBlock = (num, label)=>`<div style="text-align:center;"><div style="font-size:1.1em;font-weight:bold;color:var(--accent,#e8c766);">${num}</div><div style="font-size:.72em;color:var(--dim,#8a7860);">${label}</div></div>`;
 
   v.innerHTML = `
     ${customCss ? `<style>${customCss}</style>` : ""}
     <div class="profile-custom">
 
-    <div class="card profile-head" style="${p.banner?'padding-top:0;':''}">
+    <div class="card profile-head" style="${(p.banner||isSelf)?'padding-top:0;overflow:hidden;':''}">
       ${bannerHtml}
-      <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;${p.banner?'margin-top:-46px;':''}">
-        ${framedImg(p.avatar, p.frame, 130, name)}
+      <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;${p.banner?'margin-top:-55px;':''}">
+        ${circleAvatar}
         <div style="flex:1;min-width:250px;${p.banner?'margin-top:46px;':''}">
           <h2 style="margin:0;">${__esc(name)}${premiumBadge(uid)}${isAdminMember(uid)?' <span class="tag" style="background:var(--accent,#c9a84c);">admin</span>':''}</h2>
           <div class="small muted">${__esc(uid)}${p.pronouns?` &middot; ${__esc(p.pronouns)}`:''}</div>
           ${p.bio?`<p class="profile-tagline" style="margin:8px 0 0;font-family:'Caveat',cursive;font-size:1.25rem;color:var(--dim);">${__esc(p.bio)}</p>`:''}
-          <div style="margin-top:12px;display:flex;gap:16px;flex-wrap:wrap;">
-            <div><b>${mine.length}</b> <span class="small muted">horses</span></div>
-            <div><b>${theirs.length}</b> <span class="small muted">riders</span></div>
-          </div>
           <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
             ${isSelf
               ? `<button class="btn" data-member-edit>Edit my profile</button>`
@@ -1008,9 +1011,14 @@ async function renderMemberProfile(v, uid){
           </div>
         </div>
       </div>
+      <div style="display:flex;gap:26px;margin:16px 0 0;padding:12px 0 0;border-top:1px solid var(--line);">
+        ${statBlock(mine.length, mine.length===1?'horse':'horses')}
+        ${statBlock(theirs.length, theirs.length===1?'rider':'riders')}
+        ${p.joinedAt ? statBlock(new Date(p.joinedAt).toLocaleDateString('en-US',{month:'short',year:'numeric'}), 'joined') : ''}
+      </div>
     </div>
 
-    <div style="display:flex;gap:2px;margin-top:12px;border-bottom:1px solid var(--line);overflow-x:auto;">
+    <div style="display:flex;gap:2px;margin-top:12px;border-bottom:1px solid var(--line);">
       ${["About","Horses","Riders","Status updates"].map(tb=>`
         <div data-ptab="${tb}" style="padding:9px 16px;font-size:.94em;cursor:pointer;white-space:nowrap;
           color:${__profileTab===tb?'var(--accent,#e8c766)':'var(--dim,#8a7860)'};
