@@ -27,6 +27,38 @@
   body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--equi-serif); line-height:1.6; }
   a{ color:var(--accent); }
 
+  /* Two new decorative frames, self-contained (no dependency on the external
+     stylesheet where the other frame styles live, so these work regardless
+     of what's in equi-components.css). Applied via framedImg()'s existing
+     equi-frame--{name} class pattern. */
+  .equi-frame--floral{
+    position:relative; border-radius:50%; overflow:visible;
+    border:3px solid #e8a8c0; box-shadow:0 0 0 2px var(--panel,#1a130c);
+  }
+  .equi-frame--floral img,
+  .equi-frame--floral > div{ border-radius:50%; }
+  .equi-frame--floral::before{
+    content:"🌸"; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%);
+    font-size:1.4em; filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));
+  }
+  .equi-frame--floral::after{
+    content:"🌿"; position:absolute; bottom:-4px; left:20%;
+    font-size:1.1em; transform:rotate(-20deg); filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));
+  }
+
+  .equi-frame--starburst{
+    position:relative; border-radius:50%; overflow:visible;
+    border:3px dashed #c9a84c; box-shadow:0 0 0 2px var(--panel,#1a130c);
+  }
+  .equi-frame--starburst img,
+  .equi-frame--starburst > div{ border-radius:50%; }
+  .equi-frame--starburst::before{
+    content:"✦"; position:absolute; top:-10px; right:-4px; font-size:1.1em; color:#e8c766;
+  }
+  .equi-frame--starburst::after{
+    content:"✧"; position:absolute; bottom:-8px; left:-6px; font-size:1em; color:#e8c766;
+  }
+
   /* header styling lives in equi-shell.css (.equi-hd) — one definition only */
   /* .wrap geometry lives in equi-shell.css, shared by all pages */
   h1{ margin:0; font-family:var(--equi-display); font-weight:700; font-size:clamp(1.8rem,4vw,2.6rem);
@@ -793,6 +825,7 @@ const EQUI_FRAMES = [
   ["none","No frame"], ["brass","Brass"], ["rope","Rope"], ["ribbon","Ribbon"],
   ["rosette","Rosette"], ["plaque","Plaque"], ["moss","Moss"], ["plum","Plum"],
   ["vignette","Vignette"], ["polaroid","Polaroid"],
+  ["floral","Floral (pastel)"], ["starburst","Starburst"],
 ];
 function frameClass(name){
   const ok = EQUI_FRAMES.some(f=>f[0]===name);
@@ -980,10 +1013,16 @@ async function renderMemberProfile(v, uid){
   const featuredHorse = mine.find(h=>h.id===p.featuredHorseId) || null;
   const featuredRider = theirs.find(r=>r.id===p.featuredRiderId) || null;
 
-  const circleAvatar = p.avatar
-    ? `<img src="${__esc(p.avatar)}" referrerpolicy="no-referrer" alt="${__esc(name)}"
-         style="width:110px;height:110px;border-radius:50%;object-fit:cover;border:4px solid var(--accent,#c9a84c);flex:0 0 auto;" />`
-    : `<div style="width:110px;height:110px;border-radius:50%;border:4px solid var(--accent,#c9a84c);display:flex;align-items:center;justify-content:center;font-size:2.4em;background:var(--deep,#1a1208);flex:0 0 auto;">&#128100;</div>`;
+  // Use the member's chosen frame (this was accidentally dropped when the
+  // avatar got rebuilt as a plain circle — restoring it here). When no
+  // frame is picked ("none"), fall back to a clean circle so it still
+  // matches the DeviantArt-style header even for members who never set one.
+  const circleAvatar = (!p.frame || p.frame==='none')
+    ? (p.avatar
+        ? `<img src="${__esc(p.avatar)}" referrerpolicy="no-referrer" alt="${__esc(name)}"
+             style="width:110px;height:110px;border-radius:50%;object-fit:cover;border:4px solid var(--accent,#c9a84c);flex:0 0 auto;" />`
+        : `<div style="width:110px;height:110px;border-radius:50%;border:4px solid var(--accent,#c9a84c);display:flex;align-items:center;justify-content:center;font-size:2.4em;background:var(--deep,#1a1208);flex:0 0 auto;">&#128100;</div>`)
+    : framedImg(p.avatar, p.frame, 110, name);
 
   const statBlock = (num, label)=>`<div style="text-align:center;"><div style="font-size:1.1em;font-weight:bold;color:var(--accent,#e8c766);">${num}</div><div style="font-size:.72em;color:var(--dim,#8a7860);">${label}</div></div>`;
 
