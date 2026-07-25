@@ -1000,12 +1000,14 @@ const SHOP_ATTIRE_CATS = ["Jacket","Shirt","Breeches","Boots","Helmet","Gloves",
 // Load consumable EFFECT items (EXP/stat treats, breed tokens) the player owns,
 // so the training log can offer an "Item used" picker. Read-only snapshot into
 // state.consumables; spending happens at use time via spendConsumable().
-async function loadConsumables(userId){
+// invDoc: pass the already-fetched inventory doc to skip a redundant read
+// (mergeShopInventory needs the exact same doc — see loadFromSheets).
+async function loadConsumables(userId, invDoc){
   state.consumables = [];
   try{
     const DB = await waitForDB();
     if(!DB || !window.EquiDB) return;
-    const inv = await window.EquiDB.get('inventory', userId);
+    const inv = invDoc !== undefined ? invDoc : await window.EquiDB.get('inventory', userId);
     const items = (inv && inv.items) || [];
     for(const e of items){
       if(!e || !e.effect) continue;                 // only items with an authored effect
@@ -1042,11 +1044,13 @@ async function spendConsumable(userId, invId){
   return true;
 }
 
-async function mergeShopInventory(userId){
+// invDoc: pass the already-fetched inventory doc to skip a redundant read
+// (loadConsumables needs the exact same doc — see loadFromSheets).
+async function mergeShopInventory(userId, invDoc){
   try{
     const DB = await waitForDB();
     if(!DB || !window.EquiDB) return;
-    const inv = await window.EquiDB.get('inventory', userId);
+    const inv = invDoc !== undefined ? invDoc : await window.EquiDB.get('inventory', userId);
     const items = (inv && inv.items) || [];
     if(!items.length) return;
     if(!Array.isArray(state.tackInventory))   state.tackInventory=[];
@@ -1441,16 +1445,22 @@ async function loadFromSheets(){
   }
   try{
     const t0=performance.now();
-    const fb = await fbLoadAll(userId);
-    await loadGlobalBreeds();     // shared breeds/genes live in their own doc
+    // These four don't depend on each other's results, so run them together
+    // instead of one-after-another — this was the biggest chunk of the
+    // "why is this slow" wait, since each round trip has its own latency.
+    const [fb, , invDoc] = await Promise.all([
+      fbLoadAll(userId),
+      loadGlobalBreeds(),                          // shared breeds/genes live in their own doc
+      window.EquiDB.get('inventory', userId),       // fetched ONCE, shared below
+    ]);
     state.horses  = fb.horses||[];
     state.riders  = fb.riders||[];
     state.profile = fb.profile||null;
     state.log             = fb.state?.log || [];
     state.tackInventory   = fb.state?.tackInventory || [];
     state.attireInventory = fb.state?.attireInventory || [];
-    await mergeShopInventory(userId);   // fold in shop-bought tack/attire (with bonuses)
-    await loadConsumables(userId);      // load EXP/stat treats for the "Item used" picker
+    await mergeShopInventory(userId, invDoc);   // fold in shop-bought tack/attire (with bonuses)
+    await loadConsumables(userId, invDoc);      // load EXP/stat treats for the "Item used" picker — same doc, no second read
     state.horses.forEach(h=>{
       if(!h.artLog) h.artLog=[];
       // Normalisation that used to live in the Sheets loader — kept so horses
