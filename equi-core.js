@@ -168,6 +168,36 @@ window.EquiDB = {
   // legacyAccounts, linkedAccounts, notifications, etc — everything the
   // Railway bank server writes directly, without the owner/id/json
   // envelope). Returns each doc's actual fields plus its id.
+  // Like listAllFlat() but for a SUBcollection (e.g. forumThreads/{id}/replies).
+  async listSub(parentCol, parentId, subCol){
+    if(!db) return [];
+    const snap = await getDocs(collection(db, parentCol, String(parentId), subCol));
+    const out = [];
+    snap.forEach(d => out.push({ id: d.id, ...d.data() }));
+    return out;
+  },
+
+  // Auto-ID create in a subcollection. Returns the new doc's id, or null.
+  async addSub(parentCol, parentId, subCol, data){
+    if(!db) return null;
+    const { addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    const ref = await addDoc(collection(db, parentCol, String(parentId), subCol), data);
+    return ref.id;
+  },
+
+  // Merge-update one doc in a subcollection (edits, reactions, etc).
+  async updateSub(parentCol, parentId, subCol, docId, fields){
+    if(!db) return false;
+    await setDoc(doc(db, parentCol, String(parentId), subCol, String(docId)), fields, { merge: true });
+    return true;
+  },
+
+  async deleteSub(parentCol, parentId, subCol, docId){
+    if(!db) return false;
+    await deleteDoc(doc(db, parentCol, String(parentId), subCol, String(docId)));
+    return true;
+  },
+
   async listAllFlat(col){
     if(!db) return [];
     const snap = await getDocs(collection(db, col));

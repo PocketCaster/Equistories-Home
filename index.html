@@ -1336,7 +1336,7 @@ async function renderForumBoard(v, DB, who, boards){
       ${threads.filter(t=>t.pinned).map(t=>`
         <div class="linkbox" data-thread="${esc(t.id)}" style="cursor:pointer;border-color:var(--accent);">
           <b>📌 ${esc(t.title||'(untitled)')}</b>
-          <span class="small muted">by ${esc(t.owner||'?')}${premiumBadge(t.owner)} · ${forumWhen(t.createdAt)} · ${(t.replies||[]).length} repl${(t.replies||[]).length===1?'y':'ies'}${t.updatedAt&&t.updatedAt!==t.createdAt?` · last ${forumWhen(t.updatedAt)}`:''}</span>
+          <span class="small muted">by ${esc(t.owner||'?')}${premiumBadge(t.owner)} · ${forumWhen(t.createdAt)} · ${t.replyCount||0} repl${(t.replyCount||0)===1?'y':'ies'}${t.lastReplyAt?` · last reply by ${esc(t.lastReplyBy||'?')} ${forumWhen(t.lastReplyAt)}`:''}</span>
         </div>`).join("")}
     </div>` : ``}
     ${who ? `<div class="card">
@@ -1351,7 +1351,7 @@ async function renderForumBoard(v, DB, who, boards){
       ${threads.filter(t=>!t.pinned).length ? threads.filter(t=>!t.pinned).map(t=>`
         <div class="linkbox" data-thread="${esc(t.id)}" style="cursor:pointer;">
           <b>${esc(t.title||'(untitled)')}</b>
-          <span class="small muted">by ${esc(t.owner||'?')}${premiumBadge(t.owner)} · ${forumWhen(t.createdAt)} · ${(t.replies||[]).length} repl${(t.replies||[]).length===1?'y':'ies'}${t.updatedAt&&t.updatedAt!==t.createdAt?` · last ${forumWhen(t.updatedAt)}`:''}</span>
+          <span class="small muted">by ${esc(t.owner||'?')}${premiumBadge(t.owner)} · ${forumWhen(t.createdAt)} · ${t.replyCount||0} repl${(t.replyCount||0)===1?'y':'ies'}${t.lastReplyAt?` · last reply by ${esc(t.lastReplyBy||'?')} ${forumWhen(t.lastReplyAt)}`:''}</span>
         </div>`).join("") : `<p class="small muted">${threads.some(t=>t.pinned)?'No other threads yet.':'No threads yet.'} ${who?'Be the first to post.':'Sign in to start one.'}</p>`}
     </div>`;
 
@@ -1365,7 +1365,7 @@ async function renderForumBoard(v, DB, who, boards){
     if(!body){ $("ft_msg").textContent="Write something."; return; }
     const id="th_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
     const now=new Date().toISOString();
-    const rec={ id, boardId:board.id, owner:who.userId, title, body, createdAt:now, updatedAt:now, pinned:false, replies:[] };
+    const rec={ id, boardId:board.id, owner:who.userId, title, body, createdAt:now, updatedAt:now, pinned:false, replyCount:0 };
     $("ft_msg").textContent="Posting…";
     try{ await DB.put('forumThreads', id, who.userId, rec); __forumView={mode:"thread",boardId:board.id,threadId:id}; renderForum(v); }
     catch(err){ $("ft_msg").textContent="Failed: "+(err.message||err); }
@@ -1373,19 +1373,75 @@ async function renderForumBoard(v, DB, who, boards){
 }
 
 // ---- one thread: original post + replies + reply composer ----
+// Parses @username mentions out of a post body. Matches word-characters,
+// hyphens and underscores (covers every username style seen on this site).
+function extractMentions(text){
+  const found = new Set();
+  const re = /@([A-Za-z0-9_-]{2,24})/g;
+  let m; while((m = re.exec(text||""))) found.add(m[1]);
+  return [...found];
+}
+
+function reactionBar(reactions, who, onClick){
+  const EMOJIS = ['👍','❤️','😂','🎉','😮'];
+  reactions = reactions || {};
+  return `<div class="small" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+    ${EMOJIS.map(e=>{
+      const list = reactions[e]||[];
+      const mine = who && list.includes(who.userId);
+      return `<button class="ghost react-btn${mine?' active':''}" data-react="${e}" style="padding:2px 8px;font-size:.95em;${mine?'border-color:var(--accent,#c9a84c);':''}">${e}${list.length?` ${list.length}`:''}</button>`;
+    }).join("")}
+  </div>`;
+}
+
+async function toggleReaction(DB, path, current, emoji, who){
+  const reactions = { ...(current||{}) };
+  const list = new Set(reactions[emoji]||[]);
+  if(list.has(who.userId)) list.delete(who.userId); else list.add(who.userId);
+  reactions[emoji] = [...list];
+  if(reactions[emoji].length===0) delete reactions[emoji];
+  if(path.replyId){
+    await DB.updateSub('forumThreads', path.threadId, 'replies', path.replyId, { reactions });
+  } else {
+    await DB.put('forumThreads', path.threadId, path.owner, { ...path.threadData, reactions });
+  }
+  return reactions;
+}
+
 async function renderForumThread(v, DB, who, boards){
   let t=null; try{ t = await DB.get('forumThreads', __forumView.threadId); }catch(e){}
   if(!t){ __forumView={mode:"board",boardId:__forumView.boardId,threadId:null}; return renderForum(v); }
   const board = boards.find(b=>b.id===t.boardId) || {name:"Board",id:t.boardId};
   const admin = who && isAdminMember(who.userId);
-  const replies = t.replies||[];
 
-  const editing = __forumView.editing; // "OP", or a reply index as a string, or undefined
+  let replies = [];
+  try{ replies = (await DB.listSub('forumThreads', t.id, 'replies')).sort((a,b)=>new Date(a.createdAt||0)-new Date(b.createdAt||0)); }catch(e){}
 
-  const postBlock = (author, when, bodyRaw, which, canDelete, canEdit, editedAt)=>{
+  // Pull avatar/frame/badge for every author appearing in this thread, one
+  // batch of lookups instead of one per post.
+  const authorIds = [...new Set([t.owner, ...replies.map(r=>r.owner)])];
+  const authorProfiles = {};
+  await Promise.all(authorIds.map(async uid=>{
+    try{ authorProfiles[uid] = await DB.get('profiles', uid); }catch(e){}
+  }));
+  const authorLine = (uid)=>{
+    const p = authorProfiles[uid] || {};
+    const av = p.avatar ? framedImg(p.avatar, p.frame, 40, uid) : `<div style="width:40px;height:40px;border-radius:8px;background:var(--panel,#1a1410);display:flex;align-items:center;justify-content:center;flex:0 0 auto;">🐴</div>`;
+    return `<div style="display:flex;align-items:center;gap:8px;">
+      ${av}
+      <div>
+        <a href="index.html?player=${encodeURIComponent(uid)}" style="font-weight:600;">${esc(p.displayName||uid)}</a>${premiumBadge(uid)}${isAdminMember(uid)?' <span class="tag" style="background:var(--accent,#c9a84c);color:#1a1410;">admin</span>':''}
+      </div>
+    </div>`;
+  };
+
+  const editing = __forumView.editing; // "OP", or a reply id, or undefined
+
+  const postBlock = (uid, when, bodyRaw, which, canDelete, canEdit, editedAt, reactions, path)=>{
     if(editing===which){
       return `<div style="border:1px solid var(--accent,#c9a84c);border-radius:10px;padding:14px 16px;margin-bottom:12px;background:var(--panel,#140e07);">
-        <div class="small muted" style="margin-bottom:6px;">${esc(author||'?')}${premiumBadge(author)} · editing</div>
+        ${authorLine(uid)}
+        <div class="small muted" style="margin:4px 0 6px;">editing</div>
         <textarea id="fe_body_${which}" rows="5">${esc(bodyRaw||'')}</textarea>
         <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
           <button data-fesave="${which}">Save</button>
@@ -1397,9 +1453,11 @@ async function renderForumThread(v, DB, who, boards){
     const extra = (canEdit?` · <a href="#" data-editpost="${which}">edit</a>`:'')
                 + (canDelete?` · <a href="#" data-delpost="${which}" style="color:var(--bad);">delete</a>`:'');
     return `
-    <div style="border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px;background:var(--panel,#140e07);">
-      <div class="small muted" style="margin-bottom:6px;">${esc(author||'?')}${premiumBadge(author)} · ${forumWhen(when)}${editedAt?` · edited ${forumWhen(editedAt)}`:''}${extra}</div>
+    <div class="card forum-post" style="margin-bottom:12px;">
+      ${authorLine(uid)}
+      <div class="small muted" style="margin:4px 0 8px;">${forumWhen(when)}${editedAt?` · edited ${forumWhen(editedAt)}`:''}${extra}</div>
       <div style="line-height:1.55;">${forumFormat(bodyRaw)}</div>
+      ${who ? reactionBar(reactions, who) : ''}
     </div>`;
   };
 
@@ -1409,17 +1467,17 @@ async function renderForumThread(v, DB, who, boards){
       <button class="ghost" id="f_home">All boards</button>
     </div>
     <div class="card">
-      <h2>${t.pinned?'📌 ':''}${esc(t.title||'(untitled)')}</h2>
+      <h2 style="word-break:break-word;">${t.pinned?'📌 ':''}${esc(t.title||'(untitled)')}</h2>
       ${admin?`<div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="ghost" id="f_pin">${t.pinned?'Unpin':'📌 Pin'}</button>
         <button class="ghost" id="f_delthread" style="color:var(--bad);">Delete thread</button>
       </div>`:``}
-      ${postBlock(t.owner, t.createdAt, t.body, "OP", admin||(who&&who.userId===t.owner), who&&who.userId===t.owner, t.bodyEditedAt)}
-      ${replies.map((r,i)=>postBlock(r.owner, r.at, r.body, String(i), (admin||(who&&who.userId===r.owner)), who&&who.userId===r.owner, r.editedAt)).join("")}
     </div>
+    ${postBlock(t.owner, t.createdAt, t.body, "OP", admin||(who&&who.userId===t.owner), who&&who.userId===t.owner, t.bodyEditedAt, t.reactions, {threadId:t.id, owner:t.owner, threadData:t})}
+    ${replies.map(r=>postBlock(r.owner, r.createdAt, r.text, r.id, (admin||(who&&who.userId===r.owner)), who&&who.userId===r.owner, r.editedAt, r.reactions, {threadId:t.id, replyId:r.id})).join("")}
     ${who ? `<div class="card">
       <h3>Reply</h3>
-      <textarea id="fr_body" rows="4" placeholder="Write a reply…"></textarea>
+      <textarea id="fr_body" rows="4" placeholder="Write a reply… (use @username to mention someone)"></textarea>
       <div style="margin-top:8px;"><button id="fr_post">Post reply</button> <span id="fr_msg" class="small"></span></div>
     </div>` : `<div class="card"><span class="small muted">Sign in to reply.</span></div>`}`;
 
@@ -1430,6 +1488,7 @@ async function renderForumThread(v, DB, who, boards){
   v.querySelectorAll('[id^="fe_body_"]').forEach(ta=>attachRichToolbar(ta));
   v.querySelectorAll('[data-editpost]').forEach(a=>a.onclick=(ev)=>{ ev.preventDefault(); __forumView.editing=a.dataset.editpost; renderForum(v); });
   v.querySelectorAll('[data-fecancel]').forEach(b=>b.onclick=()=>{ __forumView.editing=null; renderForum(v); });
+
   v.querySelectorAll('[data-fesave]').forEach(b=>b.onclick=async()=>{
     const which=b.dataset.fesave;
     const ta=$("fe_body_"+which);
@@ -1437,27 +1496,45 @@ async function renderForumThread(v, DB, who, boards){
     const msgEl=$("fe_msg_"+which);
     if(!newBody){ if(msgEl) msgEl.textContent="Can't save an empty post."; return; }
     const now=new Date().toISOString();
-    if(which==="OP"){ t.body=newBody; t.updatedAt=now; t.bodyEditedAt=now; }
-    else { const i=Number(which); t.replies[i].body=newBody; t.replies[i].editedAt=now; t.updatedAt=now; }
     b.disabled=true; if(msgEl) msgEl.textContent="Saving…";
-    try{ await DB.put('forumThreads', t.id, t.owner, t); __forumView.editing=null; renderForum(v); }
-    catch(err){ if(msgEl) msgEl.textContent="Failed: "+(err.message||err); b.disabled=false; }
+    try{
+      if(which==="OP"){
+        await DB.put('forumThreads', t.id, t.owner, { ...t, body:newBody, updatedAt:now, bodyEditedAt:now });
+      } else {
+        await DB.updateSub('forumThreads', t.id, 'replies', which, { text:newBody, editedAt:now });
+      }
+      __forumView.editing=null; renderForum(v);
+    }catch(err){ if(msgEl) msgEl.textContent="Failed: "+(err.message||err); b.disabled=false; }
   });
+
   if($("fr_post")) $("fr_post").onclick=async()=>{
     const body=($("fr_body").value||"").trim();
     if(!body){ $("fr_msg").textContent="Write something."; return; }
-    const now=new Date().toISOString();
-    t.replies=t.replies||[]; t.replies.push({ owner:who.userId, body, at:now });
-    t.updatedAt=now;
     $("fr_msg").textContent="Posting…";
     try{
-      if(window.EquiAuth && window.EquiAuth.uid !== t.owner){ /* reply writes need the thread owner's doc; use a replies subwrite */ }
-      await DB.put('forumThreads', t.id, t.owner, t);
+      // Real reply doc in the subcollection now — this is the actual fix
+      // for replies to someone ELSE's thread failing to save at all.
+      await DB.addSub('forumThreads', t.id, 'replies', {
+        owner: who.userId, text: body, createdAt: new Date().toISOString()
+      });
+      // Bump thread metadata (allowed for any signed-in user under the
+      // reaction/meta-only rule) so the board list shows accurate activity.
+      try{
+        await DB.put('forumThreads', t.id, t.owner, {
+          ...t, replyCount: (replies.length+1), lastReplyAt: new Date().toISOString(), lastReplyBy: who.userId
+        });
+      }catch(e){ /* meta bump is best-effort, not critical if it fails */ }
+
+      // @mentions -> notify (best-effort; a failed notify shouldn't block the reply)
+      const token = await idToken();
+      for(const uname of extractMentions(body)){
+        try{ await railwayCall('/notifyMention', { idToken: token, body:{ toUserId: uname, threadId: t.id, threadTitle: t.title, boardId: t.boardId } }); }catch(e){}
+      }
       renderForum(v);
     }catch(err){ $("fr_msg").textContent="Failed: "+(err.message||err); }
   };
 
-  if($("f_pin")) $("f_pin").onclick=async()=>{ t.pinned=!t.pinned; try{ await DB.put('forumThreads', t.id, t.owner, t); renderForum(v);}catch(e){} };
+  if($("f_pin")) $("f_pin").onclick=async()=>{ try{ await DB.put('forumThreads', t.id, t.owner, {...t, pinned:!t.pinned}); renderForum(v);}catch(e){} };
   if($("f_delthread")) $("f_delthread").onclick=async()=>{
     if(!confirm("Delete this whole thread? This can't be undone.")) return;
     try{ await DB.remove('forumThreads', t.id); __forumView={mode:"board",boardId:t.boardId,threadId:null}; renderForum(v);}catch(e){}
@@ -1470,9 +1547,24 @@ async function renderForumThread(v, DB, who, boards){
       try{ await DB.remove('forumThreads', t.id); __forumView={mode:"board",boardId:t.boardId,threadId:null}; renderForum(v);}catch(e){}
     } else {
       if(!confirm("Delete this reply?")) return;
-      const i=Number(which); t.replies.splice(i,1);
-      try{ await DB.put('forumThreads', t.id, t.owner, t); renderForum(v);}catch(e){}
+      try{ await DB.deleteSub('forumThreads', t.id, 'replies', which); renderForum(v);}catch(e){}
     }
+  });
+
+  // Reaction buttons — every post, OP included.
+  v.querySelectorAll('.forum-post').forEach((card, idx)=>{
+    if(!who) return;
+    const isOP = idx===0;
+    const path = isOP ? {threadId:t.id, owner:t.owner, threadData:t} : {threadId:t.id, replyId: replies[idx-1] && replies[idx-1].id};
+    const currentReactions = isOP ? t.reactions : (replies[idx-1] && replies[idx-1].reactions);
+    card.querySelectorAll('[data-react]').forEach(btn=>btn.onclick=async()=>{
+      btn.disabled=true;
+      try{
+        const updated = await toggleReaction(DB, path, currentReactions, btn.dataset.react, who);
+        if(isOP) t.reactions = updated; else replies[idx-1].reactions = updated;
+        renderForum(v);
+      }catch(e){ btn.disabled=false; }
+    });
   });
 }
 
