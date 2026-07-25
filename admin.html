@@ -353,9 +353,16 @@ async function boot(){
     else alert("Failed to save set.");
   };
 
-  // ---- Item Override: search + edit ANY shop item ----
+  // ---- Item Override: search + edit ANY item — real shop items AND the
+  // migrated ILB Emporium catalog (two different storage shapes, see
+  // listAll vs listAllFlat in equi-core.js). Tagged with __src so the save
+  // handler knows which write path to use for each.
   let allItems = [];
-  try{ allItems = await EquiDB.listAll('shopItems'); }catch(e){}
+  try{
+    const shopItems = (await EquiDB.listAll('shopItems')).map(it => ({ ...it, __src: 'shopItems' }));
+    const catalogItems = (await EquiDB.listAllFlat('items')).map(it => ({ ...it, __src: 'items', __owner: 'ILB Emporium catalog' }));
+    allItems = [...shopItems, ...catalogItems];
+  }catch(e){ console.error('[Admin] item load failed:', e); }
 
   function renderItemResults(filterText){
     const box = $("a_itemResults");
@@ -364,10 +371,10 @@ async function boot(){
       String(it.name||"").toLowerCase().includes(q) || String(it.__owner||"").toLowerCase().includes(q)
     ).slice(0, 30);
 
-    if(!q){ box.innerHTML = `<p class="small muted">Type to search ${allItems.length} items across all shops.</p>`; return; }
+    if(!q){ box.innerHTML = `<p class="small muted">Type to search ${allItems.length} items (shops + migrated catalog).</p>`; return; }
     box.innerHTML = matches.length ? matches.map(it=>`
       <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid var(--equi-line,#333);border-radius:6px;padding:6px 10px;margin-bottom:4px;">
-        <span class="small">${esc(it.name)} <span class="muted">— ${esc(it.category||'')} · shop: ${esc(it.__owner||'?')}</span></span>
+        <span class="small">${esc(it.name)} <span class="muted">— ${esc(it.category||'')} · ${esc(it.__owner||'?')}</span></span>
         <button class="ghost" data-edititem="${esc(it.id)}" style="padding:3px 10px;">Edit</button>
       </div>`).join("") : `<p class="small muted">No matches.</p>`;
 
@@ -384,10 +391,11 @@ async function boot(){
     const stats = item.stats || {};
     box.innerHTML = `
       <div style="border:1px solid var(--equi-line,#333);border-radius:8px;padding:12px;">
-        <h4 style="margin-top:0;">Editing: ${esc(item.name)} <span class="small muted">(shop: ${esc(item.__owner||'?')})</span></h4>
+        <h4 style="margin-top:0;">Editing: ${esc(item.name)} <span class="small muted">(${esc(item.__owner||'?')})</span></h4>
         <label class="small">Name</label><input id="ie_name" value="${esc(item.name||'')}" />
         <label class="small">Category</label><input id="ie_cat" value="${esc(item.category||'')}" />
-        <label class="small">Description</label><textarea id="ie_desc" rows="2">${esc(item.description||'')}</textarea>
+        <label class="small">Image URL</label><input id="ie_image" value="${esc(item.image||item.imageUrl||'')}" placeholder="https://…" />
+        <label class="small">Description</label><textarea id="ie_desc" rows="2">${esc(item.description||item.desc||'')}</textarea>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
           <div><label class="small">Price (✦)</label><input id="ie_price" type="number" value="${Number(item.price)||0}" /></div>
           <div><label class="small">Active</label><select id="ie_active"><option value="true" ${item.active!==false?'selected':''}>Yes</option><option value="false" ${item.active===false?'selected':''}>No</option></select></div>
@@ -418,27 +426,51 @@ async function boot(){
       $("ie_status").textContent = "Saving…";
       const newStats = {};
       STATS.forEach(s=>{ const v=Number($("ie_stat_"+s).value)||0; if(v!==0) newStats[s]=v; });
-      const updated = { ...item,
-        name: $("ie_name").value.trim(),
-        category: $("ie_cat").value.trim(),
-        description: $("ie_desc").value,
-        price: Number($("ie_price").value)||0,
-        active: $("ie_active").value === "true",
-        stats: newStats,
-        exp: Number($("ie_exp").value)||0,
-        pp: Number($("ie_pp").value)||0,
-        uses: Number($("ie_uses").value)||0,
-        setId: $("ie_setId").value || undefined,
-      };
-      delete updated.__owner; // hoisted field, not part of the json blob
-      // IMPORTANT: preserve the item's ORIGINAL owner (its shop), not the
-      // admin's own uid — the admin is editing the item, not taking it over.
-      const ok = await EquiDB.put('shopItems', item.id, item.__owner, updated);
-      $("ie_status").textContent = ok ? "Saved." : "Failed — check the console.";
-      if(ok){
-        const idx = allItems.findIndex(i=>i.id===item.id);
-        if(idx>-1) allItems[idx] = { ...updated, id:item.id, __owner:item.__owner };
+      const imageVal = $("ie_image").value.trim();
+
+      let ok;
+      if(item.__src === 'items'){
+        // Migrated catalog item — flat schema, direct field write.
+        // NOTE: editing the catalog does NOT retroactively change items
+        // already granted to players (those are self-contained copies) —
+        // this only affects future grants from this catalog entry.
+        ok = await EquiDB.setFlat('items', item.id, {
+          name: $("ie_name").value.trim(),
+          category: $("ie_cat").value.trim(),
+          imageUrl: imageVal,
+          description: $("ie_desc").value,
+          active: $("ie_active").value === "true",
+          stats: newStats,
+          exp: Number($("ie_exp").value)||0,
+        });
+        if(ok){
+          const idx = allItems.findIndex(i=>i.id===item.id);
+          if(idx>-1) allItems[idx] = { ...allItems[idx], name:$("ie_name").value.trim(), category:$("ie_cat").value.trim(), imageUrl:imageVal, stats:newStats };
+        }
+      } else {
+        const updated = { ...item,
+          name: $("ie_name").value.trim(),
+          category: $("ie_cat").value.trim(),
+          image: imageVal,
+          description: $("ie_desc").value,
+          price: Number($("ie_price").value)||0,
+          active: $("ie_active").value === "true",
+          stats: newStats,
+          exp: Number($("ie_exp").value)||0,
+          pp: Number($("ie_pp").value)||0,
+          uses: Number($("ie_uses").value)||0,
+          setId: $("ie_setId").value || undefined,
+        };
+        delete updated.__owner; delete updated.__src; // hoisted/meta fields, not part of the json blob
+        // IMPORTANT: preserve the item's ORIGINAL owner (its shop), not the
+        // admin's own uid — the admin is editing the item, not taking it over.
+        ok = await EquiDB.put('shopItems', item.id, item.__owner, updated);
+        if(ok){
+          const idx = allItems.findIndex(i=>i.id===item.id);
+          if(idx>-1) allItems[idx] = { ...updated, id:item.id, __owner:item.__owner, __src:'shopItems' };
+        }
       }
+      $("ie_status").textContent = ok ? "Saved." : "Failed — check the console.";
     };
   }
 }
