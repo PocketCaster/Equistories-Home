@@ -1427,6 +1427,7 @@ async function loadFromSheets(){
       fbLoadAll(userId),
       loadGlobalBreeds(),                          // shared breeds/genes live in their own doc
       window.EquiDB.get('inventory', userId),       // fetched ONCE, shared below
+      loadPremiumCache(window.EquiDB).catch(()=>{}), // needed for horse/rider profile customization gating
     ]);
     state.horses  = fb.horses||[];
     state.riders  = fb.riders||[];
@@ -2753,6 +2754,12 @@ function showRiderProfileModal(riderId){
     ${field('rm_link','Reference / Profile Sheet Link (optional)',r.link,'https://…')}
     ${pp>=100?field('rm_title','Custom Prestige Title (100+ PP)',r.customTitle,'Your awarded title'):''}
     ${field('rm_bio','Bio',r.bio,'Name, age, occupation, personality, backstory…','textarea')}
+    ${isPremiumMember(bankAccount.userId) ? `
+      <div style="margin-top:6px;border-top:1px solid var(--equi-line);padding-top:10px;">
+        <label style="font-size:.98em;color:var(--equi-accent);text-transform:uppercase;display:block;">Custom CSS <span style="color:var(--equi-brass-light);">&#9733; Premium</span></label>
+        <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.rider-profile-custom</code> so your styling stays on this rider's page. Hooks: <code>.pcard</code>, <code>h3</code>.</div>
+        <textarea id="rm_css" rows="6" placeholder=".rider-profile-custom .pcard{ background:#1a1006; }" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;box-sizing:border-box;font-family:monospace;font-size:.85em;">${escAttr(r.customCss||'')}</textarea>
+      </div>` : ''}
     <button id="rm_save" style="width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Save</button>
     <button id="rm_cancel" style="margin-top:8px;width:100%;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);padding:10px;border-radius:6px;cursor:pointer;font-size:1.1em;">Cancel</button>
     <div id="rm_status" style="margin-top:8px;font-size:.92em;color:var(--equi-dim);text-align:center;min-height:1.2em;"></div>
@@ -2774,6 +2781,8 @@ function showRiderProfileModal(riderId){
       r.link     = overlay.querySelector('#rm_link').value.trim();
       r.bio      = overlay.querySelector('#rm_bio').value.trim();
       const t=overlay.querySelector('#rm_title'); if(t) r.customTitle=t.value.trim();
+      const cssField = overlay.querySelector('#rm_css');
+      if(cssField) r.customCss = cssField.value;
       await saveRider(r); await save();
       overlay.remove(); render();
     }catch(err){
@@ -2838,8 +2847,9 @@ function renderRiderProfilePage(app, rider){
       .artlog-entry { padding:10px 0; border-bottom:1px dashed var(--equi-raised); }
       .artlog-entry:last-child { border-bottom:none; }
     </style>
+    ${(state.riders.some(x=>x.id===rider.id) && isPremiumMember(bankAccount.userId) && rider.customCss) ? `<style>${sanitizeShopCss(rider.customCss)}</style>` : ''}
 
-    <div style="width:100%;margin:0 auto;padding:clamp(16px,3vw,32px);">
+    <div class="rider-profile-custom" style="width:100%;margin:0 auto;padding:clamp(16px,3vw,32px);">
       <div style="margin-bottom:12px;"><span data-act="back-from-rider" style="color:var(--equi-accent);text-decoration:none;cursor:pointer;">\u2190 Back to Stable Manager</span></div>
 
       <div class="pcard">
@@ -9032,8 +9042,9 @@ function renderHorseProfilePage(app, h){
       .worth-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--equi-raised); font-size:1.04em; }
       .worth-row:last-child { border-bottom:none; font-weight:bold; color:var(--equi-accent); }
     </style>
+    ${(isPremiumMember(h.owner||h.ownerName) && h.customCss) ? `<style>${sanitizeShopCss(h.customCss)}</style>` : ''}
 
-    <div style="width:100%;margin:0 auto;padding:clamp(16px,3vw,32px);">
+    <div class="horse-profile-custom" style="width:100%;margin:0 auto;padding:clamp(16px,3vw,32px);">
       <div style="margin-bottom:12px;"><span data-act="back-to-roster" style="color:var(--equi-accent);text-decoration:none;cursor:pointer;">← Back to Stable Manager</span></div>
 
       <div class="pcard">
@@ -9240,6 +9251,12 @@ function showProfileModal(horseId){
     ${field('pm_stablelink','Stable Link (optional)',h.stableLink,'https://…')}
     ${field('pm_personality','Personality',h.personality,'Describe this horse - personality, quirks, and character...','textarea')}
     ${field('pm_history','History',h.horseHistory,'Background story, significant events, journey so far…','textarea')}
+    ${isPremiumMember(h.owner||h.ownerName||bankAccount.userId) ? `
+      <div style="margin-top:6px;border-top:1px solid var(--equi-line);padding-top:10px;">
+        <label style="font-size:.98em;color:var(--equi-accent);text-transform:uppercase;display:block;">Custom CSS <span style="color:var(--equi-brass-light);">&#9733; Premium</span></label>
+        <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.horse-profile-custom</code> so your styling stays on this horse's page. Hooks: <code>.pcard</code>, <code>h3</code>.</div>
+        <textarea id="pm_css" rows="6" placeholder=".horse-profile-custom .pcard{ background:#1a1006; }" style="width:100%;padding:7px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;box-sizing:border-box;font-family:monospace;font-size:.85em;">${escAttr(h.customCss||'')}</textarea>
+      </div>` : ''}
     <button id="pm_save" style="width:100%;background:var(--equi-accent);color:var(--equi-panel);border:none;padding:10px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1.1em;">Save</button>
     <button id="pm_cancel" style="margin-top:8px;width:100%;background:var(--equi-raised);color:var(--equi-text);border:1px solid var(--equi-line);padding:10px;border-radius:6px;cursor:pointer;font-size:1.1em;">Cancel</button>
     <div id="pm_status" style="margin-top:8px;font-size:.92em;color:var(--equi-dim);text-align:center;min-height:1.2em;"></div>
@@ -9272,6 +9289,8 @@ function showProfileModal(horseId){
       h.stableLink = overlay.querySelector('#pm_stablelink').value.trim();
       h.personality  = overlay.querySelector('#pm_personality').value.trim();
       h.horseHistory = overlay.querySelector('#pm_history').value.trim();
+      const cssField = overlay.querySelector('#pm_css');
+      if(cssField) h.customCss = cssField.value;
       // Save the horse record and the shared stable state in parallel —
       // they're independent writes, so there's no need to wait on one
       // before starting the other. Roughly halves the worst-case wait

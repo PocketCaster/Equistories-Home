@@ -27,37 +27,44 @@
   body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--equi-serif); line-height:1.6; }
   a{ color:var(--accent); }
 
-  /* Two new decorative frames, self-contained (no dependency on the external
-     stylesheet where the other frame styles live, so these work regardless
-     of what's in equi-components.css). Applied via framedImg()'s existing
-     equi-frame--{name} class pattern. */
-  .equi-frame--floral{
-    position:relative; border-radius:50%; overflow:visible;
+  /* Two new decorative frames, fully standalone — deliberately NOT sharing
+     the "equi-frame" base class (see frameClass() comment), so nothing from
+     the external stylesheet can conflict with their shape/border again. */
+  .equi-frame-standalone--floral{
+    display:inline-block; position:relative; border-radius:50%; overflow:visible;
     border:3px solid #e8a8c0; box-shadow:0 0 0 2px var(--panel,#1a130c);
+    box-sizing:border-box;
   }
-  .equi-frame--floral img,
-  .equi-frame--floral > div{ border-radius:50%; }
-  .equi-frame--floral::before{
+  .equi-frame-standalone--floral img,
+  .equi-frame-standalone--floral > div{ width:100%; height:100%; border-radius:50%; display:block; }
+  .equi-frame-standalone--floral::before{
     content:"🌸"; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%);
     font-size:1.4em; filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));
   }
-  .equi-frame--floral::after{
+  .equi-frame-standalone--floral::after{
     content:"🌿"; position:absolute; bottom:-4px; left:20%;
     font-size:1.1em; transform:rotate(-20deg); filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));
   }
 
-  .equi-frame--starburst{
-    position:relative; border-radius:50%; overflow:visible;
+  .equi-frame-standalone--starburst{
+    display:inline-block; position:relative; border-radius:50%; overflow:visible;
     border:3px dashed #c9a84c; box-shadow:0 0 0 2px var(--panel,#1a130c);
+    box-sizing:border-box;
   }
-  .equi-frame--starburst img,
-  .equi-frame--starburst > div{ border-radius:50%; }
-  .equi-frame--starburst::before{
+  .equi-frame-standalone--starburst img,
+  .equi-frame-standalone--starburst > div{ width:100%; height:100%; border-radius:50%; display:block; }
+  .equi-frame-standalone--starburst::before{
     content:"✦"; position:absolute; top:-10px; right:-4px; font-size:1.1em; color:#e8c766;
   }
-  .equi-frame--starburst::after{
+  .equi-frame-standalone--starburst::after{
     content:"✧"; position:absolute; bottom:-8px; left:-6px; font-size:1em; color:#e8c766;
   }
+
+  /* Preserve line breaks/spacing exactly as typed in the About text (and
+     status updates / forum posts, same principle) — without this, plain
+     browser text-flow collapses consecutive newlines and spaces into one,
+     which is what was flattening a typed list into a single line. */
+  .profile-about-body{ white-space:pre-wrap; }
 
   /* header styling lives in equi-shell.css (.equi-hd) — one definition only */
   /* .wrap geometry lives in equi-shell.css, shared by all pages */
@@ -825,9 +832,16 @@ const EQUI_FRAMES = [
   ["none","No frame"], ["brass","Brass"], ["rope","Rope"], ["ribbon","Ribbon"],
   ["rosette","Rosette"], ["plaque","Plaque"], ["moss","Moss"], ["plum","Plum"],
   ["vignette","Vignette"], ["polaroid","Polaroid"],
-  ["floral","Floral (pastel)"], ["starburst","Starburst"],
+  ["starburst","Starburst"],
 ];
 function frameClass(name){
+  // The two newest frames (floral, starburst) are fully self-contained —
+  // they deliberately do NOT include the shared "equi-frame" base class.
+  // That base class (defined in the external stylesheet) was fighting with
+  // their circular shape/border, which is what caused the stray line
+  // artifact through the middle of the frame. Standalone class = zero
+  // chance of conflicting with anything else on the site.
+  if(name==='floral' || name==='starburst') return 'equi-frame-standalone equi-frame-standalone--' + name;
   const ok = EQUI_FRAMES.some(f=>f[0]===name);
   return "equi-frame equi-frame--" + (ok ? name : "none");
 }
@@ -3340,38 +3354,12 @@ const SHOP_THEME_DEFAULTS = { accent:"#d29a3e", panel:"#140e07", head:"#c9a84c" 
 // perk: custom shop look, multiple shops, profile CSS, the name badge, and the
 // higher stat-gear cap. Admins (ADMIN_MEMBERS, from equi-constants.js) are
 // premium + uncapped.
-const PREMIUM_MEMBERS = ["PocketCaster"];
-// ADMIN_MEMBERS / isAdminMember() now come from equi-constants.js — do NOT
-// redeclare them here, `const` redeclaration across script tags throws and
-// breaks the whole page.
+// PREMIUM_MEMBERS, isPremiumMember(), gearStatCap(), premiumBadge(),
+// sanitizeShopCss(), sanitizeShopHtml() now come from equi-constants.js —
+// shared with Stable Manager, which uses the same checks for horse/rider
+// profile customization. Do NOT redeclare them here.
 // Back-compat alias — old code referenced PREMIUM_SHOP_OWNERS.
 const PREMIUM_SHOP_OWNERS = PREMIUM_MEMBERS;
-// Premium status = on the permanent list OR holding an unexpired premiumUntil
-// date (granted by the Ko-fi service). We cache the stored dates so these checks
-// can stay synchronous everywhere they're already used.
-const __premiumCache = {};   // userId -> premiumUntil (ms)
-async function loadPremiumCache(DB){
-  try{
-    const recs = await DB.listAll('premiumMembers');
-    recs.forEach(r=>{
-      const uid = r.__owner || r.__id || (r.userId);
-      const until = Number(r.premiumUntil)||0;
-      if(uid) __premiumCache[uid] = until;
-    });
-  }catch(e){ /* premium store may not exist yet — that's fine */ }
-}
-function hasActiveStoredPremium(uid){
-  const until = __premiumCache[uid];
-  return !!until && until > Date.now();
-}
-function isPremiumMember(uid){ return !!uid && (PREMIUM_MEMBERS.includes(uid) || hasActiveStoredPremium(uid)); }
-// Per-stat gear cap: regular +2, premium +3, admin unlimited.
-function gearStatCap(uid){ return isAdminMember(uid) ? Infinity : (isPremiumMember(uid) ? 3 : 2); }
-// A small crown badge shown beside premium members' names across the hub.
-function premiumBadge(uid){
-  if(!isPremiumMember(uid)) return "";
-  return ` <span title="Premium member" style="display:inline-block;font-size:.85em;color:var(--equi-brass-light);vertical-align:baseline;">&#128081;</span>`;
-}
 // A friendly status line for the signed-in member: shows premium expiry (or
 // "permanent" for the list) if active, otherwise a gentle invite to support.
 function premiumStatusLine(uid){
@@ -3385,37 +3373,6 @@ function premiumStatusLine(uid){
     return `<div class="small" style="color:var(--equi-brass-light);margin-top:2px;">&#128081; Premium active — ${days} day${days===1?'':'s'} left (until ${dateStr}). Renew anytime; early renewals add on.</div>`;
   }
   return `<div class="small muted" style="margin-top:2px;">Not premium. <a href="https://ko-fi.com/" target="_blank" style="color:var(--accent);">Support EquiStories</a> to unlock the crown, custom shop looks, multiple shops, and +3 gear. Enter your User ID <b>${esc(uid)}</b> at checkout.</div>`;
-}
-
-// Premium storefronts let owners style the WHOLE page, but safely: their CSS and
-// wrapper HTML are sanitized so nothing can run script or break out of the shop.
-// (The buy buttons are always real hub markup, so buying is never their code.)
-function sanitizeShopCss(css){
-  css = String(css||"");
-  // No closing the style tag, no javascript: urls, no expression()/behavior
-  // (legacy IE script vectors), no bindings.
-  if(/<\/?\s*style/i.test(css)) return "";
-  // @import is a data-exfil / external-fetch vector in general, BUT font
-  // imports from Google Fonts are safe (they load fonts, can't run script), so
-  // we allow ONLY those and strip any other @import.
-  css = css.replace(/@import\s+url\(\s*['"]?(https:\/\/fonts\.googleapis\.com\/[^)'"]*)['"]?\s*\)\s*;?/gi,
-                    (m,u)=>`@import url('${u}');`);
-  css = css.replace(/@import(?!\s+url\(\s*['"]?https:\/\/fonts\.googleapis\.com\/)[^;]*;?/gi, "");
-  css = css.replace(/url\(\s*['"]?\s*javascript:[^)]*\)/gi, "url()");
-  css = css.replace(/expression\s*\(/gi, "(");
-  css = css.replace(/-moz-binding[^;]*;?/gi, "");
-  css = css.replace(/behavior\s*:[^;]*;?/gi, "");
-  return css;
-}
-function sanitizeShopHtml(html){
-  html = String(html||"");
-  // Strip anything that could execute: script/iframe/object/embed/link/meta tags,
-  // on* event attributes, and javascript: URLs. Pure layout/markup survives.
-  html = html.replace(/<\s*(script|iframe|object|embed|link|meta|base|form)\b[^>]*>/gi, "");
-  html = html.replace(/<\s*\/\s*(script|iframe|object|embed|link|meta|base|form)\s*>/gi, "");
-  html = html.replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-  html = html.replace(/(href|src)\s*=\s*(["']?)\s*javascript:[^"'>\s]*\2/gi, '$1="#"');
-  return html;
 }
 
 function shopThemeVars(t){
