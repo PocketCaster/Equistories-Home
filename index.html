@@ -1008,7 +1008,7 @@ async function renderMemberProfile(v, uid){
     </div>`;
 
   const headerHtml = p.banner
-    ? `<div style="position:relative;border-radius:12px 12px 0 0;overflow:hidden;margin:-16px -16px 0;padding:22px 16px;">
+    ? `<div style="position:relative;border-radius:12px 12px 0 0;overflow:hidden;margin:-16px -16px 0;padding:60px 16px 24px;min-height:220px;">
         <img src="${__esc(p.banner)}" referrerpolicy="no-referrer" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;" />
         <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(15,10,6,.1) 0%, rgba(15,10,6,.55) 100%);z-index:1;"></div>
         <div style="position:relative;z-index:2;">${headerInnerHtml}</div>
@@ -1076,14 +1076,18 @@ async function renderMemberProfile(v, uid){
         `<a class="tag" href="${__esc(l.url)}" target="_blank" rel="noopener" style="margin:2px;">${__esc(l.label||l.url)} &#8599;</a>`).join(" ");
       const aboutHtml = p.about ? sanitizeShopHtml(p.about) : "";
 
-      const featCard = (title, item, appQuery)=> item ? `
+      const featCard = (title, item, appQuery)=>{
+        if(!item) return '';
+        const photo = imgOk(item.profileImage) ? item.profileImage : (imgOk(item.image) ? item.image : '');
+        return `
         <a class="linkbox" href="${APPS.stable}?${appQuery}=${encodeURIComponent(item.id)}" style="display:block;">
           <div class="small muted" style="margin-bottom:4px;">&#10022; featured ${title}</div>
           <div style="display:flex;gap:10px;align-items:center;">
-            ${item.image?`<img src="${__esc(item.image)}" referrerpolicy="no-referrer" style="width:56px;height:56px;object-fit:cover;border-radius:8px;" />`:''}
+            ${photo?`<img src="${__esc(photo)}" referrerpolicy="no-referrer" style="width:56px;height:56px;object-fit:cover;border-radius:8px;" />`:''}
             <b>${__esc(item.name||'Unnamed')}</b>
           </div>
-        </a>` : '';
+        </a>`;
+      };
 
       body.innerHTML = `
         <div class="card">
@@ -1101,9 +1105,10 @@ async function renderMemberProfile(v, uid){
     else if(__profileTab==="Horses"){
       const horseCards = mine.length ? mine.map(h=>{
         const artCount = Array.isArray(h.artLog) ? h.artLog.length : 0;
+        const photo = imgOk(h.profileImage) ? h.profileImage : (imgOk(h.image) ? h.image : '');
         return `<a class="linkbox" href="${APPS.stable}?horse=${encodeURIComponent(h.id)}" style="display:block;padding:0;overflow:hidden;">
-          ${h.image
-            ? `<div style="aspect-ratio:1;overflow:hidden;"><img src="${__esc(h.image)}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;" /></div>`
+          ${photo
+            ? `<div style="aspect-ratio:1;overflow:hidden;"><img src="${__esc(photo)}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;" /></div>`
             : `<div style="aspect-ratio:1;background:var(--deep,#2a2015);display:flex;align-items:center;justify-content:center;font-size:2em;color:var(--dim,#6a5a44);">&#128052;</div>`}
           <div style="padding:10px 12px;">
             <div style="font-weight:bold;color:var(--text,#f0d9a0);">${__esc(h.name||'Unnamed')}</div>
