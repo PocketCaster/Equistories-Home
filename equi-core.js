@@ -163,6 +163,27 @@ window.EquiDB = {
     return out;
   },
 
+  // Like listAll(), but for the OTHER collection shape used on this site —
+  // flat documents with real fields (bankAccounts, businesses, items,
+  // legacyAccounts, linkedAccounts, notifications, etc — everything the
+  // Railway bank server writes directly, without the owner/id/json
+  // envelope). Returns each doc's actual fields plus its id.
+  async listAllFlat(col){
+    if(!db) return [];
+    const snap = await getDocs(collection(db, col));
+    const out = [];
+    snap.forEach(d => out.push({ id: d.id, ...d.data() }));
+    return out;
+  },
+
+  // Write to a flat-schema doc (see listAllFlat above). merge:true by
+  // default so a partial update doesn't wipe fields you didn't pass.
+  async setFlat(col, id, fields){
+    if(!db) return false;
+    await setDoc(doc(db, col, String(id)), fields, { merge: true });
+    return true;
+  },
+
   // Raw rows including hoisted fields, for diagnostics — listAll() only
   // returns the parsed json, which hides the very fields a query matches on.
   async listAllRaw(col){
