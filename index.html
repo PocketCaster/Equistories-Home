@@ -1210,6 +1210,11 @@ async function renderMemberProfile(v, uid){
 async function renderStatusUpdates(body, DB, profileUid, who, isSelf){
   let posts = [];
   try{ posts = (await DB.listAll('statusUpdates')).filter(p=>p.owner===profileUid); }catch(e){}
+  // __id is the real Firestore document id (always correct); id is whatever
+  // was in the saved payload, which was missing entirely for posts made
+  // before this fix. Preferring __id here repairs those old posts too,
+  // instead of only fixing deletes for posts created from now on.
+  posts.forEach(p=>{ if(p.__id) p.id = p.__id; });
   posts.sort((a,b)=> new Date(b.createdAt||0) - new Date(a.createdAt||0));
 
   body.innerHTML = `
@@ -1223,9 +1228,10 @@ async function renderStatusUpdates(body, DB, profileUid, who, isSelf){
     const text = ($("su_body").value||"").trim();
     if(!text){ $("su_msg").textContent = "Write something first."; return; }
     $("su_msg").textContent = "Posting…";
+    const postId = 'su_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
     try{
-      await DB.put('statusUpdates', 'su_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), who.userId, {
-        owner: who.userId, text, createdAt: new Date().toISOString()
+      await DB.put('statusUpdates', postId, who.userId, {
+        id: postId, owner: who.userId, text, createdAt: new Date().toISOString()
       });
       const token = await idToken();
       for(const uname of extractMentions(text)){
