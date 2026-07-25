@@ -276,6 +276,14 @@ async function waitForDB(ms=8000){
 function me(){
   return equiSession(); // from equi-constants.js — same localStorage key, one implementation
 }
+// Fetches a fresh Firebase idToken for calling the Railway bank server.
+// MUST be global: it's called from status updates, forum @mentions, sign-in/
+// linking, transfers, deposits, business payments — everywhere railwayCall()
+// is used. It used to be defined only inside renderBank(), so every one of
+// those other call sites threw "idToken is not defined" the moment they ran
+// (the status-update/forum-mention ones swallowed it as a generic "Failed:"
+// message; sign-in showed it as "Couldn't reach the bank server").
+async function idToken(){ try{ await window.EquiAuth.ready; return await window.EquiAuth.token(); }catch(e){ return null; } }
 
 // So people show up on the Members list the moment they sign in, even if they've
 // never opened the Stable Manager to fill out a profile. Only creates a stub —
@@ -632,7 +640,9 @@ async function renderBank(v){
   const say=(id,m,kind)=>{ const el=$(id); if(!el) return;
     el.style.color = kind==='good'?'var(--good)':kind==='bad'?'var(--bad)':'var(--dim)'; el.textContent=m; };
 
-  async function idToken(){ try{ await window.EquiAuth.ready; return await window.EquiAuth.token(); }catch(e){ return null; } }
+  // idToken() is now global (defined near the top of the file) — this used
+  // to be a local copy shadowing it, which is why nothing outside renderBank()
+  // could see it.
 
   async function loadBalance(){
     $("bkBalance").textContent = '…';
@@ -1249,7 +1259,8 @@ async function renderStatusUpdates(body, DB, profileUid, who, isSelf){
 
   list.querySelectorAll('[data-delstatus]').forEach(el=>el.onclick=async()=>{
     if(!confirm("Delete this status update?")) return;
-    try{ await DB.remove('statusUpdates', el.dataset.delstatus); renderStatusUpdates(body, DB, profileUid, who, isSelf); }catch(e){}
+    try{ await DB.remove('statusUpdates', el.dataset.delstatus); renderStatusUpdates(body, DB, profileUid, who, isSelf); }
+    catch(e){ alert("Couldn't delete: "+((e&&e.message)||e)); }
   });
 
   list.querySelectorAll('.status-post').forEach(card=>{
