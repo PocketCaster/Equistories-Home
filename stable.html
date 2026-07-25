@@ -584,11 +584,8 @@ function calcLitExp(wc){
 const SHOW_EARNING_VALUES = {1:1000, 2:500, 3:250};
 const SHOW_EARNING_OTHER = 100;
 
-// OLD APPS SCRIPT bank URL — still used by gasPost() below for whatever
-// hasn't been ported to Railway yet (nothing in THIS file currently, but
-// kept for parity/rollback safety). railwayCall()/upgradeToOwnerSession()
-// now come from equi-bank.js.
-const BANK_URL = 'https://script.google.com/macros/s/AKfycby9WLxUPDAPg9EH5aTPATzTkHd8XeSKXuQ0WYqyQoHusEbws85qxwaML6cSovDod80/exec';
+// Apps Script bank fully retired — railwayCall()/upgradeToOwnerSession()
+// (from equi-bank.js) handle everything this file needs from the bank.
 
 // FIRESTORE-ONLY: the Google Sheets "Stable Data" backend is retired.
 // STABLE_URL stays as an (empty) variable so every legacy `if(!STABLE_URL)
@@ -775,32 +772,10 @@ function stableGas(payload, urlOverride){
   });
 }
 
-function gasPost(payload){
-  return new Promise(resolve=>{
-    const cb='gCb_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
-    const url=BANK_URL+'?callback='+cb+'&data='+encodeURIComponent(JSON.stringify(payload));
-    const s=document.createElement('script');
-    let done=false;
-    window[cb]=(data)=>{ done=true; delete window[cb]; try{document.head.removeChild(s);}catch(e){} resolve(data); };
-    s.onerror=()=>{ if(!done){done=true;delete window[cb];try{document.head.removeChild(s);}catch(e){} resolve({success:false,error:'Network error'});} };
-    setTimeout(()=>{ if(!done){done=true;delete window[cb];try{document.head.removeChild(s);}catch(e){} resolve({success:false,error:'Timed out'});} },12000);
-    s.src=url; document.head.appendChild(s);
-  });
-}
-
-function gasGet(params){
-  return new Promise(resolve=>{
-    const cb='ggCb_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
-    const qs=Object.entries(params).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
-    const url=BANK_URL+'?'+qs+'&callback='+cb;
-    const s=document.createElement('script');
-    let done=false;
-    window[cb]=(data)=>{ done=true; delete window[cb]; try{document.head.removeChild(s);}catch(e){} resolve(data); };
-    s.onerror=()=>{ if(!done){done=true;delete window[cb];try{document.head.removeChild(s);}catch(e){} resolve(null);} };
-    setTimeout(()=>{ if(!done){done=true;delete window[cb];try{document.head.removeChild(s);}catch(e){} resolve(null);} },12000);
-    s.src=url; document.head.appendChild(s);
-  });
-}
+// gasPost()/gasGet() removed — no remaining callers now that the auth
+// chain and business/notification/history calls all go through
+// railwayCall() (equi-bank.js). stableGas() below is separate (targets
+// STABLE_URL, permanently empty) and already safely no-ops everywhere.
 
 function saveBankAccount(){
   try{ localStorage.setItem('equi-lite-bank', JSON.stringify(bankAccount)); }catch(e){}
