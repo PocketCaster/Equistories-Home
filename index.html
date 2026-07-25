@@ -2376,8 +2376,24 @@ async function adoptSharedSession(){
   finally{ __adopting=false; }
 }
 
+let __ownerUpgradeAttempted = false;
 function render(){
   if(!me()){ renderGate(); adoptSharedSession(); return; }
+  // Returning session (localStorage already says who you are) — but that
+  // doesn't mean Firestore's auth.uid matches yet. adoptSharedSession() only
+  // handles a FRESH session; a returning one needs this same upgrade
+  // attempted once per page load too, or every read silently 404s/permission-
+  // denies forever using a non-owner uid. Fire-and-forget + re-render once
+  // resolved, so the first paint isn't blocked on it.
+  if(!__ownerUpgradeAttempted){
+    __ownerUpgradeAttempted = true;
+    const who = me();
+    if(window.EquiAuth && who && window.EquiAuth.uid !== who.userId){
+      Promise.resolve(window.EquiAuth.ready).then(()=> upgradeToOwnerSession()).then(ok=>{
+        if(ok) render(); // re-render now that reads will actually work
+      });
+    }
+  }
   // A ?player= link from anywhere on the site opens that member's profile here.
   if(!__memberView.__booted){
     __memberView.__booted = true;
