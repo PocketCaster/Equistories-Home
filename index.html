@@ -819,14 +819,18 @@ async function saveMemberProfile(uid, prof){
   catch(e){ console.error('[Hub] saveProfile failed:', e); return false; }
 }
 
-function renderMemberEditor(v, uid, p){
+function renderMemberEditor(v, uid, p, mine, theirs){
   const links = __memberEdit.links || (Array.isArray(p.links)? p.links.map(l=>({...l})) : []);
   __memberEdit.links = links;
+  mine = mine || []; theirs = theirs || [];
 
   v.innerHTML = `
     <div class="card">
       <h2 style="margin-top:0;">My profile</h2>
       <p class="small">Your public community profile — it shows your horses, riders and how to reach you. Account name: <b>${__esc(uid)}</b>.</p>
+
+      <label for="mp_banner">Banner image link (optional)</label>
+      <input id="mp_banner" value="${__esc(p.banner||'')}" placeholder="https://…/banner.png (wide image works best)" />
 
       <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">
         <div><label for="mp_name">Display name (optional)</label>
@@ -846,6 +850,13 @@ function renderMemberEditor(v, uid, p){
       <label for="mp_frame">Portrait frame</label>
       <select id="mp_frame">${EQUI_FRAMES.map(f=>`<option value="${f[0]}"${(p.frame||'none')===f[0]?' selected':''}>${f[1]}</option>`).join("")}</select>
       <div id="mp_frame_prev" style="margin-top:8px;"></div>
+
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin-top:8px;">
+        <div><label for="mp_feathorse">Featured horse <span class="small muted">(shown on your About tab)</span></label>
+          <select id="mp_feathorse"><option value="">— none —</option>${mine.map(h=>`<option value="${esc(h.id)}"${p.featuredHorseId===h.id?' selected':''}>${esc(h.name||'Unnamed')}</option>`).join("")}</select></div>
+        <div><label for="mp_featrider">Featured rider</label>
+          <select id="mp_featrider"><option value="">— none —</option>${theirs.map(r=>`<option value="${esc(r.id)}"${p.featuredRiderId===r.id?' selected':''}>${esc(r.name||'Unnamed')}</option>`).join("")}</select></div>
+      </div>
 
       <label for="mp_bio">Tagline <span class="small muted">(one line, shown under your name)</span></label>
       <input id="mp_bio" value="${__esc(p.bio||'')}" placeholder="Artist, horse hoarder, perpetual WIP" />
@@ -925,10 +936,13 @@ Scripts, iframes and forms are stripped for everyone's safety.">${__esc(p.about|
       displayName: v.querySelector('#mp_name').value.trim(),
       pronouns:    v.querySelector('#mp_pronouns').value.trim(),
       avatar:      v.querySelector('#mp_avatar').value.trim(),
+      banner:      (v.querySelector('#mp_banner')||{value:''}).value.trim(),
       discord:     v.querySelector('#mp_discord').value.trim(),
       bio:         v.querySelector('#mp_bio').value.trim(),
       about:       (v.querySelector('#mp_about')||{value:p.about||''}).value,
       frame:       (v.querySelector('#mp_frame')||{value:p.frame||'none'}).value,
+      featuredHorseId: (v.querySelector('#mp_feathorse')||{value:''}).value || null,
+      featuredRiderId: (v.querySelector('#mp_featrider')||{value:''}).value || null,
       customCss:   isPremiumMember(uid) ? (v.querySelector('#mp_css')||{value:''}).value : (p.customCss||''),
       links: links.filter(l=>(l.label||l.url)).map(l=>({label:(l.label||'').trim(), url:(l.url||'').trim()})),
       joinedAt: p.joinedAt || new Date().toISOString(),
@@ -938,6 +952,8 @@ Scripts, iframes and forms are stripped for everyone's safety.">${__esc(p.about|
     else { msg.textContent="Couldn't save — try again."; }
   };
 }
+
+let __profileTab = "About";
 
 async function renderMemberProfile(v, uid){
   v.innerHTML = `<div class="card"><div class="small">Loading ${__esc(uid)}…</div></div>`;
@@ -956,56 +972,35 @@ async function renderMemberProfile(v, uid){
   const who    = me();
   const isSelf = who && who.userId === uid;
 
-  if(isSelf && __memberEdit.on){ renderMemberEditor(v, uid, p); return; }
-
-  const avatar = p.avatar
-    ? `<img src="${__esc(p.avatar)}" referrerpolicy="no-referrer" alt="${__esc(name)}"
-         style="width:min(200px,42vw);height:min(200px,42vw);border-radius:12px;object-fit:cover;border:2px solid var(--accent);flex:0 0 auto;" />`
-    : `<div style="width:min(200px,42vw);height:min(200px,42vw);border-radius:12px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:3.2em;background:var(--deep);flex:0 0 auto;">&#128100;</div>`;
-
-  const discord = p.discord
-    ? (/^https?:\/\//.test(p.discord.trim())
-        ? `<a href="${__esc(p.discord.trim())}" target="_blank" rel="noopener">Discord &#8599;</a>`
-        : `<span class="small">Discord: <b>${__esc(p.discord)}</b></span>`)
-    : "";
-
-  const links = (Array.isArray(p.links)?p.links:[]).filter(l=>l && l.url).map(l=>
-    `<a class="tag" href="${__esc(l.url)}" target="_blank" rel="noopener" style="margin:2px;">${__esc(l.label||l.url)} &#8599;</a>`).join(" ");
-
-  const horseList = mine.length ? mine.map(h=>
-    `<a class="linkbox" href="${APPS.stable}?horse=${encodeURIComponent(h.id)}" style="display:flex;gap:10px;align-items:center;">
-       ${h.image?`<img src="${__esc(h.image)}" referrerpolicy="no-referrer" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex:0 0 auto;" />`:''}
-       <span style="min-width:0;"><b>${__esc(h.name||'Unnamed')}</b>
-       <span class="small muted">${__esc(h.breed||'—')}${h.level?` · Lv ${h.level}`:''}</span></span>
-     </a>`).join("") : '<span class="small muted">No horses yet.</span>';
-
-  const riderList = theirs.length ? theirs.map(r=>
-    `<a class="linkbox" href="${APPS.stable}?rider=${encodeURIComponent(r.id)}" style="display:flex;gap:10px;align-items:center;">
-       ${r.image?`<img src="${__esc(r.image)}" referrerpolicy="no-referrer" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex:0 0 auto;" />`:''}
-       <span style="min-width:0;"><b>${__esc(r.name||'Unnamed')}</b>
-       <span class="small muted">${r.pp?`${r.pp} PP`:''}</span></span>
-     </a>`).join("") : '<span class="small muted">No riders yet.</span>';
+  if(isSelf && __memberEdit.on){ renderMemberEditor(v, uid, p, mine, theirs); return; }
 
   const premium = isPremiumMember(uid);
   const customCss = (premium && p.customCss) ? sanitizeShopCss(p.customCss) : "";
-  const aboutHtml = p.about ? sanitizeShopHtml(p.about) : "";
+
+  const featuredHorse = mine.find(h=>h.id===p.featuredHorseId) || null;
+  const featuredRider = theirs.find(r=>r.id===p.featuredRiderId) || null;
+
+  const bannerHtml = p.banner
+    ? `<div style="height:170px;border-radius:12px 12px 0 0;overflow:hidden;margin:-16px -16px 0;"><img src="${__esc(p.banner)}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;" /></div>`
+    : "";
 
   v.innerHTML = `
     ${customCss ? `<style>${customCss}</style>` : ""}
     <div class="profile-custom">
 
-    <div class="card profile-head">
-      <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
-        ${framedImg(p.avatar, p.frame, 190, name)}
-        <div style="flex:1;min-width:250px;">
-          <h2 style="margin:0;">${__esc(name)}${premiumBadge(uid)}</h2>
+    <div class="card profile-head" style="${p.banner?'padding-top:0;':''}">
+      ${bannerHtml}
+      <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;${p.banner?'margin-top:-46px;':''}">
+        ${framedImg(p.avatar, p.frame, 130, name)}
+        <div style="flex:1;min-width:250px;${p.banner?'margin-top:46px;':''}">
+          <h2 style="margin:0;">${__esc(name)}${premiumBadge(uid)}${isAdminMember(uid)?' <span class="tag" style="background:var(--accent,#c9a84c);">admin</span>':''}</h2>
           <div class="small muted">${__esc(uid)}${p.pronouns?` &middot; ${__esc(p.pronouns)}`:''}</div>
           ${p.bio?`<p class="profile-tagline" style="margin:8px 0 0;font-family:'Caveat',cursive;font-size:1.25rem;color:var(--dim);">${__esc(p.bio)}</p>`:''}
-          <div class="profile-links" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            ${discord}
-            ${links}
+          <div style="margin-top:12px;display:flex;gap:16px;flex-wrap:wrap;">
+            <div><b>${mine.length}</b> <span class="small muted">horses</span></div>
+            <div><b>${theirs.length}</b> <span class="small muted">riders</span></div>
           </div>
-          <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
             ${isSelf
               ? `<button class="btn" data-member-edit>Edit my profile</button>`
               : `<button class="btn" data-msg-to="${__esc(uid)}">Send a message</button>`}
@@ -1015,37 +1010,191 @@ async function renderMemberProfile(v, uid){
       </div>
     </div>
 
-    <div class="card">
-      <h3 style="margin-top:0;">Horses <span class="small muted">(${mine.length})</span></h3>
-      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">${horseList}</div>
+    <div class="tabs" style="margin-top:12px;">
+      ${["About","Horses","Riders","Status updates"].map(tb=>`<div class="tab${__profileTab===tb?' active':''}" data-ptab="${tb}">${tb}</div>`).join("")}
     </div>
 
-    <div class="card">
-      <h3 style="margin-top:0;">Riders <span class="small muted">(${theirs.length})</span></h3>
-      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">${riderList}</div>
-    </div>
-
-    <div class="card profile-about">
-      <h3 style="margin-top:0;">About ${__esc(name)}</h3>
-      ${aboutHtml
-        ? `<div class="profile-about-body">${aboutHtml}</div>`
-        : `<div class="small muted">${isSelf ? "Nothing here yet — use <b>Edit my profile</b> to write about yourself. You can embed images." : "This member hasn't written anything yet."}</div>`}
-    </div>
-
+    <div id="profileTabBody"></div>
     </div>`;
 
   const ed = v.querySelector('[data-member-edit]');
   if(ed) ed.onclick = ()=>{ __memberEdit={on:true,links:null}; renderMemberProfile(v, uid); };
-
   const back = v.querySelector('[data-member-back]');
   if(back) back.onclick = ()=>{ __memberView.uid=null; history.replaceState({}, '', location.pathname); tab="Members"; render(); };
-
   const msg = v.querySelector('[data-msg-to]');
-  if(msg) msg.onclick = ()=>{
-    __msgView = { mode:"compose", to: msg.dataset.msgTo, replyTo:null };
-    __memberView.uid = null;
-    tab = "Messages"; render();
+  if(msg) msg.onclick = ()=>{ __msgView = { mode:"compose", to: msg.dataset.msgTo, replyTo:null }; __memberView.uid = null; tab = "Messages"; render(); };
+
+  v.querySelectorAll('[data-ptab]').forEach(el=>el.onclick=()=>{ __profileTab = el.dataset.ptab; renderProfileTabBody(); });
+
+  async function renderProfileTabBody(){
+    v.querySelectorAll('[data-ptab]').forEach(el=>el.classList.toggle('active', el.dataset.ptab===__profileTab));
+    const body = v.querySelector('#profileTabBody');
+    body.innerHTML = `<div class="card"><div class="small">Loading…</div></div>`;
+
+    if(__profileTab==="About"){
+      const discord = p.discord
+        ? (/^https?:\/\//.test(p.discord.trim())
+            ? `<a href="${__esc(p.discord.trim())}" target="_blank" rel="noopener">Discord &#8599;</a>`
+            : `<span class="small">Discord: <b>${__esc(p.discord)}</b></span>`)
+        : "";
+      const links = (Array.isArray(p.links)?p.links:[]).filter(l=>l && l.url).map(l=>
+        `<a class="tag" href="${__esc(l.url)}" target="_blank" rel="noopener" style="margin:2px;">${__esc(l.label||l.url)} &#8599;</a>`).join(" ");
+      const aboutHtml = p.about ? sanitizeShopHtml(p.about) : "";
+
+      const featCard = (title, item, appQuery)=> item ? `
+        <a class="linkbox" href="${APPS.stable}?${appQuery}=${encodeURIComponent(item.id)}" style="display:block;">
+          <div class="small muted" style="margin-bottom:4px;">&#10022; featured ${title}</div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            ${item.image?`<img src="${__esc(item.image)}" referrerpolicy="no-referrer" style="width:56px;height:56px;object-fit:cover;border-radius:8px;" />`:''}
+            <b>${__esc(item.name||'Unnamed')}</b>
+          </div>
+        </a>` : '';
+
+      body.innerHTML = `
+        <div class="card">
+          <div class="profile-links" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">${discord} ${links}</div>
+          ${featuredHorse||featuredRider ? `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:14px;">
+            ${featCard('horse', featuredHorse, 'horse')}
+            ${featCard('rider', featuredRider, 'rider')}
+          </div>` : ''}
+          ${aboutHtml
+            ? `<div class="profile-about-body">${aboutHtml}</div>`
+            : `<div class="small muted">${isSelf ? "Nothing here yet — use <b>Edit my profile</b> to write about yourself." : "This member hasn't written anything yet."}</div>`}
+        </div>`;
+    }
+
+    else if(__profileTab==="Horses"){
+      const horseList = mine.length ? mine.map(h=>
+        `<a class="linkbox" href="${APPS.stable}?horse=${encodeURIComponent(h.id)}" style="display:flex;gap:10px;align-items:center;">
+           ${h.image?`<img src="${__esc(h.image)}" referrerpolicy="no-referrer" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex:0 0 auto;" />`:''}
+           <span style="min-width:0;"><b>${__esc(h.name||'Unnamed')}</b>
+           <span class="small muted">${__esc(h.breed||'—')}${h.level?` · Lv ${h.level}`:''}</span></span>
+         </a>`).join("") : '<span class="small muted">No horses yet.</span>';
+      body.innerHTML = `<div class="card"><h3 style="margin-top:0;">Horses <span class="small muted">(${mine.length})</span></h3>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">${horseList}</div></div>`;
+    }
+
+    else if(__profileTab==="Riders"){
+      const riderList = theirs.length ? theirs.map(r=>
+        `<a class="linkbox" href="${APPS.stable}?rider=${encodeURIComponent(r.id)}" style="display:flex;gap:10px;align-items:center;">
+           ${r.image?`<img src="${__esc(r.image)}" referrerpolicy="no-referrer" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex:0 0 auto;" />`:''}
+           <span style="min-width:0;"><b>${__esc(r.name||'Unnamed')}</b>
+           <span class="small muted">${r.pp?`${r.pp} PP`:''}</span></span>
+         </a>`).join("") : '<span class="small muted">No riders yet.</span>';
+      body.innerHTML = `<div class="card"><h3 style="margin-top:0;">Riders <span class="small muted">(${theirs.length})</span></h3>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">${riderList}</div></div>`;
+    }
+
+    else if(__profileTab==="Status updates"){
+      await renderStatusUpdates(body, DB, uid, who, isSelf);
+    }
+  }
+
+  renderProfileTabBody();
+}
+
+// ---- Status Updates: short posts on a member's profile, Twitter-style ----
+async function renderStatusUpdates(body, DB, profileUid, who, isSelf){
+  let posts = [];
+  try{ posts = (await DB.listAll('statusUpdates')).filter(p=>p.owner===profileUid); }catch(e){}
+  posts.sort((a,b)=> new Date(b.createdAt||0) - new Date(a.createdAt||0));
+
+  body.innerHTML = `
+    ${isSelf ? `<div class="card">
+      <textarea id="su_body" rows="2" maxlength="1000" placeholder="What's happening in your stable?"></textarea>
+      <div style="margin-top:8px;"><button id="su_post">Post</button> <span id="su_msg" class="small"></span></div>
+    </div>` : ''}
+    <div id="su_list">${posts.length ? '' : '<div class="card"><span class="small muted">No status updates yet.</span></div>'}</div>`;
+
+  if($("su_post")) $("su_post").onclick = async ()=>{
+    const text = ($("su_body").value||"").trim();
+    if(!text){ $("su_msg").textContent = "Write something first."; return; }
+    $("su_msg").textContent = "Posting…";
+    try{
+      await DB.put('statusUpdates', 'su_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), who.userId, {
+        owner: who.userId, text, createdAt: new Date().toISOString()
+      });
+      const token = await idToken();
+      for(const uname of extractMentions(text)){
+        try{ await railwayCall('/notifyMention', { idToken: token, body:{ toUserId: uname, threadId: profileUid, threadTitle: 'a status update', boardId: null } }); }catch(e){}
+      }
+      $("su_body").value=""; renderStatusUpdates(body, DB, profileUid, who, isSelf);
+    }catch(err){ $("su_msg").textContent = "Failed: "+(err.message||err); }
   };
+
+  const list = $("su_list");
+  if(!list || !posts.length) return;
+
+  const authorProfile = await DB.get('profiles', profileUid).catch(()=>({}));
+  const av = (authorProfile.avatar)
+    ? `<img src="${__esc(authorProfile.avatar)}" referrerpolicy="no-referrer" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" />`
+    : `<div style="width:32px;height:32px;border-radius:50%;background:var(--panel,#1a1410);"></div>`;
+  const displayName = (authorProfile.displayName||'').trim() || profileUid;
+
+  list.innerHTML = posts.map(post=>`
+    <div class="card status-post" data-postid="${esc(post.id)}" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        ${av}<b>${esc(displayName)}</b>${premiumBadge(profileUid)}
+        <span class="small muted">· ${forumWhen(post.createdAt)}</span>
+        ${(who && (who.userId===post.owner || isAdminMember(who.userId))) ? `<span class="small" data-delstatus="${esc(post.id)}" style="cursor:pointer;color:var(--bad);margin-left:auto;">delete</span>` : ''}
+      </div>
+      <div style="line-height:1.5;">${forumFormat(post.text)}</div>
+      ${who ? reactionBar(post.reactions, who) : ''}
+      <div class="small" data-togglereplies="${esc(post.id)}" style="cursor:pointer;color:var(--accent,#c9a84c);margin-top:6px;">💬 replies</div>
+      <div class="status-replies" data-repliesfor="${esc(post.id)}" style="display:none;margin-top:8px;"></div>
+    </div>`).join("");
+
+  list.querySelectorAll('[data-delstatus]').forEach(el=>el.onclick=async()=>{
+    if(!confirm("Delete this status update?")) return;
+    try{ await DB.remove('statusUpdates', el.dataset.delstatus); renderStatusUpdates(body, DB, profileUid, who, isSelf); }catch(e){}
+  });
+
+  list.querySelectorAll('.status-post').forEach(card=>{
+    const postId = card.dataset.postid;
+    const post = posts.find(p=>p.id===postId);
+    card.querySelectorAll('[data-react]').forEach(btn=>btn.onclick=async()=>{
+      btn.disabled=true;
+      try{
+        const updated = await toggleReaction(DB, 'statusUpdates', {threadId:postId, owner:post.owner, threadData:post}, post.reactions, btn.dataset.react, who);
+        post.reactions = updated; renderStatusUpdates(body, DB, profileUid, who, isSelf);
+      }catch(e){ btn.disabled=false; }
+    });
+  });
+
+  list.querySelectorAll('[data-togglereplies]').forEach(el=>el.onclick=async()=>{
+    const postId = el.dataset.togglereplies;
+    const box = list.querySelector(`[data-repliesfor="${postId}"]`);
+    const opening = box.style.display === 'none';
+    box.style.display = opening ? 'block' : 'none';
+    if(!opening || box.dataset.loaded) return;
+    box.dataset.loaded = '1';
+
+    let replies = [];
+    try{ replies = (await DB.listSub('statusUpdates', postId, 'replies')).sort((a,b)=>new Date(a.createdAt||0)-new Date(b.createdAt||0)); }catch(e){}
+
+    box.innerHTML = `
+      ${replies.map(r=>`<div style="border-top:1px solid var(--line);padding:8px 0;">
+        <b class="small">${esc(r.owner)}</b> <span class="small muted">${forumWhen(r.createdAt)}</span>
+        <div style="font-size:.95em;">${forumFormat(r.text)}</div>
+      </div>`).join("")}
+      ${who ? `<div style="margin-top:8px;display:flex;gap:6px;">
+        <input data-replyinput="${postId}" placeholder="Reply…" style="flex:1;" maxlength="1000" />
+        <button data-replysend="${postId}">Reply</button>
+      </div>` : ''}`;
+
+    const sendBtn = box.querySelector(`[data-replysend="${postId}"]`);
+    if(sendBtn) sendBtn.onclick = async ()=>{
+      const inp = box.querySelector(`[data-replyinput="${postId}"]`);
+      const text = (inp.value||"").trim();
+      if(!text) return;
+      sendBtn.disabled = true;
+      try{
+        await DB.addSub('statusUpdates', postId, 'replies', { owner: who.userId, text, createdAt: new Date().toISOString() });
+        box.dataset.loaded = '';
+        el.click(); el.click(); // collapse then re-expand to reload with the new reply
+      }catch(e){ sendBtn.disabled = false; }
+    };
+  });
 }
 
 async function renderMembers(v){
@@ -1394,16 +1543,16 @@ function reactionBar(reactions, who, onClick){
   </div>`;
 }
 
-async function toggleReaction(DB, path, current, emoji, who){
+async function toggleReaction(DB, collection, path, current, emoji, who){
   const reactions = { ...(current||{}) };
   const list = new Set(reactions[emoji]||[]);
   if(list.has(who.userId)) list.delete(who.userId); else list.add(who.userId);
   reactions[emoji] = [...list];
   if(reactions[emoji].length===0) delete reactions[emoji];
   if(path.replyId){
-    await DB.updateSub('forumThreads', path.threadId, 'replies', path.replyId, { reactions });
+    await DB.updateSub(collection, path.threadId, 'replies', path.replyId, { reactions });
   } else {
-    await DB.put('forumThreads', path.threadId, path.owner, { ...path.threadData, reactions });
+    await DB.put(collection, path.threadId, path.owner, { ...path.threadData, reactions });
   }
   return reactions;
 }
@@ -1560,7 +1709,7 @@ async function renderForumThread(v, DB, who, boards){
     card.querySelectorAll('[data-react]').forEach(btn=>btn.onclick=async()=>{
       btn.disabled=true;
       try{
-        const updated = await toggleReaction(DB, path, currentReactions, btn.dataset.react, who);
+        const updated = await toggleReaction(DB, 'forumThreads', path, currentReactions, btn.dataset.react, who);
         if(isOP) t.reactions = updated; else replies[idx-1].reactions = updated;
         renderForum(v);
       }catch(e){ btn.disabled=false; }
