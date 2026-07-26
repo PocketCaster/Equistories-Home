@@ -220,7 +220,9 @@
   }
   .pb-lp-info{ min-width:0; }
   .pb-lp-info .pb-lp-title{ color:var(--brass-light); font-weight:600; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .pb-lp-info .pb-lp-who{ color:var(--text); }
+  .pb-lp-info .pb-lp-who{ color:var(--text); overflow-wrap:anywhere; word-break:break-word; }
+  /* @mentions rendered inside forum/status/message bodies */
+  .mention{ color:var(--accent2,var(--accent,#c9a84c)); font-weight:600; }
   .pb-empty-lastpost{ color:var(--faint,var(--dim)); font-style:italic; font-size:.85em; }
   .pb-pin-tag{ color:var(--accent); font-weight:700; margin-right:4px; }
   .pb-newthread-bar{
@@ -383,8 +385,10 @@ async function renderHome(v){
           <span class="small">Member-run clubs — join one, post on its wall, climb its rank ladder.</span></a>
         <a class="linkbox" href="#" data-go="Bank"><b>Bank →</b>
           <span class="small">Your Buxx balance, transfers, deposits and ledger.</span></a>
-        <a class="linkbox" href="#" data-go="Community"><b>Getting Started →</b>
-          <span class="small">New here? Read this first.</span></a>
+        <a class="linkbox" href="#" data-go="Community"><b>Rules & Guides →</b>
+          <span class="small">Site rules and how-to guides — new here? Read these first.</span></a>
+        <a class="linkbox" id="homeDiscord" href="${DEFAULT_DISCORD}" target="_blank" rel="noopener"><b>Join the Discord →</b>
+          <span class="small">Art help, plotting and announcements — where the community hangs out.</span></a>
       </div>
     </div>
     <div class="card"><h3>Community at a glance</h3><div id="stats" class="small">Counting…</div></div>
@@ -406,6 +410,8 @@ async function renderHome(v){
 
   const DB = await __waitForDB();
   if(!DB){ $("stats").textContent = "Can't reach the database right now."; return; }
+  // Use the admin-configured Discord link if one is set (falls back to default).
+  DB.get('config','hub').then(cfg=>{ const a=$("homeDiscord"); if(a) a.href=(cfg&&cfg.discord)||DEFAULT_DISCORD; }).catch(()=>{});
   const [profiles, horses, riders, shows, forumThreads] = await Promise.all([
     DB.listAll('profiles'), DB.listAll('horses'), DB.listAll('riders'), DB.listAll('shows'),
     DB.listAll('forumThreads').catch(()=>[])
@@ -2179,73 +2185,63 @@ function forumWhen(iso){
   return d.toLocaleDateString();
 }
 
+// The Community tab is the site's Rules & Guides hub. Entries are managed by
+// admins (admin.html → Rules & Guides) and stored in config/guides as
+// { guides:[{id,title,category,body}] }. Entries are grouped by category, in
+// first-seen order, with a jump menu at the top.
 async function renderCommunity(v){
   v.innerHTML = `
     <div class="card">
-      <h2>Community</h2>
-      <div id="cDiscord"></div>
+      <h2>Rules &amp; Guides</h2>
+      <p class="small">Everything you need to play EquiStories — the site rules and how-to guides. Use the menu to jump to a section.</p>
+      <div id="cgToc"></div>
     </div>
-    <div class="card" id="cChatCard">
-      <h3>Community chat</h3>
-      <div id="cChat"></div>
-    </div>
-    <div class="card"><h3>How to get started</h3><div id="cStart"></div></div>
-    <div class="card"><h3>Community events</h3><div id="cEvents" class="small">Loading…</div></div>
-    <div class="card"><h3>How to affiliate your breed</h3><div id="cAffil"></div></div>`;
+    <div id="cgBody"><p class="small muted">Loading…</p></div>`;
 
   const DB = await __waitForDB();
-  const cfg = DB ? (await DB.get('config','hub')) : null;
-  const H = Object.assign({
-    discord:DEFAULT_DISCORD, start:"", affiliate:"", events:[], wbServer:"", wbChannel:""
-  }, cfg||{});
-  if(!H.discord) H.discord = DEFAULT_DISCORD;
+  if(!DB){ $("cgBody").innerHTML = `<div class="card"><p class="muted">Can't reach the database right now.</p></div>`; return; }
+  const cfg = await DB.get('config','guides');
+  const guides = (cfg && Array.isArray(cfg.guides)) ? cfg.guides : [];
 
-  $("cDiscord").innerHTML = H.discord
-    ? `<p>Most of the day-to-day chatter happens on Discord — art help, plotting, show announcements.</p>
-       <a class="linkbox" href="${__esc(H.discord)}" target="_blank" rel="noopener"><b>Join the Discord →</b>
-       <span class="small">You don't need Discord to play, but it's where the community lives.</span></a>`
-    : `<p class="muted small">No Discord link set yet. ${__me()?'Use "Edit community content" below to add one.':''}</p>`;
+  const me = __me();
+  const isAdmin = me && isAdminMember(me.userId);
 
-  // WidgetBot mirrors a Discord channel two ways: people on the site can read and
-  // post without a Discord account, and it lands in Discord like any other message.
-  if(H.wbServer && H.wbChannel){
-    $("cChat").innerHTML = `
-      <p class="small">This is the same room as our Discord — post here or there, it's the same conversation.
-      No Discord account needed to join in from this page.</p>
-      <widgetbot server="${__esc(H.wbServer)}" channel="${__esc(H.wbChannel)}"
-                 width="100%" height="560" style="border:1px solid var(--line);border-radius:8px;overflow:hidden;"></widgetbot>`;
-    if(!document.getElementById('wb-script')){
-      const sc=document.createElement('script');
-      sc.id='wb-script'; sc.src='https://cdn.jsdelivr.net/npm/@widgetbot/html-embed';
-      sc.async=true; document.body.appendChild(sc);
-    }
-  } else {
-    $("cChat").innerHTML = `<p class="small muted">Live chat isn't set up yet.
-      ${__me()?'Add your WidgetBot server and channel IDs below to embed the Discord here — see the note in that panel.':'Ask an admin to set it up, or use the Discord link above.'}</p>`;
+  if(!guides.length){
+    $("cgToc").innerHTML = "";
+    $("cgBody").innerHTML = `<div class="card"><p class="muted">No guides have been posted yet.${isAdmin?' Add them from the <b>Admin</b> page → Rules &amp; Guides.':''}</p></div>`;
+    return;
   }
 
-  $("cStart").innerHTML = H.start
-    ? mdish(H.start)
-    : mdish(DEFAULT_START);
+  // Group by category, preserving first-seen category order and entry order.
+  const order = []; const byCat = {};
+  guides.forEach((g,i)=>{
+    const cat = ((g.category||"").trim()) || "General";
+    if(!byCat[cat]){ byCat[cat]=[]; order.push(cat); }
+    byCat[cat].push({ title:g.title||"Untitled", body:g.body||"", anchor:"guide-"+(g.id||("i"+i)) });
+  });
 
-  $("cAffil").innerHTML = H.affiliate
-    ? mdish(H.affiliate)
-    : mdish(DEFAULT_AFFILIATE);
+  $("cgToc").innerHTML = order.map(cat=>`
+    <div style="margin-top:10px;">
+      <div class="small" style="text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin-bottom:5px;">${__esc(cat)}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${byCat[cat].map(g=>`<a class="tag" style="cursor:pointer;" data-jump="${g.anchor}">${__esc(g.title)}</a>`).join("")}
+      </div>
+    </div>`).join("");
 
-  // Shows + events
-  if(DB){
-    const evHtml = (H.events||[]).length
-      ? H.events.map(e=>`<div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--deep);">
-             <b style="color:var(--accent2);">${__esc(e.title||'Event')}</b>
-             ${e.when?`<span class="tag">${__esc(e.when)}</span>`:''}
-             <div class="small">${__esc(e.desc||'')}</div>
-             ${e.link?`<div style="margin-top:4px;"><a href="${__esc(e.link)}" target="_blank" rel="noopener">Details →</a></div>`:''}
-           </div>`).join("")
-      : `<span class="muted">No community events right now.</span>`;
-    if($("cEvents")) $("cEvents").innerHTML = evHtml;
-  }
+  $("cgBody").innerHTML = order.map(cat=>`
+    <div class="card">
+      <h3 style="color:var(--accent2);border-bottom:1px solid var(--line);padding-bottom:6px;margin-top:0;">${__esc(cat)}</h3>
+      ${byCat[cat].map(g=>`
+        <div id="${g.anchor}" style="scroll-margin-top:80px;margin-top:16px;">
+          <h4 style="color:var(--accent);margin:0 0 6px;">${__esc(g.title)}</h4>
+          <div style="line-height:1.6;">${mdish(g.body)}</div>
+        </div>`).join("")}
+    </div>`).join("");
 
-  // (The community-content editor now lives in the admin-only Admin tab.)
+  v.querySelectorAll('[data-jump]').forEach(a=>a.onclick=()=>{
+    const el=document.getElementById(a.dataset.jump);
+    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2265,7 +2261,7 @@ async function renderCommunity(v){
 //  and it'll place it correctly either way. Legacy content keeps working:
 //  *italic*, [img]url[/img], and bare pasted links all still render.
 // ═══════════════════════════════════════════════════════════════════════════
-const __RICH_TOKEN = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)|\[img\]\s*(https?:\/\/[^\s\]]+?)\s*\[\/img\]|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*\n]+)\*|(https?:\/\/[^\s<>()\]]+)/g;
+const __RICH_TOKEN = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)|\[img\]\s*(https?:\/\/[^\s\]]+?)\s*\[\/img\]|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*\n]+)\*|(https?:\/\/[^\s<>()\]]+)|@([A-Za-z0-9_-]{2,24})/g;
 function __mdImgTag(url, alt){
   return `<img src="${__esc(url)}" alt="${__esc(alt||'')}" referrerpolicy="no-referrer" loading="lazy" onerror="this.style.display='none'" style="max-width:100%;border-radius:8px;margin:8px 0;display:block;">`;
 }
@@ -2283,6 +2279,7 @@ function __richInline(raw){
     else if(m[7]!==undefined) out += `<u>${__esc(m[7])}</u>`;
     else if(m[8]!==undefined) out += `<i>${__esc(m[8])}</i>`;
     else if(m[9]!==undefined) out += `<a href="${__esc(m[9])}" target="_blank" rel="noopener noreferrer">${__esc(m[9])}</a>`;
+    else if(m[10]!==undefined) out += `<span class="mention">@${__esc(m[10])}</span>`;
     last = __RICH_TOKEN.lastIndex;
   }
   out += __esc(s.slice(last));
