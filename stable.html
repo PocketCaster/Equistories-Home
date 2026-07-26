@@ -2736,10 +2736,10 @@ function showRiderProfileModal(riderId){
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;color:var(--text);';
 
   overlay.innerHTML=`
-    <div class="card" style="max-width:760px;width:100%;margin-top:20px;background:var(--equi-panel);border:1px solid var(--equi-line);box-shadow:0 12px 40px rgba(0,0,0,.6);">
+    <div class="card" style="max-width:1040px;width:94%;margin-top:20px;background:var(--equi-panel);border:1px solid var(--equi-line);box-shadow:0 12px 40px rgba(0,0,0,.6);">
       <h3 style="margin-top:0;color:var(--equi-accent);">Edit Profile — ${escAttr(r.name)}</h3>
 
-      <div class="row">
+      <div class="row" style="display:flex;gap:14px;flex-wrap:wrap;">
         <div style="flex:1;min-width:200px;"><label>Rider Name</label><input id="rm_name" value="${escAttr(r.name||'')}" placeholder="e.g. Natalia Jones" /></div>
         <div><label>Pronouns <span class="small">(optional)</span></label><input id="rm_pronouns" value="${escAttr(r.pronouns||'')}" placeholder="she/her" style="max-width:150px;" /></div>
       </div>
@@ -9255,10 +9255,10 @@ function showProfileModal(horseId){
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;color:var(--text);';
 
   overlay.innerHTML=`
-    <div class="card" style="max-width:760px;width:100%;margin-top:20px;background:var(--equi-panel);border:1px solid var(--equi-line);box-shadow:0 12px 40px rgba(0,0,0,.6);">
+    <div class="card" style="max-width:1040px;width:94%;margin-top:20px;background:var(--equi-panel);border:1px solid var(--equi-line);box-shadow:0 12px 40px rgba(0,0,0,.6);">
       <h3 style="margin-top:0;color:var(--equi-accent);">Edit Profile — ${escAttr(h.name)}</h3>
 
-      <div class="row">
+      <div class="row" style="display:flex;gap:14px;flex-wrap:wrap;">
         <div style="flex:1;min-width:200px;"><label>Breed</label><input id="pm_breed" value="${escAttr(h.breed||'')}" placeholder="e.g. Thoroughbred" /></div>
         <div><label>Age</label><input id="pm_age" value="${escAttr(h.age||'')}" placeholder="e.g. 5" style="max-width:110px;" /></div>
       </div>
@@ -9270,7 +9270,7 @@ function showProfileModal(horseId){
         <div id="pm_frame_prev" style="margin-top:8px;"></div>
       </div>
 
-      <div class="row" style="margin-top:8px;">
+      <div class="row" style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;">
         <div style="flex:1;min-width:200px;"><label>Barn Name <span class="small">(optional)</span></label><input id="pm_barn" value="${escAttr(h.barnName||'')}" placeholder="e.g. Fortune — the everyday name" /></div>
         <div><label>Height <span class="small">(optional)</span></label><input id="pm_height" value="${escAttr(h.height||'')}" placeholder="e.g. 16.2 hh" style="max-width:150px;" /></div>
       </div>
@@ -9285,12 +9285,12 @@ function showProfileModal(horseId){
       </div>
 
       <div style="margin-top:8px;"><label>Import Sheet Link <span class="small">(optional)</span></label><input id="pm_import" value="${escAttr(h.importLink||'')}" placeholder="https://… reference/import sheet" /></div>
-      <div class="row" style="margin-top:8px;">
+      <div class="row" style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;">
         <div style="flex:1;min-width:200px;"><label>Owner Name</label><input id="pm_owner" value="${escAttr(h.ownerName||'')}" placeholder="e.g. @YourUsername" /></div>
         <div style="flex:1;min-width:200px;"><label>Owner Link <span class="small">(optional)</span></label><input id="pm_ownerlink" value="${escAttr(h.ownerLink||'')}" placeholder="https://… (DeviantArt, Toyhouse…)" /></div>
       </div>
       <div style="margin-top:8px;"><label>Rider Name <span class="small">(optional)</span></label><input id="pm_rider" value="${escAttr(h.riderName||'')}" placeholder="e.g. Jane Smith" /></div>
-      <div class="row" style="margin-top:8px;">
+      <div class="row" style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;">
         <div style="flex:1;min-width:200px;"><label>Stable / Boarding <span class="small">(optional)</span></label><input id="pm_stable" value="${escAttr(h.stableName||'')}" placeholder="e.g. Willowbrook Stables" /></div>
         <div style="flex:1;min-width:200px;"><label>Stable Link <span class="small">(optional)</span></label><input id="pm_stablelink" value="${escAttr(h.stableLink||'')}" placeholder="https://…" /></div>
       </div>
