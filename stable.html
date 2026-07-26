@@ -9100,7 +9100,7 @@ function renderHorseProfilePage(app, h){
               <input type="text" id="pp_photo_url" placeholder="Paste a direct link to the photo (.jpg/.png/.gif)" value="${escAttr(h.profileImage||"")}" style="max-width:min(300px,55vw);width:100%;font-size:.9em;" />
             </div>
           `:""}
-          ${(h.ownerName||h.owner)?`<div class="small" style="text-align:center;">Owner: ${memberLink(h.owner||h.ownerName, h.ownerName||h.owner)}</div>`:""}
+          ${(h.ownerName||h.owner)?`<div class="small" style="text-align:center;">Owner: ${h.owner ? memberLink(h.owner, h.ownerName||h.owner) : escAttr(h.ownerName)}</div>`:""}
           ${h.riderName?`<div class="small" style="text-align:center;">Rider: ${h.riderName}</div>`:""}
           ${h.stableName?`<div class="small" style="text-align:center;">Stable: ${h.stableLink?`<a href="${h.stableLink}" target="_blank">${h.stableName}</a>`:h.stableName}</div>`:""}
         </div>
@@ -9301,7 +9301,7 @@ function showProfileModal(horseId){
 
         <div style="margin-top:8px;"><label>Import Sheet Link <span class="small">(optional)</span></label><input id="pm_import" value="${escAttr(h.importLink||'')}" placeholder="https://… reference/import sheet" /></div>
         <div class="row" style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;">
-          <div style="flex:1;min-width:200px;"><label>Owner Name</label><input id="pm_owner" value="${escAttr(h.ownerName||'')}" placeholder="e.g. @YourUsername" /></div>
+          <div style="flex:1;min-width:200px;"><label>Owner Name</label><input id="pm_owner" value="${escAttr(h.ownerName||'')}" placeholder="e.g. YourUsername" /></div>
           <div style="flex:1;min-width:200px;"><label>Owner Link <span class="small">(optional)</span></label><input id="pm_ownerlink" value="${escAttr(h.ownerLink||'')}" placeholder="https://… (DeviantArt, Toyhouse…)" /></div>
         </div>
         <div style="margin-top:8px;"><label>Rider Name <span class="small">(optional)</span></label><input id="pm_rider" value="${escAttr(h.riderName||'')}" placeholder="e.g. Jane Smith" /></div>
