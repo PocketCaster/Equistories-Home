@@ -256,6 +256,14 @@ function premiumBadge(uid){
   if(!isPremiumMember(uid)) return "";
   return ` <span title="Premium member" style="display:inline-block;font-size:.85em;color:var(--equi-brass-light);vertical-align:baseline;">&#128081;</span>`;
 }
+// A proper gold pill badge for site admins — always dark text on a bright
+// gold-shine background, so contrast can't accidentally regress the way the
+// plain ".tag" (muted text, meant for low-key labels) did on the profile
+// header. One definition, used everywhere "admin" needs to show up.
+function adminBadge(uid){
+  if(!isAdminMember(uid)) return "";
+  return ` <span title="Site admin" style="display:inline-flex;align-items:center;gap:4px;font-size:.72em;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 10px;border-radius:20px;background:var(--gold-shine, linear-gradient(135deg,#e8c97a,#c9a84c));color:#241a14;box-shadow:0 1px 3px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.4);vertical-align:middle;line-height:1.6;">🛡️ Admin</span>`;
+}
 
 // ============================================
 // CSS/HTML SANITIZERS — used anywhere a member (premium or not) can style
