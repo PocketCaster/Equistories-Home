@@ -1056,13 +1056,17 @@ async function renderMemberProfile(v, uid){
   const DB = await __waitForDB();
   if(!DB){ v.innerHTML='<div class="card"><div class="small">Database unavailable.</div></div>'; return; }
 
-  const [prof, horses, riders] = await Promise.all([
+  const [prof, horses, riders, shops, breeds] = await Promise.all([
     DB.get('profiles', uid).catch(()=>null),
     DB.listAll('horses').catch(()=>[]),
     DB.listAll('riders').catch(()=>[]),
+    DB.listAll('shops').catch(()=>[]),
+    DB.listAll('breeds').catch(()=>[]),
   ]);
   const mine   = horses.filter(h=>h.__owner===uid);
   const theirs = riders.filter(r=>r.__owner===uid);
+  const myShops  = shops.filter(s=>(s.__owner||s.owner)===uid);
+  const myBreeds = breeds.filter(b=>b.owner===uid || (Array.isArray(b.staff) && b.staff.includes(uid)));
   const p      = prof || {};
   const name   = (p.displayName||'').trim() || uid;
   const who    = me();
@@ -1199,7 +1203,24 @@ async function renderMemberProfile(v, uid){
           ${aboutHtml
             ? `<div class="profile-about-body">${aboutHtml}</div>`
             : `<div class="small muted">${isSelf ? "Nothing here yet — use <b>Edit my profile</b> to write about yourself." : "This member hasn't written anything yet."}</div>`}
-        </div>`;
+        </div>
+        ${(myShops.length || myBreeds.length) ? `<div class="card">
+          <h3 style="margin-top:0;">Shops &amp; Breeds</h3>
+          ${myShops.length ? `<div style="margin-bottom:${myBreeds.length?'10px':'0'};">
+            <div class="small muted" style="margin-bottom:4px;">Shops</div>
+            ${myShops.map(s=>`<a class="tag" href="${APPS.shops||'shops.html'}?shop=${encodeURIComponent(s.id)}" style="margin:2px;text-decoration:none;">🛍️ ${__esc(s.name||'Unnamed Shop')}</a>`).join(' ')}
+          </div>` : ''}
+          ${myBreeds.length ? `<div>
+            <div class="small muted" style="margin-bottom:4px;">Breeds</div>
+            ${myBreeds.map(b=>`<a class="tag" href="#" data-breedlink="${__esc(b.id)}" style="margin:2px;text-decoration:none;">🐎 ${__esc(b.name||'Unnamed Breed')}${b.owner===uid?' (Founder)':' (Staff)'}</a>`).join(' ')}
+          </div>` : ''}
+        </div>` : ''}`;
+      body.querySelectorAll('[data-breedlink]').forEach(el=>el.onclick=(ev)=>{
+        ev.preventDefault();
+        __breedView = { mode:"page", breedId:el.dataset.breedlink, tab:"about" };
+        tab = "Breeds";
+        render();
+      });
     }
 
     else if(__profileTab==="Horses"){
@@ -1347,6 +1368,11 @@ async function renderStatusUpdates(body, DB, profileUid, who, isSelf){
       sendBtn.disabled = true;
       try{
         await DB.addSub('statusUpdates', postId, 'replies', { owner: who.userId, text, createdAt: new Date().toISOString() });
+        try{
+          await window.EquiAuth.ready;
+          const token = await window.EquiAuth.token();
+          await railwayCall('/notifyReply', { idToken: token, body:{ toUserId: post.owner, contextType:'status', contextTitle:null } });
+        }catch(e){}
         box.dataset.loaded = '';
         el.click(); el.click(); // collapse then re-expand to reload with the new reply
       }catch(e){ sendBtn.disabled = false; }
@@ -1939,6 +1965,7 @@ async function renderForumThread(v, DB, who, boards){
       for(const uname of extractMentions(body)){
         try{ await railwayCall('/notifyMention', { idToken: token, body:{ toUserId: uname, threadId: t.id, threadTitle: t.title, boardId: t.boardId } }); }catch(e){}
       }
+      try{ await railwayCall('/notifyReply', { idToken: token, body:{ toUserId: t.owner, contextType:'forum', contextTitle: t.title } }); }catch(e){}
       renderForum(v);
     }catch(err){ $("fr_msg").textContent="Failed: "+(err.message||err); }
   };
