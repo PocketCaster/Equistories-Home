@@ -1103,10 +1103,11 @@ async function renderMemberProfile(v, uid){
     </div>`;
 
   const headerHtml = p.banner
-    ? `<div class="equi-banner-box" style="position:relative !important;border-radius:12px 12px 0 0;overflow:hidden;margin:-16px -16px 0;min-height:340px !important;">
-        <img src="${__esc(p.banner)}" referrerpolicy="no-referrer" style="position:absolute !important;inset:0 !important;width:100%;height:100%;object-fit:cover;z-index:0;" />
-        <div style="position:absolute !important;inset:0 !important;background:linear-gradient(180deg, rgba(15,10,6,0) 40%, rgba(15,10,6,.65) 100%);z-index:1;"></div>
-        <div class="equi-banner-content" style="position:absolute !important;left:0 !important;right:0 !important;bottom:0 !important;top:auto !important;z-index:2;padding:16px;">${headerInnerHtml}</div>
+    ? `<div style="border-radius:12px 12px 0 0;overflow:hidden;margin:-16px -16px 0;">
+        <div style="width:100%;height:260px;overflow:hidden;">
+          <img src="${__esc(p.banner)}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;display:block;" />
+        </div>
+        <div style="padding:16px;background:var(--panel2,#2c2016);">${headerInnerHtml}</div>
       </div>`
     : (isSelf
         ? `<div style="border-radius:12px 12px 0 0;margin:-16px -16px 0;padding:22px 16px;border-bottom:1px dashed var(--line);">
