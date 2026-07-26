@@ -7,8 +7,8 @@
 // USAGE: <script src="equi-constants.js"></script>  (load early, before
 // equi-bank.js and any page script that references these)
 //
-// BUILD MARKER: FRAME-LOCK-v2 — if you Ctrl+F this file (view-source, or the
-// raw file URL) and don't find "FRAME-LOCK-v2", the live copy is stale and
+// BUILD MARKER: FRAME-LOCK-v3 — if you Ctrl+F this file (view-source, or the
+// raw file URL) and don't find "FRAME-LOCK-v3", the live copy is stale and
 // needs re-uploading.
 // ============================================
 
@@ -69,17 +69,19 @@ function isPremiumFrame(name){ return PREMIUM_FRAMES.includes(name); }
 function frameAllowed(name, uid){ return !isPremiumFrame(name) || isAdminMember(uid) || isPremiumMember(uid); }
 // Builds the <option> list for a frame <select>, shared by every profile
 // editor (player/horse/rider) so they can't drift out of sync. Premium
-// frames show up for everyone (so people know they exist) but are disabled
-// with a lock note for non-premium, non-admin members.
+// frames are simply left out of the list for non-premium, non-admin
+// members — not shown as a disabled "locked" option, just not offered.
+// Exception: if that profile's CURRENT frame is a premium one (e.g. they
+// had premium before and lost it), it stays in the list so it doesn't
+// silently disappear/reset the moment they open the editor.
 function frameOptionsHtml(current, uid){
   const allowed = isAdminMember(uid) || isPremiumMember(uid);
-  return EQUI_FRAMES.map(f=>{
-    const locked = isPremiumFrame(f[0]) && !allowed;
-    const label = locked ? '\u{1F512} '+f[1]+' (Premium)' : f[1];
-    const sel = (current||'none')===f[0] ? ' selected' : '';
-    const dis = locked ? ' disabled' : '';
-    return `<option value="${f[0]}"${sel}${dis}>${label}</option>`;
-  }).join('');
+  return EQUI_FRAMES
+    .filter(f => allowed || !isPremiumFrame(f[0]) || f[0] === (current||'none'))
+    .map(f=>{
+      const sel = (current||'none')===f[0] ? ' selected' : '';
+      return `<option value="${f[0]}"${sel}>${f[1]}</option>`;
+    }).join('');
 }
 
 // New PNG-overlay frames: real artwork layered on top of the portrait.
