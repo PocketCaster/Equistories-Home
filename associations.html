@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EquiStories — Associations</title>
+<link rel="stylesheet" href="equi-shell.css" />
+<link rel="stylesheet" href="equi-components.css" />
+<style>
+  :root{
+    --bg:#1a130c; --panel:#241a12; --panel2:#2c2016; --line:#4a3826;
+    --text:#f3e9d8; --dim:#c1ad92;
+    --accent:#d29a3e; --accent2:#c9a8e8; --good:#8a9e68; --bad:#b5623a; --deep:#140e07;
+    --honey:#c8842a; --rust:#9b4f2a; --moss:#5a6e3a;
+    --brass-light:#e8c97a; --brass-mid:#c9a84c; --brass-dark:#8a6820;
+    --gold-shine:linear-gradient(135deg,#e8c97a 0%,#c9a84c 30%,#f2d97e 50%,#c9a84c 70%,#8a6820 100%);
+  }
+  body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--equi-serif); line-height:1.6; }
+  a{ color:var(--accent); }
+  h1{ margin:0; font-family:var(--equi-display); font-weight:700; font-size:clamp(1.8rem,4vw,2.6rem);
+      background:var(--gold-shine); -webkit-background-clip:text; background-clip:text; color:transparent; letter-spacing:.5px; }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px; margin:16px 0;
+         box-shadow:0 2px 14px rgba(0,0,0,.25), inset 0 0 0 1px rgba(201,168,76,.07); }
+  .card h2{ margin:0 0 10px; font-family:var(--equi-display); color:var(--accent); font-size:1.5em; }
+  .card h3{ margin:0 0 8px; font-family:var(--equi-display); color:var(--accent); font-size:1.22em; }
+  .small{ font-size:.92em; color:var(--dim); }
+  .muted{ opacity:.7; }
+  .tag{ display:inline-block; font-size:.9em; padding:3px 9px; border-radius:10px;
+        background:var(--deep); color:var(--dim); border:1px solid var(--line); }
+  .badge{ display:inline-flex; align-items:center; gap:4px; font-size:.85em; font-weight:700;
+          padding:3px 10px; border-radius:20px; box-shadow:0 1px 3px rgba(0,0,0,.35); }
+  button{ background:linear-gradient(135deg,var(--honey),var(--rust)); color:#fff6ea; border:none; padding:9px 18px; border-radius:6px;
+          font-weight:700; cursor:pointer; font-family:var(--equi-display); font-size:1em; }
+  button:hover:not(:disabled){ filter:brightness(1.06); }
+  button:disabled{ opacity:.6; cursor:not-allowed; }
+  button.ghost{ background:#2c2118; color:var(--text); border:1px solid var(--line); box-shadow:none; font-family:var(--equi-serif); font-weight:500; }
+  button.ghost:hover{ border-color:var(--brass-mid); filter:none; }
+  button.danger{ background:#5a2020; }
+  input, textarea, select{ width:100%; padding:9px; font-size:1em; background:var(--deep); border:1px solid var(--line);
+          color:var(--text); border-radius:5px; font-family:var(--equi-serif); box-sizing:border-box; }
+  input:focus, textarea:focus, select:focus{ outline:none; border-color:var(--brass-mid); box-shadow:0 0 0 2px rgba(201,168,76,.22); }
+  label{ font-size:.88em; color:var(--dim); text-transform:uppercase; display:block; margin-top:10px; letter-spacing:.03em; }
+  .assoc-card{ display:block; text-decoration:none; color:inherit; cursor:pointer; }
+  .assoc-card:hover{ border-color:var(--brass-mid); }
+  .roster-row{ display:flex; align-items:center; justify-content:space-between; gap:10px;
+               padding:8px 12px; border:1px solid var(--line); border-radius:8px; margin-bottom:6px; background:var(--deep); }
+  .wall-post{ border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin-bottom:10px; background:var(--deep); }
+  .wall-reply{ margin:6px 0 0 20px; padding:8px 10px; border-left:2px solid var(--line); font-size:.95em; }
+  .rank-row{ display:flex; gap:8px; align-items:center; border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin-bottom:6px; }
+  .rank-row input{ flex:1; }
+</style>
+
+<script src="equi-nav.js" data-app="associations" defer></script>
+<script src="equi-constants.js"></script>
+<script src="equi-bank.js"></script>
+</head>
+<body>
+<div id="equi-nav"></div>
+
+<div id="app" class="wrap" style="max-width:900px;margin:0 auto;padding:20px;">
+
+<script>
+window.__equiDBReady = new Promise(r => { window.__equiDBResolve = r; });
+</script>
+<script type="module" src="equi-core.js"></script>
+
+<script>
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function jsStr(s){ return String(s==null?"":s).replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/\n/g,"\\n"); }
+const $ = id => document.getElementById(id);
+
+async function waitForDB(ms=8000){
+  try{ await Promise.race([window.__equiDBReady||Promise.resolve(false),
+                           new Promise(r=>setTimeout(()=>r(false),ms))]); }catch(e){}
+  return (window.EquiDB && window.EquiDB.available) ? window.EquiDB : null;
+}
+
+const app = document.getElementById("app");
+let DB = null;
+let who = null; // {userId} from equiSession(), or null if not linked
+
+function when(iso){
+  if(!iso) return '';
+  const d = new Date(iso), diff = (Date.now()-d.getTime())/1000;
+  if(diff<60) return 'just now';
+  if(diff<3600) return Math.floor(diff/60)+'m ago';
+  if(diff<86400) return Math.floor(diff/3600)+'h ago';
+  if(diff<604800) return Math.floor(diff/86400)+'d ago';
+  return d.toLocaleDateString();
+}
+
+// A member's current rank, from their points against the association's
+// owner-defined ladder — same idea as riderTitle()'s PP ladder, just
+// custom-named and custom-thresholded per association.
+function currentRank(points, ranks){
+  const sorted = (ranks||[]).slice().sort((a,b)=>(b.threshold||0)-(a.threshold||0));
+  return sorted.find(r=>(points||0) >= (r.threshold||0)) || null;
+}
+function rankBadgeHtml(rank){
+  if(!rank) return '';
+  const color = rank.color || '#c9a84c';
+  return `<span class="badge" style="background:${esc(color)};color:#1a130c;">${rank.emoji?esc(rank.emoji)+' ':''}${esc(rank.name)}</span>`;
+}
+
+async function loadAssociation(id){
+  try{ const a = await DB.get('associations', id); return a || null; }catch(e){ return null; }
+}
+async function loadMembers(assocId){
+  try{ return (await DB.listByField('associationMembers','associationId', assocId)) || []; }
+  catch(e){ return []; }
+}
+async function loadMyMembership(assocId){
+  if(!who) return null;
+  try{ return await DB.get('associationMembers', assocId+'_'+who.userId); }catch(e){ return null; }
+}
+async function loadWallPosts(assocId){
+  try{
+    const all = await DB.listAll('associationPosts');
+    return (all||[]).filter(p=>p.associationId===assocId).sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+  }catch(e){ return []; }
+}
+
+// Award points for wall activity and recompute nothing else — rank is
+// always derived live from points, never stored separately, so it can
+// never drift out of sync with the ranks ladder.
+async function awardAssocPoints(assocId, amount){
+  if(!who) return;
+  const docId = assocId+'_'+who.userId;
+  let mem = await DB.get('associationMembers', docId);
+  if(!mem) return; // must be a member already (joining creates this doc)
+  const points = (Number(mem.points)||0) + amount;
+  await DB.put('associationMembers', docId, who.userId, { ...mem, points, associationId: assocId });
+}
+
+async function render(){
+  DB = await waitForDB();
+  who = equiSession();
+
+  if(!DB){
+    app.innerHTML = `<div class="card"><h2>Associations</h2><p class="small">Database unavailable — try reloading.</p></div>`;
+    return;
+  }
+
+  const params = new URLSearchParams(location.search);
+  const assocId = params.get('assoc');
+  if(assocId){ renderOneAssociation(assocId); return; }
+  renderBrowse();
+}
+
+async function renderBrowse(){
+  app.innerHTML = `<div class="card"><h2>🏇 Rider Associations</h2>
+    <p class="small">Clubs run by members, for members. Join one to post on its wall and climb its own rank ladder — separate from your overall Rider PP.</p>
+  </div>
+  <div class="card" id="a_list"><h3>Browse</h3><p class="small">Loading…</p></div>
+  <div class="card" id="a_create"></div>`;
+
+  let all = [];
+  try{ all = await DB.listAll('associations'); }catch(e){}
+  const listEl = $("a_list");
+  listEl.innerHTML = `<h3>Browse</h3>` + (all.length ? all.map(a=>`
+    <a class="card assoc-card" href="?assoc=${encodeURIComponent(a.id)}">
+      <b style="color:var(--accent);font-family:var(--equi-display);">${esc(a.name||'Unnamed')}</b>
+      <div class="small" style="margin-top:4px;">${esc(a.description||'')}</div>
+    </a>`).join('') : `<p class="small muted">No associations yet — be the first to found one.</p>`);
+
+  const createEl = $("a_create");
+  const isPremium = who && isPremiumMember(who.userId);
+  if(!who){
+    createEl.innerHTML = `<h3>Found an Association</h3><p class="small">Sign in on the Hub first.</p>`;
+    return;
+  }
+  if(!isPremium){
+    createEl.innerHTML = `<h3>Found an Association <span class="small" style="color:var(--brass-light);">★ Premium</span></h3>
+      <p class="small">Founding an association is a premium perk — anyone can join and post in one once it exists, but starting one takes premium membership.</p>`;
+    return;
+  }
+  createEl.innerHTML = `
+    <h3>Found an Association <span class="small" style="color:var(--brass-light);">★ Premium</span></h3>
+    <label>Name</label><input id="ac_name" placeholder="e.g. The Cloverfield Riders' Guild" />
+    <label>Description</label><textarea id="ac_desc" rows="3" placeholder="What's this association about?"></textarea>
+    <div style="margin-top:10px;"><button id="ac_create">Found Association</button> <span id="ac_status" class="small"></span></div>`;
+  $("ac_create").onclick = async ()=>{
+    const name = $("ac_name").value.trim();
+    if(!name){ $("ac_status").textContent = "Give it a name first."; return; }
+    const id = 'assoc_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    const rec = { id, name, ownerId: who.userId, description: $("ac_desc").value.trim(),
+      ranks: [{name:'Member', threshold:0, emoji:'🐴', color:'#8a6820'}],
+      customCss: '', createdAt: new Date().toISOString() };
+    $("ac_status").textContent = "Founding…";
+    try{
+      await DB.put('associations', id, who.userId, rec);
+      // Founder auto-joins as the first member.
+      await DB.put('associationMembers', id+'_'+who.userId, who.userId, { associationId:id, points:0, joinedAt:new Date().toISOString() });
+      location.href = '?assoc='+encodeURIComponent(id);
+    }catch(err){ $("ac_status").textContent = "Failed: "+(err.message||err); }
+  };
+}
+
+async function renderOneAssociation(assocId){
+  app.innerHTML = `<div class="card"><p class="small">Loading…</p></div>`;
+  const a = await loadAssociation(assocId);
+  if(!a){
+    app.innerHTML = `<div class="card"><h2>Not found</h2><p class="small">This association doesn't exist. <a href="associations.html">← Browse associations</a></p></div>`;
+    return;
+  }
+  const isOwner = who && who.userId === (a.ownerId || a.__owner || a.owner);
+  const [members, myMembership, posts] = await Promise.all([
+    loadMembers(assocId), loadMyMembership(assocId), loadWallPosts(assocId)
+  ]);
+  const isMember = !!myMembership;
+  const ranks = a.ranks || [];
+
+  const rosterHtml = members.length ? members.map(m=>{
+    const rank = currentRank(m.points, ranks);
+    return `<div class="roster-row">
+      <span>${esc(m.__owner||m.owner||'?')}</span>
+      <span>${rankBadgeHtml(rank)} <span class="small">${m.points||0} pts</span></span>
+    </div>`;
+  }).join('') : `<p class="small muted">No members yet.</p>`;
+
+  const wallHtml = posts.length ? await renderWallPosts(posts) : `<p class="small muted">No posts yet. ${isMember?'Be the first!':'Join to post.'}</p>`;
+
+  const ownerUid = a.ownerId || a.__owner || a.owner;
+  const customCssHtml = (isPremiumMember(ownerUid) && a.customCss) ? `<style>${sanitizeShopCss(a.customCss)}</style>` : '';
+
+  app.innerHTML = `
+    ${customCssHtml}
+    <div class="assoc-profile-custom">
+    <div style="margin-bottom:6px;"><a href="associations.html" style="color:var(--accent);">← All associations</a></div>
+    <div class="card">
+      <h2>${esc(a.name||'Unnamed')}</h2>
+      <p class="small">${esc(a.description||'')}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+        ${who ? (isMember
+          ? `<button class="ghost danger" id="a_leave">Leave Association</button>`
+          : `<button id="a_join">Join Association</button>`) : ''}
+        ${isOwner ? `<button class="ghost" id="a_manage_toggle">⚙ Manage</button>` : ''}
+      </div>
+      <div id="a_status" class="small" style="margin-top:6px;"></div>
+    </div>
+
+    ${isOwner ? `<div class="card" id="a_manage" style="display:none;"></div>` : ''}
+
+    <div class="card">
+      <h3>Roster (${members.length})</h3>
+      <div id="a_roster">${rosterHtml}</div>
+    </div>
+
+    <div class="card">
+      <h3>Wall</h3>
+      ${isMember ? `
+        <textarea id="a_post_body" rows="3" placeholder="Post something on the wall…"></textarea>
+        <div style="margin-top:8px;"><button id="a_post_btn">Post</button> <span id="a_post_status" class="small"></span></div>
+      ` : who ? `<p class="small muted">Join to post here.</p>` : `<p class="small muted">Sign in on the Hub, then join to post.</p>`}
+      <div id="a_wall" style="margin-top:14px;">${wallHtml}</div>
+    </div>
+    </div>
+  `;
+
+  if(isOwner){
+    $("a_manage_toggle").onclick = ()=>{
+      const el = $("a_manage");
+      const showing = el.style.display !== 'none';
+      if(showing){ el.style.display = 'none'; return; }
+      el.style.display = 'block';
+      renderManagePanel(a, isOwner);
+    };
+  }
+
+  if(who && !isMember){
+    $("a_join").onclick = async ()=>{
+      $("a_status").textContent = "Joining…";
+      try{
+        await DB.put('associationMembers', assocId+'_'+who.userId, who.userId, { associationId:assocId, points:0, joinedAt:new Date().toISOString() });
+        renderOneAssociation(assocId);
+      }catch(err){ $("a_status").textContent = "Failed: "+(err.message||err); }
+    };
+  }
+  if(who && isMember){
+    const leaveBtn = $("a_leave");
+    if(leaveBtn) leaveBtn.onclick = async ()=>{
+      if(!confirm("Leave this association? Your points here will be lost.")) return;
+      try{ await DB.remove('associationMembers', assocId+'_'+who.userId); renderOneAssociation(assocId); }
+      catch(err){ $("a_status").textContent = "Failed: "+(err.message||err); }
+    };
+  }
+  if(isMember){
+    $("a_post_btn").onclick = async ()=>{
+      const text = $("a_post_body").value.trim();
+      if(!text){ $("a_post_status").textContent = "Write something first."; return; }
+      $("a_post_status").textContent = "Posting…";
+      const id = 'ap_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      try{
+        await DB.put('associationPosts', id, who.userId, { id, owner:who.userId, associationId:assocId, text, createdAt:new Date().toISOString() });
+        await awardAssocPoints(assocId, 2); // new post: +2
+        renderOneAssociation(assocId);
+      }catch(err){ $("a_post_status").textContent = "Failed: "+(err.message||err); }
+    };
+  }
+  wireWallReplyButtons(assocId);
+}
+
+async function renderWallPosts(posts){
+  const blocks = await Promise.all(posts.map(async p=>{
+    let replies = [];
+    try{ replies = (await DB.listSub('associationPosts', p.id, 'replies')).sort((a,b)=>new Date(a.createdAt||0)-new Date(b.createdAt||0)); }catch(e){}
+    const repliesHtml = replies.map(r=>`
+      <div class="wall-reply"><b>${esc(r.owner)}</b> <span class="small muted">${when(r.createdAt)}</span><br>${esc(r.text)}</div>
+    `).join('');
+    return `<div class="wall-post" data-postid="${esc(p.id)}">
+      <b style="color:var(--accent);">${esc(p.owner)}</b> <span class="small muted">${when(p.createdAt)}</span>
+      <div style="margin-top:4px;white-space:pre-wrap;">${esc(p.text)}</div>
+      ${repliesHtml}
+      ${who ? `<div style="margin-top:8px;display:flex;gap:6px;">
+        <input class="a_reply_input" placeholder="Reply…" style="flex:1;" />
+        <button class="ghost a_reply_btn" data-postid="${esc(p.id)}" style="padding:6px 12px;">Reply</button>
+      </div>` : ''}
+    </div>`;
+  }));
+  return blocks.join('');
+}
+
+function wireWallReplyButtons(assocId){
+  app.querySelectorAll('.a_reply_btn').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const postId = btn.dataset.postid;
+      const input = btn.parentElement.querySelector('.a_reply_input');
+      const text = input.value.trim();
+      if(!text) return;
+      btn.disabled = true;
+      try{
+        await DB.addSub('associationPosts', postId, 'replies', { owner:who.userId, text, createdAt:new Date().toISOString() });
+        await awardAssocPoints(assocId, 1); // reply: +1
+        renderOneAssociation(assocId);
+      }catch(err){ alert("Failed to reply: "+(err.message||err)); btn.disabled = false; }
+    };
+  });
+}
+
+function renderManagePanel(a, isOwner){
+  const el = $("a_manage");
+  const isPremium = isPremiumMember(a.ownerId || a.__owner || a.owner);
+  let ranksState = (a.ranks||[]).map(r=>({...r}));
+
+  function drawRanks(){
+    const box = el.querySelector('#a_ranks_list');
+    box.innerHTML = ranksState.map((r,i)=>`
+      <div class="rank-row">
+        <input data-rf="name" data-i="${i}" value="${esc(r.name||'')}" placeholder="Rank name" />
+        <input data-rf="threshold" data-i="${i}" type="number" value="${r.threshold||0}" placeholder="Points needed" style="max-width:120px;" />
+        <input data-rf="emoji" data-i="${i}" value="${esc(r.emoji||'')}" placeholder="🏅" style="max-width:70px;" />
+        <input data-rf="color" data-i="${i}" type="color" value="${r.color||'#c9a84c'}" style="max-width:50px;padding:2px;" />
+        <button class="ghost danger" data-rdel="${i}" style="padding:4px 10px;">✕</button>
+      </div>`).join('');
+    box.querySelectorAll('[data-rf]').forEach(inp=>inp.oninput=()=>{
+      const i = +inp.dataset.i, f = inp.dataset.rf;
+      ranksState[i][f] = f==='threshold' ? Number(inp.value)||0 : inp.value;
+    });
+    box.querySelectorAll('[data-rdel]').forEach(btn=>btn.onclick=()=>{ ranksState.splice(+btn.dataset.rdel,1); drawRanks(); });
+  }
+
+  el.innerHTML = `
+    <h3>⚙ Manage Association</h3>
+    <label>Name</label><input id="am_name" value="${esc(a.name||'')}" />
+    <label>Description</label><textarea id="am_desc" rows="3">${esc(a.description||'')}</textarea>
+    <div style="margin-top:10px;"><button id="am_save_basic">Save</button> <span id="am_status_basic" class="small"></span></div>
+
+    <h3 style="margin-top:20px;">Ranks <span class="small muted">(owner-defined — members' rank comes automatically from points crossing a threshold)</span></h3>
+    <div id="a_ranks_list"></div>
+    <button class="ghost" id="am_add_rank" style="margin-top:6px;">+ Add rank</button>
+    <div style="margin-top:10px;"><button id="am_save_ranks">Save Ranks</button> <span id="am_status_ranks" class="small"></span></div>
+
+    <h3 style="margin-top:20px;">Custom CSS ${isPremium?'<span class="small" style="color:var(--brass-light);">★ Premium</span>':'<span class="small muted">(requires premium)</span>'}</h3>
+    ${isPremium ? `
+      <p class="small muted">Prefix selectors with <code>.assoc-profile-custom</code>.</p>
+      <textarea id="am_css" rows="6" style="font-family:monospace;font-size:.85em;" placeholder=".assoc-profile-custom .card{ background:#1a1006; }">${esc(a.customCss||'')}</textarea>
+      <div style="margin-top:10px;"><button id="am_save_css">Save CSS</button> <span id="am_status_css" class="small"></span></div>
+    ` : `<p class="small muted">Founding member needs an active premium subscription to style this association's page.</p>`}
+  `;
+  drawRanks();
+
+  el.querySelector('#am_save_basic').onclick = async ()=>{
+    const statusEl = el.querySelector('#am_status_basic');
+    statusEl.textContent = "Saving…";
+    const next = { ...a, name: el.querySelector('#am_name').value.trim(), description: el.querySelector('#am_desc').value.trim() };
+    try{ await DB.put('associations', a.id, who.userId, next); a.name=next.name; a.description=next.description; statusEl.textContent="Saved."; renderOneAssociation(a.id); }
+    catch(err){ statusEl.textContent = "Failed: "+(err.message||err); }
+  };
+  el.querySelector('#am_add_rank').onclick = ()=>{ ranksState.push({name:'New Rank', threshold:0, emoji:'🏅', color:'#c9a84c'}); drawRanks(); };
+  el.querySelector('#am_save_ranks').onclick = async ()=>{
+    const statusEl = el.querySelector('#am_status_ranks');
+    statusEl.textContent = "Saving…";
+    try{ await DB.put('associations', a.id, who.userId, { ...a, ranks: ranksState }); statusEl.textContent="Saved."; }
+    catch(err){ statusEl.textContent = "Failed: "+(err.message||err); }
+  };
+  const cssBtn = el.querySelector('#am_save_css');
+  if(cssBtn) cssBtn.onclick = async ()=>{
+    const statusEl = el.querySelector('#am_status_css');
+    statusEl.textContent = "Saving…";
+    try{ await DB.put('associations', a.id, who.userId, { ...a, customCss: el.querySelector('#am_css').value }); statusEl.textContent="Saved."; }
+    catch(err){ statusEl.textContent = "Failed: "+(err.message||err); }
+  };
+}
+
+render();
+</script>
+</div>
+</body>
+</html>
