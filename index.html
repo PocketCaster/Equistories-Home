@@ -887,6 +887,32 @@ let __memberView = { uid: null };
 
 function memberHref(uid){ return "?player=" + encodeURIComponent(uid); }
 
+// ── FRIENDS ──────────────────────────────────────────────────────────
+// One doc per PAIR of users, id'd deterministically so there's never more
+// than one relationship doc between the same two people regardless of who
+// sent the request first.
+function friendPairId(a, b){ return 'friend_' + [a,b].sort().join('_'); }
+
+async function getFriendStatus(DB, myUid, otherUid){
+  if(!myUid || !otherUid || myUid===otherUid) return null;
+  try{ return await DB.get('friendRequests', friendPairId(myUid, otherUid)); }catch(e){ return null; }
+}
+
+// Every accepted friendship involving uid, regardless of who sent it —
+// combines "requests I sent" (listByOwner) with "requests sent to me"
+// (listByField on the flat toUserId), since Firestore can't query an OR
+// across two different fields in one call.
+async function getFriendsList(DB, uid){
+  if(!uid) return [];
+  let sent=[], received=[];
+  try{ sent = await DB.listByOwner('friendRequests', uid) || []; }catch(e){}
+  try{ received = await DB.listByField('friendRequests', 'toUserId', uid) || []; }catch(e){}
+  const all = [...sent, ...received].filter(f=>f.status==='accepted');
+  const seen = new Set();
+  return all.filter(f=>{ if(seen.has(f.id||f.__id)) return false; seen.add(f.id||f.__id); return true; })
+    .map(f=>(f.fromUserId===uid ? f.toUserId : f.fromUserId));
+}
+
 // Editing your own profile happens HERE now, not in a modal over in the
 // tracker. Same field set the tracker's modal used, so nothing is lost and
 // existing profiles load unchanged.
@@ -1069,6 +1095,10 @@ async function renderMemberProfile(v, uid){
 
   if(isSelf && __memberEdit.on){ renderMemberEditor(v, uid, p, mine, theirs); return; }
 
+  const myFriendStatus = (who && !isSelf) ? await getFriendStatus(DB, who.userId, uid) : null;
+  const profileFriendIds = await getFriendsList(DB, uid);
+  const incomingRequests = isSelf ? (await DB.listByField('friendRequests','toUserId', uid).catch(()=>[])||[]).filter(f=>f.status==='pending') : [];
+
   const premium = isPremiumMember(uid);
   const customCss = (premium && p.customCss) ? sanitizeShopCss(p.customCss) : "";
 
@@ -1085,6 +1115,14 @@ async function renderMemberProfile(v, uid){
              style="width:min(300px,55vw);height:min(300px,55vw);border-radius:50%;object-fit:cover;border:4px solid var(--accent,#c9a84c);flex:0 0 auto;" />`
         : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:50%;border:4px solid var(--accent,#c9a84c);display:flex;align-items:center;justify-content:center;font-size:4.5em;background:var(--deep,#1a1208);flex:0 0 auto;">&#128100;</div>`)
     : framedImg(p.avatar, p.frame, 'min(300px,55vw)', name);
+
+  const friendBtnHtml = (isSelf || !who) ? '' : (()=>{
+    if(!myFriendStatus) return `<button class="ghost" data-friend-add="${__esc(uid)}">+ Add Friend</button>`;
+    if(myFriendStatus.status==='accepted') return `<button class="ghost" data-friend-remove="${__esc(uid)}">&#10003; Friends</button>`;
+    if(myFriendStatus.status==='pending' && myFriendStatus.fromUserId===who.userId) return `<button class="ghost" data-friend-cancel="${__esc(uid)}">Request Sent (cancel)</button>`;
+    if(myFriendStatus.status==='pending' && myFriendStatus.toUserId===who.userId) return `<button class="btn" data-friend-accept="${__esc(uid)}">Accept Friend Request</button> <button class="ghost" data-friend-decline="${__esc(uid)}">Decline</button>`;
+    return '';
+  })();
 
   const statBlock = (num, label)=>`<div style="text-align:center;"><div style="font-size:1.1em;font-weight:bold;color:var(--accent,#e8c766);">${num}</div><div style="font-size:.72em;color:var(--dim,#8a7860);">${label}</div></div>`;
 
@@ -1103,6 +1141,7 @@ async function renderMemberProfile(v, uid){
           ${isSelf
             ? `<button class="btn" data-member-edit>Edit my profile</button>`
             : `<button class="btn" data-msg-to="${__esc(uid)}">Send a message</button>`}
+          ${friendBtnHtml}
           <button class="ghost" data-member-back>&#8592; All members</button>
         </div>
       </div>
@@ -1152,6 +1191,80 @@ async function renderMemberProfile(v, uid){
   if(back) back.onclick = ()=>{ __memberView.uid=null; history.replaceState({}, '', location.pathname); tab="Members"; render(); };
   const msg = v.querySelector('[data-msg-to]');
   if(msg) msg.onclick = ()=>{ __msgView = { mode:"compose", to: msg.dataset.msgTo, replyTo:null }; __memberView.uid = null; tab = "Messages"; render(); };
+
+  async function notifyFriend(toUserId, kind){
+    try{
+      const token = await idToken();
+      await railwayCall('/notifyFriend', { idToken: token, body:{ toUserId, kind } });
+    }catch(e){}
+  }
+  const fAdd = v.querySelector('[data-friend-add]');
+  if(fAdd) fAdd.onclick = async ()=>{
+    fAdd.disabled = true;
+    const otherUid = fAdd.dataset.friendAdd;
+    try{
+      await DB.putWithField('friendRequests', friendPairId(who.userId, otherUid), who.userId,
+        { fromUserId: who.userId, toUserId: otherUid, status:'pending', createdAt:new Date().toISOString() },
+        'toUserId', otherUid);
+      notifyFriend(otherUid, 'request');
+      renderMemberProfile(v, uid);
+    }catch(e){ fAdd.disabled = false; }
+  };
+  const fCancel = v.querySelector('[data-friend-cancel]');
+  if(fCancel) fCancel.onclick = async ()=>{
+    fCancel.disabled = true;
+    try{ await DB.remove('friendRequests', friendPairId(who.userId, fCancel.dataset.friendCancel)); renderMemberProfile(v, uid); }
+    catch(e){ fCancel.disabled = false; }
+  };
+  const fAccept = v.querySelector('[data-friend-accept]');
+  if(fAccept) fAccept.onclick = async ()=>{
+    fAccept.disabled = true;
+    const otherUid = fAccept.dataset.friendAccept;
+    try{
+      await DB.putWithField('friendRequests', friendPairId(who.userId, otherUid), myFriendStatus.fromUserId || otherUid,
+        { fromUserId: myFriendStatus.fromUserId, toUserId: myFriendStatus.toUserId, status:'accepted', createdAt: myFriendStatus.createdAt, respondedAt:new Date().toISOString() },
+        'toUserId', myFriendStatus.toUserId);
+      notifyFriend(otherUid, 'accepted');
+      renderMemberProfile(v, uid);
+    }catch(e){ fAccept.disabled = false; }
+  };
+  const fDecline = v.querySelector('[data-friend-decline]');
+  if(fDecline) fDecline.onclick = async ()=>{
+    fDecline.disabled = true;
+    try{ await DB.remove('friendRequests', friendPairId(who.userId, fDecline.dataset.friendDecline)); renderMemberProfile(v, uid); }
+    catch(e){ fDecline.disabled = false; }
+  };
+  const fRemove = v.querySelector('[data-friend-remove]');
+  if(fRemove) fRemove.onclick = async ()=>{
+    if(!confirm("Remove this friend?")) return;
+    fRemove.disabled = true;
+    try{ await DB.remove('friendRequests', friendPairId(who.userId, fRemove.dataset.friendRemove)); renderMemberProfile(v, uid); }
+    catch(e){ fRemove.disabled = false; }
+  };
+  v.querySelectorAll('[data-freq-accept]').forEach(b=>b.onclick=async()=>{
+    b.disabled = true;
+    const otherUid = b.dataset.freqAccept;
+    const req = incomingRequests.find(r=>r.fromUserId===otherUid);
+    if(!req) return;
+    try{
+      await DB.putWithField('friendRequests', friendPairId(uid, otherUid), otherUid,
+        { fromUserId: otherUid, toUserId: uid, status:'accepted', createdAt: req.createdAt, respondedAt:new Date().toISOString() },
+        'toUserId', uid);
+      notifyFriend(otherUid, 'accepted');
+      renderMemberProfile(v, uid);
+    }catch(e){ b.disabled = false; }
+  });
+  v.querySelectorAll('[data-freq-decline]').forEach(b=>b.onclick=async()=>{
+    b.disabled = true;
+    try{ await DB.remove('friendRequests', friendPairId(uid, b.dataset.freqDecline)); renderMemberProfile(v, uid); }
+    catch(e){ b.disabled = false; }
+  });
+  v.querySelectorAll('[data-friendlink]').forEach(a=>a.onclick=(ev)=>{
+    ev.preventDefault();
+    __memberView.uid = a.dataset.friendlink;
+    history.pushState({player:a.dataset.friendlink}, '', memberHref(a.dataset.friendlink));
+    render();
+  });
 
   function paintTabBar(){
     v.querySelectorAll('[data-ptab]').forEach(el=>{
@@ -1209,7 +1322,24 @@ async function renderMemberProfile(v, uid){
             <div class="small muted" style="margin-bottom:4px;">Breeds</div>
             ${myBreeds.map(b=>`<a class="tag" href="#" data-breedlink="${__esc(b.id)}" style="margin:2px;text-decoration:none;">🐎 ${__esc(b.name||'Unnamed Breed')}${b.owner===uid?' (Founder)':' (Staff)'}</a>`).join(' ')}
           </div>` : ''}
-        </div>` : ''}`;
+        </div>` : ''}
+        ${isSelf && incomingRequests.length ? `<div class="card">
+          <h3 style="margin-top:0;">Friend Requests (${incomingRequests.length})</h3>
+          ${incomingRequests.map(r=>`
+            <div class="linkbox" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+              <b>${__esc(r.fromUserId)}</b>
+              <span style="display:flex;gap:6px;">
+                <button class="btn" data-freq-accept="${__esc(r.fromUserId)}" style="padding:5px 12px;">Accept</button>
+                <button class="ghost" data-freq-decline="${__esc(r.fromUserId)}" style="padding:5px 12px;">Decline</button>
+              </span>
+            </div>`).join('')}
+        </div>` : ''}
+        <div class="card">
+          <h3 style="margin-top:0;">Friends (${profileFriendIds.length})</h3>
+          ${profileFriendIds.length
+            ? profileFriendIds.map(fid=>`<a class="tag" href="${memberHref(fid)}" data-friendlink="${__esc(fid)}" style="margin:2px;text-decoration:none;">${__esc(fid)}${premiumBadge(fid)}</a>`).join(' ')
+            : `<span class="small muted">${isSelf ? "No friends yet — visit another member's profile to add one." : "No friends yet."}</span>`}
+        </div>`;
       body.querySelectorAll('[data-breedlink]').forEach(el=>el.onclick=(ev)=>{
         ev.preventDefault();
         __breedView = { mode:"page", breedId:el.dataset.breedlink, tab:"about" };
