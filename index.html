@@ -172,6 +172,90 @@
   .bk-idbox .lab{ font-family:var(--equi-serif); font-size:1rem; text-transform:uppercase; letter-spacing:.1em; color:#3e2b15; opacity:.85; }
   .bk-idbox .val{ font-family:var(--equi-mono); font-size:1.7rem; font-weight:700; color:#241a14; word-break:break-all; line-height:1.15; }
   .bk-idbox .hint{ font-size:.78rem; color:#3e2b15; font-style:italic; opacity:.85; margin-top:4px; }
+
+  /* ============================================
+     FORUM — ProBoards-style boards/threads/posts.
+     Category header banners, a real stats + last-post table for board and
+     thread listings, and a sidebar-style post card for the thread view.
+     ============================================ */
+  .pb-category{
+    background:var(--panel2); border:1px solid var(--line); border-radius:10px;
+    overflow:hidden; margin-bottom:20px; box-shadow:0 6px 18px rgba(0,0,0,.28);
+  }
+  .pb-category__head{
+    background:var(--gold-shine); color:#241a14; padding:12px 20px;
+    font-family:var(--equi-display,var(--equi-serif)); font-weight:700; font-size:1.2em;
+    letter-spacing:.02em; display:flex; align-items:center; justify-content:space-between;
+    border-bottom:1px solid var(--brass-dark);
+  }
+  .pb-category__head .small{ color:#3e2b15; font-weight:500; opacity:.9; }
+  .pb-colheads{
+    display:grid; grid-template-columns:56px 1fr 100px 260px; gap:14px;
+    padding:8px 20px; font-size:.78em; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--dim); background:rgba(0,0,0,.15); border-bottom:1px solid var(--line);
+  }
+  .pb-colheads span:nth-child(3){ text-align:center; }
+  .pb-row{
+    display:grid; grid-template-columns:56px 1fr 100px 260px;
+    gap:14px; align-items:center; padding:14px 20px;
+    border-top:1px solid var(--line); cursor:pointer; transition:background .15s;
+  }
+  .pb-row:first-child{ border-top:none; }
+  .pb-row:hover{ background:rgba(201,168,76,.09); }
+  .pb-icon{
+    width:44px; height:44px; border-radius:50%; display:flex; align-items:center;
+    justify-content:center; font-size:1.35em; background:var(--deep);
+    border:2px solid var(--line); flex:0 0 auto;
+  }
+  .pb-row.pinned .pb-icon{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(201,168,76,.16); }
+  .pb-title{ font-family:var(--equi-display,var(--equi-serif)); font-weight:700; font-size:1.08em; color:var(--text); line-height:1.3; }
+  .pb-desc{ color:var(--dim); font-size:.92em; margin-top:3px; line-height:1.4; }
+  .pb-meta{ color:var(--dim); font-size:.85em; margin-top:5px; }
+  .pb-stats{ text-align:center; color:var(--dim); font-size:.85em; line-height:1.35; }
+  .pb-stats b{ display:block; color:var(--brass-light); font-size:1.35em; font-family:var(--equi-display,var(--equi-serif)); font-weight:700; }
+  .pb-lastpost{ display:flex; align-items:center; gap:10px; font-size:.85em; color:var(--dim); min-width:0; }
+  .pb-lastpost img, .pb-lastpost .pb-avatar-fallback{
+    width:36px; height:36px; border-radius:8px; object-fit:cover; flex:0 0 auto;
+    border:1px solid var(--line); display:flex; align-items:center; justify-content:center; background:var(--deep);
+  }
+  .pb-lp-info{ min-width:0; }
+  .pb-lp-info .pb-lp-title{ color:var(--brass-light); font-weight:600; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pb-lp-info .pb-lp-who{ color:var(--text); }
+  .pb-empty-lastpost{ color:var(--faint,var(--dim)); font-style:italic; font-size:.85em; }
+  .pb-pin-tag{ color:var(--accent); font-weight:700; margin-right:4px; }
+  .pb-newthread-bar{
+    display:flex; justify-content:flex-end; margin-bottom:10px;
+  }
+  @media (max-width: 760px){
+    .pb-colheads{ display:none; }
+    .pb-row{ grid-template-columns:44px 1fr; }
+    .pb-stats, .pb-lastpost{ display:none; }
+  }
+
+  /* Thread page — sidebar-style post card, classic forum layout */
+  .pb-post{
+    display:grid; grid-template-columns:160px 1fr;
+    border:1px solid var(--line); border-radius:10px; overflow:hidden; margin-bottom:16px;
+    background:var(--panel2);
+  }
+  .pb-post__side{
+    background:var(--panel); padding:18px 14px; text-align:center;
+    border-right:1px solid var(--line); display:flex; flex-direction:column; align-items:center;
+  }
+  .pb-post__side .equi-frame, .pb-post__side .equi-frame-img, .pb-post__side .equi-frame-standalone{ margin:0 auto; }
+  .pb-post__name{ margin-top:10px; font-weight:700; font-family:var(--equi-display,var(--equi-serif)); word-break:break-word; }
+  .pb-post__badges{ margin-top:4px; }
+  .pb-post__body{ padding:18px 22px; min-width:0; }
+  .pb-post__meta{
+    font-size:.85em; color:var(--dim); border-bottom:1px solid var(--line);
+    padding-bottom:10px; margin-bottom:12px; display:flex; justify-content:space-between;
+    flex-wrap:wrap; gap:6px; align-items:baseline;
+  }
+  @media (max-width:640px){
+    .pb-post{ grid-template-columns:1fr; }
+    .pb-post__side{ border-right:none; border-bottom:1px solid var(--line); flex-direction:row; text-align:left; gap:10px; }
+    .pb-post__name{ margin-top:0; }
+  }
 </style>
   <link rel="stylesheet" href="equi-shell.css" />
   <link rel="stylesheet" href="equi-components.css" />
@@ -1497,14 +1581,30 @@ async function renderForum(v){
 // ---- board list ----
 async function renderForumBoards(v, DB, who, boards){
   let threads=[]; try{ threads = await DB.listAll('forumThreads'); }catch(e){}
-  const countByBoard = {}; const lastByBoard = {};
+  const countByBoard = {}; const postsByBoard = {}; const lastThreadByBoard = {};
   threads.forEach(t=>{
     if(!t||!t.boardId) return;
     countByBoard[t.boardId]=(countByBoard[t.boardId]||0)+1;
-    const when = t.updatedAt||t.createdAt||"";
-    if(!lastByBoard[t.boardId] || when>lastByBoard[t.boardId]) lastByBoard[t.boardId]=when;
+    postsByBoard[t.boardId]=(postsByBoard[t.boardId]||0)+1+(Number(t.replyCount)||0);
+    const when = t.lastReplyAt||t.updatedAt||t.createdAt||"";
+    if(!lastThreadByBoard[t.boardId] || when>(lastThreadByBoard[t.boardId].when||"")) lastThreadByBoard[t.boardId]={t, when};
   });
   const admin = who && isAdminMember(who.userId);
+
+  const lastPostHtml = (boardId)=>{
+    const entry = lastThreadByBoard[boardId];
+    if(!entry) return `<span class="pb-empty-lastpost">No threads yet</span>`;
+    const t = entry.t;
+    const whoId = t.lastReplyBy || t.owner;
+    return `<div class="pb-lastpost">
+      <span class="pb-avatar-fallback">🐴</span>
+      <div class="pb-lp-info">
+        <span class="pb-lp-title">${esc(t.title||'(untitled)')}</span>
+        <span class="pb-lp-who">by ${esc(whoId||'?')}</span><br>
+        <span>${forumWhen(entry.when)}</span>
+      </div>
+    </div>`;
+  };
 
   v.innerHTML = `
     <div class="card">
@@ -1513,19 +1613,32 @@ async function renderForumBoards(v, DB, who, boards){
       ${who?'Pick a board to read or start a thread.':'<b>Sign in to post.</b> You can browse freely.'}</p>
     </div>
     ${admin ? `<p class="small muted">Manage boards from the <b>Admin</b> tab.</p>` : ``}
-    <div class="card">
-      <div class="linkbox" data-showguides="1" style="cursor:pointer;border-color:var(--accent);">
-        <b>📋 Show Guides</b>
-        <span class="small">Post and browse show guides — lore, classes, rules, prizes, and the entry link.</span>
-        <span class="small muted">Structured show listings, linked to the Shows app.</span>
+
+    <div class="pb-category">
+      <div class="pb-category__head"><span>📋 Show Board</span></div>
+      <div class="pb-row" data-showguides="1">
+        <div class="pb-icon">📋</div>
+        <div>
+          <div class="pb-title">Show Guides</div>
+          <div class="pb-desc">Post and browse show guides — lore, classes, rules, prizes, and the entry link.</div>
+        </div>
+        <div class="pb-stats"><span class="small">Structured listings</span></div>
+        <div class="pb-lastpost"><span class="small muted">Linked to the Shows app</span></div>
       </div>
     </div>
-    <div class="card">
+
+    <div class="pb-category">
+      <div class="pb-category__head"><span>🗨️ Community Boards</span></div>
+      <div class="pb-colheads"><span></span><span>Board</span><span>Threads</span><span>Last Post</span></div>
       ${boards.map(b=>`
-        <div class="linkbox" data-board="${esc(b.id)}" style="cursor:pointer;">
-          <b>${esc(b.name)}</b>
-          <span class="small">${esc(b.desc||'')}</span>
-          <span class="small muted">${countByBoard[b.id]||0} thread${(countByBoard[b.id]||0)===1?'':'s'}${lastByBoard[b.id]?` · last ${forumWhen(lastByBoard[b.id])}`:''}</span>
+        <div class="pb-row" data-board="${esc(b.id)}">
+          <div class="pb-icon">💬</div>
+          <div>
+            <div class="pb-title">${esc(b.name)}</div>
+            <div class="pb-desc">${esc(b.desc||'')}</div>
+          </div>
+          <div class="pb-stats"><b>${countByBoard[b.id]||0}</b>thread${(countByBoard[b.id]||0)===1?'':'s'}<span>${postsByBoard[b.id]||0} post${(postsByBoard[b.id]||0)===1?'':'s'}</span></div>
+          ${lastPostHtml(b.id)}
         </div>`).join("")}
     </div>`;
 
@@ -1543,19 +1656,32 @@ async function renderForumBoard(v, DB, who, boards){
   });
   const admin = who && isAdminMember(who.userId);
 
+  const threadRow = (t)=>`
+    <div class="pb-row${t.pinned?' pinned':''}" data-thread="${esc(t.id)}">
+      <div class="pb-icon">${t.pinned?'📌':'📝'}</div>
+      <div>
+        <div class="pb-title">${t.pinned?'<span class="pb-pin-tag">PINNED</span>':''}${esc(t.title||'(untitled)')}</div>
+        <div class="pb-meta">by ${esc(t.owner||'?')}${premiumBadge(t.owner)} · started ${forumWhen(t.createdAt)}</div>
+      </div>
+      <div class="pb-stats"><b>${t.replyCount||0}</b>repl${(t.replyCount||0)===1?'y':'ies'}</div>
+      ${t.lastReplyAt ? `<div class="pb-lastpost">
+        <span class="pb-avatar-fallback">🐴</span>
+        <div class="pb-lp-info">
+          <span class="pb-lp-who">${esc(t.lastReplyBy||'?')}</span><br>
+          <span>${forumWhen(t.lastReplyAt)}</span>
+        </div>
+      </div>` : `<div class="pb-lastpost"><span class="pb-empty-lastpost">No replies yet</span></div>`}
+    </div>`;
+
+  const pinned = threads.filter(t=>t.pinned);
+  const rest = threads.filter(t=>!t.pinned);
+
   v.innerHTML = `
     <div class="shop-crumb"><button class="ghost" id="f_back">← All boards</button></div>
     <div class="card">
       <h2>${esc(board.name)}</h2>
       <p class="small">${esc(board.desc||'')}</p>
     </div>
-    ${threads.some(t=>t.pinned) ? `<div class="card">
-      ${threads.filter(t=>t.pinned).map(t=>`
-        <div class="linkbox" data-thread="${esc(t.id)}" style="cursor:pointer;border-color:var(--accent);">
-          <b>📌 ${esc(t.title||'(untitled)')}</b>
-          <span class="small muted">by ${esc(t.owner||'?')}${premiumBadge(t.owner)} · ${forumWhen(t.createdAt)} · ${t.replyCount||0} repl${(t.replyCount||0)===1?'y':'ies'}${t.lastReplyAt?` · last reply by ${esc(t.lastReplyBy||'?')} ${forumWhen(t.lastReplyAt)}`:''}</span>
-        </div>`).join("")}
-    </div>` : ``}
     ${who ? `<div class="card">
       <h3>Start a thread</h3>
       <label>Title</label><input id="ft_title" placeholder="Give your thread a title" />
@@ -1564,12 +1690,14 @@ async function renderForumBoard(v, DB, who, boards){
       <p class="small muted" style="margin:4px 0;">Or use the buttons above the box. Pasted links auto-link.</p>
       <div style="margin-top:8px;"><button id="ft_post">Post thread</button> <span id="ft_msg" class="small"></span></div>
     </div>` : ``}
-    <div class="card">
-      ${threads.filter(t=>!t.pinned).length ? threads.filter(t=>!t.pinned).map(t=>`
-        <div class="linkbox" data-thread="${esc(t.id)}" style="cursor:pointer;">
-          <b>${esc(t.title||'(untitled)')}</b>
-          <span class="small muted">by ${esc(t.owner||'?')}${premiumBadge(t.owner)} · ${forumWhen(t.createdAt)} · ${t.replyCount||0} repl${(t.replyCount||0)===1?'y':'ies'}${t.lastReplyAt?` · last reply by ${esc(t.lastReplyBy||'?')} ${forumWhen(t.lastReplyAt)}`:''}</span>
-        </div>`).join("") : `<p class="small muted">${threads.some(t=>t.pinned)?'No other threads yet.':'No threads yet.'} ${who?'Be the first to post.':'Sign in to start one.'}</p>`}
+    ${pinned.length ? `<div class="pb-category">
+      <div class="pb-category__head"><span>📌 Pinned</span></div>
+      ${pinned.map(threadRow).join("")}
+    </div>` : ``}
+    <div class="pb-category">
+      <div class="pb-category__head"><span>Threads</span></div>
+      ${rest.length ? `<div class="pb-colheads"><span></span><span>Thread</span><span>Replies</span><span>Last Post</span></div>${rest.map(threadRow).join("")}`
+        : `<p class="small muted" style="padding:14px 20px;margin:0;">${pinned.length?'No other threads yet.':'No threads yet.'} ${who?'Be the first to post.':'Sign in to start one.'}</p>`}
     </div>`;
 
   $("f_back").onclick=()=>{ __forumView={mode:"boards",boardId:null,threadId:null}; renderForum(v); };
@@ -1641,6 +1769,17 @@ async function renderForumThread(v, DB, who, boards){
   await Promise.all(authorIds.map(async uid=>{
     try{ authorProfiles[uid] = await DB.get('profiles', uid); }catch(e){}
   }));
+  const authorSide = (uid)=>{
+    const p = authorProfiles[uid] || {};
+    const av = p.avatar ? framedImg(p.avatar, p.frame, 84, uid) : `<div style="width:84px;height:84px;border-radius:12px;background:var(--deep);display:flex;align-items:center;justify-content:center;font-size:2.2em;">🐴</div>`;
+    return `<div class="pb-post__side">
+      ${av}
+      <a href="index.html?player=${encodeURIComponent(uid)}" class="pb-post__name">${esc(p.displayName||uid)}</a>
+      <div class="pb-post__badges">${premiumBadge(uid)}${isAdminMember(uid)?' <span class="tag" style="background:var(--accent,#c9a84c);color:#1a1410;">admin</span>':''}</div>
+    </div>`;
+  };
+  // Plain inline author line — used only in the edit-mode card, which keeps
+  // its simpler single-column layout since it's a temporary editing state.
   const authorLine = (uid)=>{
     const p = authorProfiles[uid] || {};
     const av = p.avatar ? framedImg(p.avatar, p.frame, 40, uid) : `<div style="width:40px;height:40px;border-radius:8px;background:var(--panel,#1a1410);display:flex;align-items:center;justify-content:center;flex:0 0 auto;">🐴</div>`;
@@ -1670,11 +1809,13 @@ async function renderForumThread(v, DB, who, boards){
     const extra = (canEdit?` · <a href="#" data-editpost="${which}">edit</a>`:'')
                 + (canDelete?` · <a href="#" data-delpost="${which}" style="color:var(--bad);">delete</a>`:'');
     return `
-    <div class="card forum-post" style="margin-bottom:12px;">
-      ${authorLine(uid)}
-      <div class="small muted" style="margin:4px 0 8px;">${forumWhen(when)}${editedAt?` · edited ${forumWhen(editedAt)}`:''}${extra}</div>
-      <div style="line-height:1.55;">${forumFormat(bodyRaw)}</div>
-      ${who ? reactionBar(reactions, who) : ''}
+    <div class="pb-post">
+      ${authorSide(uid)}
+      <div class="pb-post__body">
+        <div class="pb-post__meta"><span>${forumWhen(when)}${editedAt?` · edited ${forumWhen(editedAt)}`:''}</span><span>${extra}</span></div>
+        <div style="line-height:1.6;">${forumFormat(bodyRaw)}</div>
+        ${who ? reactionBar(reactions, who) : ''}
+      </div>
     </div>`;
   };
 
@@ -1684,8 +1825,9 @@ async function renderForumThread(v, DB, who, boards){
       <button class="ghost" id="f_home">All boards</button>
     </div>
     <div class="card">
-      <h2 style="word-break:break-word;">${t.pinned?'📌 ':''}${esc(t.title||'(untitled)')}</h2>
-      ${admin?`<div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;">
+      <h2 style="word-break:break-word;">${t.pinned?'<span class="pb-pin-tag">PINNED</span> ':''}${esc(t.title||'(untitled)')}</h2>
+      <div class="small muted">in <a href="#" id="f_boardlink">${esc(board.name)}</a></div>
+      ${admin?`<div style="margin:10px 0 0;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="ghost" id="f_pin">${t.pinned?'Unpin':'📌 Pin'}</button>
         <button class="ghost" id="f_delthread" style="color:var(--bad);">Delete thread</button>
       </div>`:``}
@@ -1700,6 +1842,7 @@ async function renderForumThread(v, DB, who, boards){
 
   $("f_back").onclick=()=>{ __forumView={mode:"board",boardId:t.boardId,threadId:null}; renderForum(v); };
   $("f_home").onclick=()=>{ __forumView={mode:"boards",boardId:null,threadId:null}; renderForum(v); };
+  if($("f_boardlink")) $("f_boardlink").onclick=(ev)=>{ ev.preventDefault(); __forumView={mode:"board",boardId:t.boardId,threadId:null}; renderForum(v); };
 
   attachRichToolbar($("fr_body"));
   v.querySelectorAll('[id^="fe_body_"]').forEach(ta=>attachRichToolbar(ta));
