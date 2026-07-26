@@ -1428,6 +1428,7 @@ async function loadFromSheets(){
       loadGlobalBreeds(),                          // shared breeds/genes live in their own doc
       window.EquiDB.get('inventory', userId),       // fetched ONCE, shared below
       loadPremiumCache(window.EquiDB).catch(()=>{}), // needed for horse/rider profile customization gating
+      loadAdminCache(window.EquiDB).catch(()=>{}),   // dynamic admins (Admin page), same pattern as premium
     ]);
     state.horses  = fb.horses||[];
     state.riders  = fb.riders||[];
