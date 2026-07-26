@@ -1103,10 +1103,10 @@ async function renderMemberProfile(v, uid){
     </div>`;
 
   const headerHtml = p.banner
-    ? `<div style="position:relative;border-radius:12px 12px 0 0;overflow:hidden;margin:-16px -16px 0;padding:150px 16px 24px;min-height:320px;">
+    ? `<div style="position:relative;border-radius:12px 12px 0 0;overflow:hidden;margin:-16px -16px 0;min-height:340px;display:flex;align-items:flex-end;padding:16px;">
         <img src="${__esc(p.banner)}" referrerpolicy="no-referrer" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;" />
-        <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(15,10,6,.1) 0%, rgba(15,10,6,.55) 100%);z-index:1;"></div>
-        <div style="position:relative;z-index:2;">${headerInnerHtml}</div>
+        <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(15,10,6,0) 40%, rgba(15,10,6,.65) 100%);z-index:1;"></div>
+        <div style="position:relative;z-index:2;width:100%;">${headerInnerHtml}</div>
       </div>`
     : (isSelf
         ? `<div style="border-radius:12px 12px 0 0;margin:-16px -16px 0;padding:22px 16px;border-bottom:1px dashed var(--line);">
