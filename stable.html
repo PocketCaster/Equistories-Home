@@ -7081,6 +7081,11 @@ const GENETIC_LOCI = [
       {code:"oo", desc:"No Frame", price:0},
       {code:"Oo", desc:"Frame Overo (OO is lethal white — never pair two carriers)", price:200},
     ]},
+  { key:"dominantwhite", label:"Dominant White (W)",
+    options:[
+      {code:"ww", desc:"No Dominant White", price:0},
+      {code:"Ww", desc:"Dominant White (WW is typically embryonic lethal — never pair two carriers)", price:250},
+    ]},
   { key:"manchado", label:"Manchado (Ma)",
     options:[
       {code:"mama", desc:"No Manchado", price:0},
@@ -7254,7 +7259,7 @@ function computeBaseColor(extension, agouti){
 // are fixed to one base color (e.g. Friesian is always black, Haflinger
 // is always chestnut) — see getFixedBase().
 const BREED_GENETICS = {
-  "thoroughbred":    ["sooty","grey","roan","sabino1"],
+  "thoroughbred":    ["sooty","grey","roan","sabino1","dominantwhite","splash","frame","cream","rabicano"],
   "quarter horse":   ["sooty","pangare","cream","dun","tobiano","sabino1","splash","frame","roan","grey","pearl"],
   "paint":           ["sooty","pangare","cream","tobiano","sabino1","splash","frame","roan","grey","pearl"],
   "appaloosa":       ["sooty","pangare","cream","leopard","patn1","patn2","roan","sabino1","grey"],
@@ -7287,7 +7292,7 @@ const BREED_GENETICS = {
   "akhal-teke":      ["sooty","cream","dun"],
   "icelandic":       ["sooty","pangare","dun","silver","roan","tobiano"],
   "gypsy vanner":    ["sooty","pangare","tobiano","sabino1","splash","roan"],
-  "dutch warmblood": ["sooty","grey","roan"],
+  "dutch warmblood": ["sooty","grey","roan","tobiano"],
   "hanoverian":      ["sooty","grey","roan"],
   "warmblood":       ["sooty","grey","roan"],
 };
