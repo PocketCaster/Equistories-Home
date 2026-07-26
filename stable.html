@@ -2924,6 +2924,7 @@ function renderRiderProfilePage(app, rider){
     ${(() => {
       const isMine = state.riders.some(x=>x.id===rider.id);
       const trueOwner = rider.__owner || rider.owner || (isMine ? bankAccount.userId : null);
+      console.log('[rider CSS debug]', { riderId: rider.id, __owner: rider.__owner, owner: rider.owner, isMine, trueOwner, isPremium: isPremiumMember(trueOwner), hasCss: !!rider.customCss });
       return (isPremiumMember(trueOwner) && rider.customCss) ? `<style>${sanitizeShopCss(rider.customCss)}</style>` : '';
     })()}
 
