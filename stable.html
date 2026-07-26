@@ -371,9 +371,11 @@ async function grantRiderPPForEntry(rider, sourceType, source, horse, explicit){
     : `${source.label||'Training'} (${horse.name})`;
   if(existing){
     existing.pp=pp; existing.sources=sources; existing.label=label; existing.link=source.link||existing.link||null;
+    existing.image = source.image || existing.image || null;
   } else {
     rider.artLog.push({ id:'re_'+Math.random().toString(36).slice(2,10), label,
       link:source.link||null, pp, sources, sourceType, sourceId:source.id, horseId:horse.id,
+      image: source.image || null,
       date:new Date().toISOString() });
   }
   await saveRiderEntry(rider, linkedRiderEntry(rider, source.id));
@@ -2856,7 +2858,24 @@ function riderGalleryImages(rider){
   });
   return items;
 }
+// One-time self-heal for entries created before entries stored their own
+// .image directly (see grantRiderPPForEntry). Only the owner, viewing with
+// their own horses loaded in state.horses, can actually resolve these —
+// so this runs opportunistically on their view and saves the result, which
+// is what makes it work for every OTHER viewer from then on too.
+function backfillRiderGalleryImages(rider){
+  if(!state.riders.some(x=>x.id===rider.id)) return; // only the owner can resolve these
+  let patched = false;
+  (rider.artLog||[]).forEach(e=>{
+    if(e.image || !e.horseId || !e.sourceId) return;
+    const horse = state.horses.find(x=>x.id===e.horseId);
+    const src = horse && (horse.artLog||[]).find(a=>a.id===e.sourceId);
+    if(src && src.image){ e.image = src.image; patched = true; }
+  });
+  if(patched) saveRider(rider); // fire-and-forget — this view already benefits immediately
+}
 function riderGalleryHtml(rider){
+  backfillRiderGalleryImages(rider);
   const items = riderGalleryImages(rider);
   if(!items.length) return `<div class="small" style="opacity:.6;">No gallery images yet — they'll show up here once this rider is featured in a horse's training/show art, or has a Prestige entry with an image.</div>`;
   return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">
@@ -2933,6 +2952,7 @@ function renderRiderProfilePage(app, rider){
       // saveRider(), so it survives any read path. The others are fallbacks
       // for riders saved before this fix existed, until they're next saved.
       const trueOwner = rider.ownerId || rider.__owner || rider.owner || (isMine ? bankAccount.userId : null);
+      console.log('[rider CSS debug v2]', { riderId: rider.id, ownerId: rider.ownerId, __owner: rider.__owner, owner: rider.owner, isMine, trueOwner, isPremium: isPremiumMember(trueOwner), hasCss: !!rider.customCss, cssLen: (rider.customCss||'').length });
       return (isPremiumMember(trueOwner) && rider.customCss) ? `<style>${sanitizeShopCss(rider.customCss)}</style>` : '';
     })()}
 
