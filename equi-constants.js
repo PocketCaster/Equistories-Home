@@ -122,7 +122,14 @@ function frameClass(name){
 // Wrap an image in the member's chosen frame — handles CSS-drawn frames,
 // floral/starburst, AND the new PNG-overlay frames.
 function framedImg(url, frame, size, caption){
-  const px = size || 160;
+  // size can be a plain number (treated as px, the common case — message
+  // avatars, dropdown previews) OR a CSS length/expression string like
+  // "min(300px,55vw)" for a large hero portrait that needs to shrink on
+  // narrow screens. `px` stays numeric (with a safe fallback) purely for
+  // the placeholder-icon font-size math below; `dim` is what actually
+  // goes into width/height.
+  const px = typeof size === 'number' ? size : 160;
+  const dim = typeof size === 'number' ? `${size}px` : (size || '160px');
   const imgFrame = EQUI_IMAGE_FRAMES[frame];
   if(imgFrame){
     const cap = caption ? ` data-caption="${__esc(caption)}"` : '';
@@ -139,14 +146,14 @@ function framedImg(url, frame, size, caption){
     const inner = url
       ? `<img src="${__esc(url)}" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'" style="width:100%;height:100%;object-fit:cover;display:block;" />`
       : `<div style="width:100%;height:100%;background:var(--deep);display:flex;align-items:center;justify-content:center;font-size:${px*0.35}px;">&#128100;</div>`;
-    return `<div class="equi-frame-img" style="position:relative;width:${px}px;height:${px}px;"${cap}>
+    return `<div class="equi-frame-img" style="position:relative;width:${dim};height:${dim};"${cap}>
       <div class="equi-frame-img__avatar" style="position:absolute;overflow:hidden;box-sizing:border-box;${avatarStyle}">${inner}</div>
       <img class="equi-frame-img__art" src="${__esc(imgFrame.src)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;" />
     </div>`;
   }
-  if(!url) return `<div class="${frameClass(frame)}" style="width:${px}px;height:${px}px;">
+  if(!url) return `<div class="${frameClass(frame)}" style="width:${dim};height:${dim};">
       <div style="width:100%;height:100%;border-radius:inherit;background:var(--deep);display:flex;align-items:center;justify-content:center;font-size:2.6em;">&#128100;</div></div>`;
-  return `<div class="${frameClass(frame)}" style="width:${px}px;height:${px}px;"${caption?` data-caption="${__esc(caption)}"`:''}>
+  return `<div class="${frameClass(frame)}" style="width:${dim};height:${dim};"${caption?` data-caption="${__esc(caption)}"`:''}>
     <img src="${__esc(url)}" referrerpolicy="no-referrer" alt="" onerror="this.style.visibility='hidden'" /></div>`;
 }
 // esc() is defined per-page under different names (esc/escAttr/__esc) — this
