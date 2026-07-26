@@ -1076,9 +1076,9 @@ async function renderMemberProfile(v, uid){
   const circleAvatar = (!p.frame || p.frame==='none')
     ? (p.avatar
         ? `<img src="${__esc(p.avatar)}" referrerpolicy="no-referrer" alt="${__esc(name)}"
-             style="width:110px;height:110px;border-radius:50%;object-fit:cover;border:4px solid var(--accent,#c9a84c);flex:0 0 auto;" />`
-        : `<div style="width:110px;height:110px;border-radius:50%;border:4px solid var(--accent,#c9a84c);display:flex;align-items:center;justify-content:center;font-size:2.4em;background:var(--deep,#1a1208);flex:0 0 auto;">&#128100;</div>`)
-    : framedImg(p.avatar, p.frame, 110, name);
+             style="width:min(300px,55vw);height:min(300px,55vw);border-radius:50%;object-fit:cover;border:4px solid var(--accent,#c9a84c);flex:0 0 auto;" />`
+        : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:50%;border:4px solid var(--accent,#c9a84c);display:flex;align-items:center;justify-content:center;font-size:4.5em;background:var(--deep,#1a1208);flex:0 0 auto;">&#128100;</div>`)
+    : framedImg(p.avatar, p.frame, 'min(300px,55vw)', name);
 
   const statBlock = (num, label)=>`<div style="text-align:center;"><div style="font-size:1.1em;font-weight:bold;color:var(--accent,#e8c766);">${num}</div><div style="font-size:.72em;color:var(--dim,#8a7860);">${label}</div></div>`;
 
@@ -1175,19 +1175,17 @@ async function renderMemberProfile(v, uid){
         if(!item) return '';
         const photo = imgOk(item.profileImage) ? item.profileImage : (imgOk(item.image) ? item.image : '');
         return `
-        <a class="linkbox" href="${APPS.stable}?${appQuery}=${encodeURIComponent(item.id)}" style="display:block;">
-          <div class="small muted" style="margin-bottom:4px;">&#10022; featured ${title}</div>
-          <div style="display:flex;gap:10px;align-items:center;">
-            ${photo?`<img src="${__esc(photo)}" referrerpolicy="no-referrer" style="width:56px;height:56px;object-fit:cover;border-radius:8px;" />`:''}
-            <b>${__esc(item.name||'Unnamed')}</b>
-          </div>
+        <a class="linkbox" href="${APPS.stable}?${appQuery}=${encodeURIComponent(item.id)}" style="display:block;text-align:center;">
+          <div class="small muted" style="margin-bottom:8px;">&#10022; featured ${title}</div>
+          ${photo?`<img src="${__esc(photo)}" referrerpolicy="no-referrer" style="width:100%;max-width:300px;aspect-ratio:1;object-fit:cover;border-radius:10px;display:block;margin:0 auto;" />`:''}
+          <b style="display:block;margin-top:8px;">${__esc(item.name||'Unnamed')}</b>
         </a>`;
       };
 
       body.innerHTML = `
         <div class="card">
           <div class="profile-links" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">${discord} ${links}</div>
-          ${featuredHorse||featuredRider ? `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:14px;">
+          ${featuredHorse||featuredRider ? `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-bottom:14px;">
             ${featCard('horse', featuredHorse, 'horse')}
             ${featCard('rider', featuredRider, 'rider')}
           </div>` : ''}
@@ -4618,7 +4616,7 @@ window.__APPS = APPS;
 // Load stored premium (Ko-fi-granted, with expiry) before the first paint so
 // badges / gear caps are correct from the start; then a normal render.
 (async ()=>{
-  try{ const DB = await waitForDB(4000); if(DB) await loadPremiumCache(DB); }catch(e){}
+  try{ const DB = await waitForDB(4000); if(DB) await Promise.all([loadPremiumCache(DB), loadAdminCache(DB)]); }catch(e){}
   render();
 })();
 })();
