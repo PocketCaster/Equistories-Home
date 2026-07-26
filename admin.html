@@ -214,6 +214,17 @@ async function boot(){
     </div>
 
     <div class="card">
+      <h3>Site Admins <span class="small muted">(can open this Admin page and moderate the forum)</span></h3>
+      <p class="small muted" style="margin-top:0;">Founder admins are set in code and can't be removed here — everyone else added below takes effect immediately, no redeploy needed.</p>
+      <div id="a_adminList"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div style="flex:1;min-width:200px;"><label class="small" style="margin-top:0;">Bank User ID</label><input id="a_admin_add" placeholder="e.g. PocketCaster" /></div>
+        <button id="a_admin_addbtn">+ Add admin</button>
+      </div>
+      <div id="a_admin_status" class="small" style="margin-top:6px;min-height:1.2em;"></div>
+    </div>
+
+    <div class="card">
       <h3>Community content <span class="small muted">(shown to everyone on the Community tab)</span></h3>
       <label>Discord invite link</label><input id="a_discord" placeholder="https://discord.gg/…" />
       <label>How to get started</label><textarea id="a_start" rows="6" placeholder="Leave blank to use the default guide."></textarea>
@@ -261,6 +272,56 @@ async function boot(){
       <div id="a_itemEditor" style="margin-top:14px;"></div>
     </div>
   `;
+
+  // ---- Site Admins: dynamic list, load + add/remove ----
+  let dynamicAdmins = [];
+  try{ dynamicAdmins = (await EquiDB.listAll('siteAdmins')).map(r=>r.__owner||r.__id).filter(Boolean); }catch(e){}
+
+  function drawAdminList(){
+    const box=$("a_adminList");
+    const founders = ADMIN_MEMBERS.map(uid=>({uid, founder:true}));
+    const dynamics = dynamicAdmins.filter(uid=>!ADMIN_MEMBERS.includes(uid)).map(uid=>({uid, founder:false}));
+    const all = [...founders, ...dynamics];
+    box.innerHTML = all.length ? all.map(a=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;background:var(--deep);">
+        <span>${esc(a.uid)}${a.founder?' <span class="tag">founder</span>':''}</span>
+        ${a.founder?'':`<button class="ghost danger" data-admindel="${esc(a.uid)}" style="padding:3px 10px;font-size:.9em;">Remove</button>`}
+      </div>`).join("") : `<p class="small muted">No admins yet.</p>`;
+    box.querySelectorAll('[data-admindel]').forEach(btn=>btn.onclick=async()=>{
+      const uid = btn.dataset.admindel;
+      if(!confirm(`Remove admin access from "${uid}"?`)) return;
+      btn.disabled = true;
+      try{
+        await revokeAdmin(EquiDB, uid);
+        dynamicAdmins = dynamicAdmins.filter(x=>x!==uid);
+        drawAdminList();
+      }catch(err){ alert('Failed to remove: '+((err&&err.message)||err)); btn.disabled=false; }
+    });
+  }
+  drawAdminList();
+
+  $("a_admin_addbtn").onclick = async ()=>{
+    const uid = $("a_admin_add").value.trim();
+    const statusEl = $("a_admin_status");
+    if(!uid){ statusEl.textContent = "Enter a Bank User ID first."; return; }
+    if(ADMIN_MEMBERS.includes(uid) || dynamicAdmins.includes(uid)){ statusEl.textContent = `"${uid}" is already an admin.`; return; }
+    statusEl.textContent = "Checking that account exists…";
+    let check;
+    try{ check = await railwayCall('/accountExists/'+encodeURIComponent(uid), { method:'GET' }); }
+    catch(e){ statusEl.textContent = "Couldn't reach the bank server to verify that account. Try again."; return; }
+    if(!check || !check.success || !check.exists){
+      statusEl.textContent = `No bank account found for "${uid}". Check the exact spelling — it's case-sensitive.`;
+      return;
+    }
+    statusEl.textContent = "Granting admin access…";
+    try{
+      await grantAdmin(EquiDB, uid);
+      dynamicAdmins.push(uid);
+      $("a_admin_add").value = "";
+      statusEl.textContent = `"${uid}" is now an admin.`;
+      drawAdminList();
+    }catch(err){ statusEl.textContent = "Failed: "+((err&&err.message)||err); }
+  };
 
   // ---- Community content: load + save (config/hub) ----
   const hubCfg = (await EquiDB.get('config','hub')) || {};
