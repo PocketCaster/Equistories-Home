@@ -1087,7 +1087,7 @@ async function renderMemberProfile(v, uid){
   // with only a light gradient layered on top for text contrast, not a
   // near-solid brown block hiding most of it.
   const headerInnerHtml = `
-    <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
+    <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;">
       ${circleAvatar}
       <div style="flex:1;min-width:250px;">
         <h2 style="margin:0;text-shadow:${p.banner?'0 1px 4px rgba(0,0,0,.8);':'none'}">${__esc(name)}${premiumBadge(uid)}${adminBadge(uid)}</h2>
