@@ -2102,7 +2102,7 @@ $("clearEntries").onclick = ()=>{
   entries=[]; show.judges.forEach(j=>j.owns=[]); invalidate(); $("fetchNote").innerHTML=""; renderAll();
 };
 
-$("runBtn").onclick = ()=>{
+$("runBtn").onclick = async ()=>{
   if(!hostLogin()){ notify("Sign in at the top to publish — hosting a show requires a bank login.","warn"); $("au_user")?.focus(); return; }
   if(!entries.length){ notify("Add at least one entry before publishing.","warn"); return; }
   if(show.status!=="closed" && !confirm("Publish results and CLOSE this show? No more entries will be accepted.")) return;
@@ -2111,6 +2111,20 @@ $("runBtn").onclick = ()=>{
   persist();
   renderAll();
   $("results").scrollIntoView({behavior:"smooth",block:"nearest"});
+
+  // Best-effort: let every placed entrant know. A failed notify shouldn't
+  // undo the results that already published successfully.
+  try{
+    const token = window.EquiAuth ? await window.EquiAuth.token() : null;
+    if(token){
+      const results = published.results || [];
+      await Promise.allSettled(results.filter(e=>e.ownerBankId && e.placement).map(e=>
+        railwayCall('/notifyShowPlacement', { idToken: token, body:{
+          toUserId: e.ownerBankId, horseName: e.name, placement: e.placement, showTitle: show.title
+        }})
+      ));
+    }
+  }catch(e){}
 };
 
 $("exportBtn").onclick = ()=>{
