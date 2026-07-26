@@ -2866,7 +2866,7 @@ function renderNav(){
   // "Members" is still the internal tab key everywhere (tab==="Members",
   // data-go="Members", etc.) — only what's actually displayed changes here,
   // since it now covers horses/riders too and "Members" undersold that.
-  const TAB_LABELS = { Members: "Directory" };
+  const TAB_LABELS = { Members: "Directory", Community: "Rules & Guides" };
   $("nav").innerHTML = visibleTabs.map(t=>{
     const __n = (t==="Messages") ? (msgUnread()+resultsWaiting()) : 0;
     const badge = __n ? ` <span style="background:var(--equi-accent);color:var(--equi-ink);border-radius:9px;padding:0 6px;font-size:.82em;font-weight:bold;">${__n}</span>` : "";
