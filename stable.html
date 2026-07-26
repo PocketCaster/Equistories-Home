@@ -472,6 +472,7 @@ function newRider(data){
     name:data.name||"Unnamed Rider",
     pronouns:data.pronouns||"",
     barn:data.barn||"",         // barn / stable they ride for
+    barnJobs:data.barnJobs||[], // roles at the barn — Owner, Vet, Groom, etc.
     image:data.image||"",       // URL
     bio:data.bio||"",
     link:data.link||"",         // ref/profile sheet
@@ -2749,6 +2750,11 @@ function showRiderProfileModal(riderId){
 
         <div style="margin-top:8px;"><label>Barn / Stable <span class="small">(optional)</span></label><input id="rm_barn" value="${escAttr(r.barn||'')}" placeholder="e.g. Claymont Acres" /></div>
         <div style="margin-top:8px;">
+          <label>Barn Job(s) <span class="small">(optional)</span></label>
+          <input id="rm_jobs" value="${escAttr((r.barnJobs||[]).join(', '))}" placeholder="e.g. Owner, Vet, Boarder, Lessoner, Exercise Rider, Groom" />
+          <p class="small muted" style="margin:4px 0 0;">Comma-separated — whatever roles they actually do at the barn.</p>
+        </div>
+        <div style="margin-top:8px;">
           <label>Profile Image Link <span class="small">(optional)</span></label>
           <input id="rm_image" value="${escAttr(r.image||'')}" placeholder="https://… direct image address" />
           <div id="rm_preview" style="margin-top:6px;">${r.image?urlImagePreviewHTML(r.image,'Rider'):''}</div>
@@ -2801,6 +2807,7 @@ function showRiderProfileModal(riderId){
       r.name     = wrap.querySelector('#rm_name').value.trim() || r.name;
       r.pronouns = wrap.querySelector('#rm_pronouns').value.trim();
       r.barn     = wrap.querySelector('#rm_barn').value.trim();
+      r.barnJobs = wrap.querySelector('#rm_jobs').value.split(',').map(s=>s.trim()).filter(Boolean);
       r.image    = wrap.querySelector('#rm_image').value.trim();
       r.frame    = frameAllowed(wrap.querySelector('#rm_frame').value, bankAccount.userId)
                      ? wrap.querySelector('#rm_frame').value : 'none';
@@ -2819,6 +2826,43 @@ function showRiderProfileModal(riderId){
   };
 }
 
+
+// A rider's gallery: every image they're actually pictured in. Two sources
+// feed rider.artLog, and this handles both —
+//   - auto-linked entries (from a horse's training/competition art log,
+//     via grantRiderPPForEntry): no image of their own, so look up the
+//     source horse's matching artLog entry by sourceId for its image.
+//   - manual "Log Prestige" entries: carry their own .image directly.
+// De-duped by image URL, since the same picture can't sensibly appear twice.
+function riderGalleryImages(rider){
+  const items = [];
+  const seen = new Set();
+  (rider.artLog||[]).forEach(e=>{
+    let img = e.image || null;
+    let horse = e.horseId ? state.horses.find(x=>x.id===e.horseId) : null;
+    if(!img && horse && e.sourceId){
+      const src = (horse.artLog||[]).find(a=>a.id===e.sourceId);
+      if(src && src.image) img = src.image;
+    }
+    if(!img || seen.has(img)) return;
+    seen.add(img);
+    items.push({ image:img, label:e.label||'', horseId:horse?horse.id:null, horseName:horse?horse.name:null });
+  });
+  return items;
+}
+function riderGalleryHtml(rider){
+  const items = riderGalleryImages(rider);
+  if(!items.length) return `<div class="small" style="opacity:.6;">No gallery images yet — they'll show up here once this rider is featured in a horse's training/show art, or has a Prestige entry with an image.</div>`;
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">
+    ${items.map(it=>`
+      <div>
+        <img src="${it.image}" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--equi-line);cursor:zoom-in;display:block;"
+             onclick="openLightbox('${jsStr(it.image)}','${jsStr(it.label||rider.name)}')"
+             onerror="this.parentElement.style.display='none';" />
+        ${it.horseName?`<div class="small" style="margin-top:3px;text-align:center;opacity:.8;">${it.horseName.replace(/</g,'&lt;')}</div>`:''}
+      </div>`).join('')}
+  </div>`;
+}
 
 function renderRiderProfilePage(app, rider){
   const shareUrl = new URL(window.location.origin + window.location.pathname);
@@ -2892,6 +2936,7 @@ function renderRiderProfilePage(app, rider){
           <div style="flex:1;min-width:220px;">
             <h1 style="margin:0 0 4px;color:var(--equi-accent);font-size:1.9em;">${rider.name}</h1>
             <div style="margin-bottom:6px;"><span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:var(--equi-plum);font-size:1.05em;">${showTitle}</span></div>
+            ${(rider.barnJobs||[]).length?`<div style="margin-bottom:6px;">${rider.barnJobs.map(j=>`<span class="tag">${j.replace(/</g,'&lt;')}</span>`).join(' ')}</div>`:''}
             <div style="margin-top:8px;"><span class="tag" style="font-size:1.02em;">${pp} PP</span> <span class="tag" style="font-size:1.02em;">${prog.next?`${prog.toNext} to ${prog.next.name}`:"Top tier"}</span></div>
             <div class="expbar-bg" style="margin-top:6px;max-width:260px;"><div class="expbar-fill" style="width:${pct}%"></div></div>
             <div class="small" style="margin-top:10px;font-style:italic;">${title.note}</div>
@@ -2913,6 +2958,11 @@ function renderRiderProfilePage(app, rider){
       <div class="pcard">
         <h3>Prestige Log (${log.length})</h3>
         ${logHtml}
+      </div>
+
+      <div class="pcard">
+        <h3>Gallery</h3>
+        ${riderGalleryHtml(rider)}
       </div>
 
       <div style="text-align:center;margin:20px 0;">
@@ -3015,6 +3065,7 @@ function renderRiders(){
             <span class="tag" style="background:#2a1a3a;color:var(--equi-accent-2);border-color:var(--equi-plum);">${showTitle}</span>
           </div>
           <div class="small" style="margin-top:4px;">Barn: ${rider.barn?rider.barn.replace(/</g,'&lt;'):`<span style="color:var(--equi-faint);">—</span>`}</div>
+          ${(rider.barnJobs||[]).length?`<div class="small" style="margin-top:2px;">Jobs: ${rider.barnJobs.map(j=>j.replace(/</g,'&lt;')).join(', ')}</div>`:''}
           <div class="small" style="margin-top:2px;">Rides: ${riddenHtml}</div>
           <div class="small" style="margin-top:6px;"><b>${pp} PP</b>${prog.next?` · ${prog.toNext} to ${prog.next.name}`:` · top tier`}</div>
           <div class="expbar-bg" style="margin-top:5px;"><div class="expbar-fill" style="width:${prog.pct}%;background:linear-gradient(90deg,#8a6fb0,var(--equi-accent-2));"></div></div>
@@ -3089,7 +3140,11 @@ function riderLogHtml(rider){
       </div>
       ${(e.sources&&e.sources.length)?`<div class="small" style="color:var(--equi-faint);">${e.sources.join(" · ")}</div>`:""}
     </div>`).join("");
-  return `<div class="artlog-panel" style="margin-top:12px;">${rows}</div>`;
+  return `<div class="artlog-panel" style="margin-top:12px;">${rows}</div>
+    <div style="margin-top:10px;">
+      <div class="small" style="margin-bottom:6px;opacity:.8;">Gallery</div>
+      ${riderGalleryHtml(rider)}
+    </div>`;
 }
 
 function bindRiderCardEvents(wrap){
