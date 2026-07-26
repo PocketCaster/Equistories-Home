@@ -4207,8 +4207,14 @@ function showBreedingSlotModal(horseId, slotIndex){
     // failing here is exactly how a reservation ends up invisible to them.
     const status=box.querySelector('#bs_reserve_status');
     if(status) status.innerHTML='<span class="small" style="opacity:.75;">Sharing…</span>';
-    writeReservation(h, slotIndex, reservedFor).then(ok=>{
-      if(ok){ close(); render(); return; }
+    writeReservation(h, slotIndex, reservedFor).then(async ok=>{
+      if(ok){
+        try{
+          const token = await window.EquiAuth.token();
+          await railwayCall('/notifyBreedingSlotGift', { idToken: token, body:{ toUserId: reservedFor, horseName: h.name } });
+        }catch(e){} // best-effort — a failed notify shouldn't block the reservation itself
+        close(); render(); return;
+      }
       if(status) status.innerHTML=
         '<span class="small" style="color:var(--equi-rust);">Saved on your side, but it could NOT be shared — '
         +escAttr(reservedFor)+' won\'t see it yet. Usually this means the site needs its database '
