@@ -9396,7 +9396,9 @@ function showProfileModal(horseId){
       <div class="card" style="max-width:1040px;width:100%;margin:0 auto;background:var(--equi-panel);border:1px solid var(--equi-line);">
         <h3 style="margin-top:0;color:var(--equi-accent);">Edit Profile — ${escAttr(h.name)}</h3>
 
-        <div class="row" style="display:flex;gap:14px;flex-wrap:wrap;">
+        <div style="margin-top:0;"><label>Horse Name</label><input id="pm_name" value="${escAttr(h.name||'')}" placeholder="Registered show name" /></div>
+
+        <div class="row" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;">
           <div style="flex:1;min-width:200px;"><label>Breed</label><input id="pm_breed" value="${escAttr(h.breed||'')}" placeholder="e.g. Thoroughbred" /></div>
           <div><label>Age</label><input id="pm_age" value="${escAttr(h.age||'')}" placeholder="e.g. 5" style="max-width:110px;" /></div>
         </div>
@@ -9473,6 +9475,7 @@ function showProfileModal(horseId){
       statusEl.textContent = "Still working — slow connections or a busy sheet can take a bit longer. Don't close this window.";
     }, 6000);
     try{
+      h.name  = wrap.querySelector('#pm_name').value.trim() || h.name;
       h.breed = wrap.querySelector('#pm_breed').value.trim() || h.breed;
       h.frame = frameAllowed(wrap.querySelector('#pm_frame').value, h.owner||h.ownerName||bankAccount.userId)
                   ? wrap.querySelector('#pm_frame').value : 'none';
