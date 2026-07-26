@@ -429,20 +429,14 @@ async function renderHome(v){
   // Clicking a stat chip opens a full list in a panel below.
   $("stats").querySelectorAll('[data-stat]').forEach(chip=>chip.onclick=()=>{
     const kind=chip.dataset.stat;
+    if(kind==="members" || kind==="horses" || kind==="riders"){
+      __membersBrowse = kind; // Members tab opens straight to this category
+      tabJump("Members");
+      return;
+    }
     const panel=$("statDetail"); if(!panel) return;
-    const rows = kind==="members" ? profiles.slice().sort((a,b)=>String(a.userId||a.id||'').localeCompare(String(b.userId||b.id||''))).map(p=>{
-        const uid=p.userId||p.id||'?';
-        return `<div class="linkbox"><b>${__esc(uid)}${premiumBadge(uid)}</b><span class="small muted">${countBy(horses,uid)} horses · ${countBy(riders,uid)} riders</span></div>`;
-      }).join("")
-      : kind==="horses" ? horses.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))).map(h=>
-        `<div class="linkbox"><a href="${__APPS.stable}?horse=${encodeURIComponent(h.id)}" target="_blank"><b>${__esc(h.name||'Unnamed')}</b></a><span class="small muted">${__esc(h.breed||'—')}${h.owner?` · ${__esc(h.owner)}`:''}${h.level?` · Lv ${h.level}`:''}</span></div>`).join("")
-      : kind==="riders" ? riders.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))).map(r=>
-        `<div class="linkbox"><a href="${__APPS.stable}?rider=${encodeURIComponent(r.id)}" target="_blank"><b>${__esc(r.name||'Unnamed')}</b></a><span class="small muted">${r.owner?__esc(r.owner):''}</span></div>`).join("")
-      : shows.slice().map(showRow).join("");
-    const title = kind==="members"?`All members (${profiles.length})`
-      : kind==="horses"?`All horses (${horses.length})`
-      : kind==="riders"?`All riders (${riders.length})`
-      : `All shows (${shows.length})`;
+    const rows = shows.slice().map(showRow).join("");
+    const title = `All shows (${shows.length})`;
     panel.innerHTML = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;">
         <h3 style="margin:0;">${title}</h3><button class="ghost" id="statClose" style="padding:4px 12px;">Close ✕</button></div>
       <div style="margin-top:10px;">${rows||'<span class="small muted">Nothing here yet.</span>'}</div></div>`;
@@ -1050,6 +1044,7 @@ Scripts, iframes and forms are stripped for everyone's safety.">${__esc(p.about|
 }
 
 let __profileTab = "About";
+let __membersBrowse = "members"; // "members" | "horses" | "riders" — which list the Members tab is showing
 
 async function renderMemberProfile(v, uid){
   v.innerHTML = `<div class="card"><div class="small">Loading ${__esc(uid)}…</div></div>`;
@@ -1382,8 +1377,13 @@ async function renderStatusUpdates(body, DB, profileUid, who, isSelf){
 
 async function renderMembers(v){
   v.innerHTML = `<div class="card"><h2>Members</h2>
-    <p class="small">Everyone in the community. Click a name to see their stable, riders and links.</p>
-    <input id="mSearch" placeholder="Search members, horses, or riders…" style="margin-top:8px;" />
+    <p class="small">Everyone in the community — plus every horse and rider in the game. Click a name to see more.</p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">
+      <button class="ghost" data-browse="members" style="padding:6px 14px;">Members</button>
+      <button class="ghost" data-browse="horses" style="padding:6px 14px;">Horses</button>
+      <button class="ghost" data-browse="riders" style="padding:6px 14px;">Riders</button>
+    </div>
+    <input id="mSearch" placeholder="Search members, horses, or riders…" style="margin-top:10px;" />
     <div id="mSearchResults" style="margin-top:10px;"></div>
     <div id="mList" style="margin-top:14px;">Loading…</div></div>`;
   const DB = await __waitForDB();
@@ -1394,7 +1394,33 @@ async function renderMembers(v){
   if(!profiles.length){ $("mList").innerHTML='<span class="muted">No member profiles yet. Make yours in the Stable Manager → My Profile.</span>'; return; }
 
   const countBy = (arr,owner)=>arr.filter(x=>x.__owner===owner).length;
-  const drawMemberGrid = ()=>{
+
+  function paintBrowseButtons(){
+    v.querySelectorAll('[data-browse]').forEach(btn=>{
+      const active = btn.dataset.browse === __membersBrowse;
+      btn.style.background = active ? 'var(--gold-shine, var(--accent))' : '';
+      btn.style.color = active ? '#241a14' : '';
+      btn.style.fontWeight = active ? 'bold' : '';
+    });
+  }
+
+  const drawList = ()=>{
+    if(__membersBrowse === 'horses'){
+      const sorted = horses.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+      $("mList").innerHTML = `<h3 style="margin-top:0;">All Horses (${horses.length})</h3>` + (sorted.length ? sorted.map(h=>
+        `<a class="linkbox" href="${__APPS.stable}?horse=${encodeURIComponent(h.id)}" target="_blank" style="display:block;"><b>${__esc(h.name||'Unnamed')}</b>
+         <span class="small muted">${__esc(h.breed||'—')}${h.__owner?` · ${__esc(h.__owner)}`:''}${h.level?` · Lv ${h.level}`:''}</span></a>`).join("")
+        : `<span class="muted">No horses yet.</span>`);
+      return;
+    }
+    if(__membersBrowse === 'riders'){
+      const sorted = riders.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+      $("mList").innerHTML = `<h3 style="margin-top:0;">All Riders (${riders.length})</h3>` + (sorted.length ? sorted.map(r=>
+        `<a class="linkbox" href="${__APPS.stable}?rider=${encodeURIComponent(r.id)}" target="_blank" style="display:block;"><b>${__esc(r.name||'Unnamed')}</b>
+         <span class="small muted">${r.__owner?`${__esc(r.__owner)}`:''}</span></a>`).join("")
+        : `<span class="muted">No riders yet.</span>`);
+      return;
+    }
     $("mList").innerHTML = `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));">`
       + profiles.map(p=>{
           const uid=p.__owner||p.__id;
@@ -1423,12 +1449,18 @@ async function renderMembers(v){
     });
   }
 
+  v.querySelectorAll('[data-browse]').forEach(btn=>btn.onclick=()=>{
+    __membersBrowse = btn.dataset.browse;
+    $("mSearch").value = ''; $("mSearchResults").innerHTML = ''; $("mList").style.display = '';
+    paintBrowseButtons(); drawList();
+  });
+
   // Search filters the SAME data already loaded above — no extra fetches,
   // and it covers everyone site-wide (not just your own stable), since
   // horses/riders/profiles are all public-read collections anyway.
   function runSearch(qRaw){
     const q = qRaw.trim().toLowerCase();
-    if(!q){ $("mSearchResults").innerHTML = ''; $("mList").style.display = ''; drawMemberGrid(); return; }
+    if(!q){ $("mSearchResults").innerHTML = ''; $("mList").style.display = ''; drawList(); return; }
     $("mList").style.display = 'none';
 
     const matchedProfiles = profiles.filter(p=>{
@@ -1460,7 +1492,8 @@ async function renderMembers(v){
   }
   $("mSearch").oninput = ()=>runSearch($("mSearch").value);
 
-  drawMemberGrid();
+  paintBrowseButtons();
+  drawList();
 }
 
 // ============================================================
