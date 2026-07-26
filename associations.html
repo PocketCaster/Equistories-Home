@@ -129,7 +129,7 @@ async function awardAssocPoints(assocId, amount){
   let mem = await DB.get('associationMembers', docId);
   if(!mem) return; // must be a member already (joining creates this doc)
   const points = (Number(mem.points)||0) + amount;
-  await DB.put('associationMembers', docId, who.userId, { ...mem, points, associationId: assocId });
+  await DB.putWithField('associationMembers', docId, who.userId, { ...mem, points, associationId: assocId }, 'associationId', assocId);
 }
 
 async function render(){
@@ -190,7 +190,7 @@ async function renderBrowse(){
     try{
       await DB.put('associations', id, who.userId, rec);
       // Founder auto-joins as the first member.
-      await DB.put('associationMembers', id+'_'+who.userId, who.userId, { associationId:id, points:0, joinedAt:new Date().toISOString() });
+      await DB.putWithField('associationMembers', id+'_'+who.userId, who.userId, { associationId:id, points:0, joinedAt:new Date().toISOString() }, 'associationId', id);
       location.href = '?assoc='+encodeURIComponent(id);
     }catch(err){ $("ac_status").textContent = "Failed: "+(err.message||err); }
   };
@@ -271,7 +271,7 @@ async function renderOneAssociation(assocId){
     $("a_join").onclick = async ()=>{
       $("a_status").textContent = "Joining…";
       try{
-        await DB.put('associationMembers', assocId+'_'+who.userId, who.userId, { associationId:assocId, points:0, joinedAt:new Date().toISOString() });
+        await DB.putWithField('associationMembers', assocId+'_'+who.userId, who.userId, { associationId:assocId, points:0, joinedAt:new Date().toISOString() }, 'associationId', assocId);
         renderOneAssociation(assocId);
       }catch(err){ $("a_status").textContent = "Failed: "+(err.message||err); }
     };
