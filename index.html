@@ -1090,7 +1090,7 @@ async function renderMemberProfile(v, uid){
     <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
       ${circleAvatar}
       <div style="flex:1;min-width:250px;">
-        <h2 style="margin:0;text-shadow:${p.banner?'0 1px 4px rgba(0,0,0,.8);':'none'}">${__esc(name)}${premiumBadge(uid)}${isAdminMember(uid)?' <span class="tag" style="background:var(--accent,#c9a84c);">admin</span>':''}</h2>
+        <h2 style="margin:0;text-shadow:${p.banner?'0 1px 4px rgba(0,0,0,.8);':'none'}">${__esc(name)}${premiumBadge(uid)}${adminBadge(uid)}</h2>
         <div class="small muted" style="text-shadow:${p.banner?'0 1px 3px rgba(0,0,0,.8);':'none'}">${__esc(uid)}${p.pronouns?` &middot; ${__esc(p.pronouns)}`:''}</div>
         ${p.bio?`<p class="profile-tagline" style="margin:8px 0 0;font-family:'Caveat',cursive;font-size:1.25rem;color:${p.banner?'#f0e6d2':'var(--dim)'};text-shadow:${p.banner?'0 1px 4px rgba(0,0,0,.8);':'none'}">${__esc(p.bio)}</p>`:''}
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
@@ -1773,7 +1773,7 @@ async function renderForumThread(v, DB, who, boards){
     return `<div class="pb-post__side">
       ${av}
       <a href="index.html?player=${encodeURIComponent(uid)}" class="pb-post__name">${esc(p.displayName||uid)}</a>
-      <div class="pb-post__badges">${premiumBadge(uid)}${isAdminMember(uid)?' <span class="tag" style="background:var(--accent,#c9a84c);color:#1a1410;">admin</span>':''}</div>
+      <div class="pb-post__badges">${premiumBadge(uid)}${adminBadge(uid)}</div>
     </div>`;
   };
   // Plain inline author line — used only in the edit-mode card, which keeps
@@ -1784,7 +1784,7 @@ async function renderForumThread(v, DB, who, boards){
     return `<div style="display:flex;align-items:center;gap:8px;">
       ${av}
       <div>
-        <a href="index.html?player=${encodeURIComponent(uid)}" style="font-weight:600;">${esc(p.displayName||uid)}</a>${premiumBadge(uid)}${isAdminMember(uid)?' <span class="tag" style="background:var(--accent,#c9a84c);color:#1a1410;">admin</span>':''}
+        <a href="index.html?player=${encodeURIComponent(uid)}" style="font-weight:600;">${esc(p.displayName||uid)}</a>${premiumBadge(uid)}${adminBadge(uid)}
       </div>
     </div>`;
   };
