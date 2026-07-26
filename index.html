@@ -312,6 +312,7 @@ const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&
 const APPS = {
   stable: "stable.html",
   shows:  "shows.html",
+  associations: "associations.html",
 };
 
 const DEFAULT_DISCORD = "https://discord.gg/54nC2p2qp9";
@@ -374,6 +375,8 @@ async function renderHome(v){
           <span class="small">Your horses, riders, training, shows and inventory.</span></a>
         <a class="linkbox" href="${__APPS.shows}"><b>Shows →</b>
           <span class="small">Host a show, judge entries, or enter one.</span></a>
+        <a class="linkbox" href="${__APPS.associations}"><b>Associations →</b>
+          <span class="small">Member-run clubs — join one, post on its wall, climb its rank ladder.</span></a>
         <a class="linkbox" href="#" data-go="Bank"><b>Bank →</b>
           <span class="small">Your Buxx balance, transfers, deposits and ledger.</span></a>
         <a class="linkbox" href="#" data-go="Community"><b>Getting Started →</b>
