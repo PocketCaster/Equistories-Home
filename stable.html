@@ -2921,7 +2921,11 @@ function renderRiderProfilePage(app, rider){
       .artlog-entry { padding:10px 0; border-bottom:1px dashed var(--equi-raised); }
       .artlog-entry:last-child { border-bottom:none; }
     </style>
-    ${(isPremiumMember(rider.__owner||rider.owner) && rider.customCss) ? `<style>${sanitizeShopCss(rider.customCss)}</style>` : ''}
+    ${(() => {
+      const isMine = state.riders.some(x=>x.id===rider.id);
+      const trueOwner = rider.__owner || rider.owner || (isMine ? bankAccount.userId : null);
+      return (isPremiumMember(trueOwner) && rider.customCss) ? `<style>${sanitizeShopCss(rider.customCss)}</style>` : '';
+    })()}
 
     <div class="rider-profile-custom" style="width:100%;margin:0 auto;padding:clamp(16px,3vw,32px);">
       <div style="margin-bottom:12px;"><span data-act="back-from-rider" style="color:var(--equi-accent);text-decoration:none;cursor:pointer;">\u2190 Back to Stable Manager</span></div>
