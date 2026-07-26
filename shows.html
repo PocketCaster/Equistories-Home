@@ -519,10 +519,6 @@ const STAT_LEVELS = [
   { key:"champ",  label:"Championship", peak:150 },
 ];
 const DEFAULT_MAILBOX = "https://script.google.com/macros/s/AKfycbxJDhhM0OaHB8-BvHuGLs0XByWnYIiuMLqzRkAVo50TBg4sfazthu25QdoqwCBKUSFM/exec";
-// The Buxx Bank /exec url — the SAME BANK_URL the main EquiStories app uses for
-// loginPlayer and all money actions (NOT the stable/horse-data url). The escrow
-// functions live here too.
-const DEFAULT_BANK = "https://script.google.com/macros/s/AKfycby9WLxUPDAPg9EH5aTPATzTkHd8XeSKXuQ0WYqyQoHusEbws85qxwaML6cSovDod80/exec";
 
 function cyrb53(str, seed=0){
   let h1=0xdeadbeef^seed, h2=0x41c6ce57^seed;
@@ -2199,57 +2195,39 @@ async function bankSignIn(email, password){
   const a = await window.EquiAuth.signIn(email, password);
   if(!a.success) return {success:false, error:a.error};
   const token = await window.EquiAuth.token();
-  const who = await bankCall({action:"getMyAccount", idToken:token});
+  const who = await railwayCall('/getMyAccount', { idToken:token, body:{} });
   if(!who?.success) return {success:false, error:who?.error||"Could not reach the bank."};
-  if(!who.data?.linked){
+  if(!who.linked){
     await window.EquiAuth.signOut();
     return {success:false, error:"That login isn't connected to a stable yet. Open the Stable Manager and link it first."};
   }
-  localStorage.setItem("equi-lite-bank", JSON.stringify({userId:who.data.userId, password:"", linked:true}));
-  return {success:true, userId:who.data.userId, displayName:who.data.displayName, balance:who.data.balance};
+  localStorage.setItem("equi-lite-bank", JSON.stringify({userId:who.userId, password:"", linked:true}));
+  return {success:true, userId:who.userId, displayName:who.displayName, balance:who.balance};
 }
 function bankSignOut(){
   try{ localStorage.removeItem("equi-lite-bank"); }catch{}
   if(window.EquiAuth) window.EquiAuth.signOut();
 }
-function bankUrl(){
-  // Always the bank — loginPlayer and money actions live here, not on the stable.
-  return DEFAULT_BANK;
-}
 
-function bankCall(payload){
-  const url=bankUrl();
-  return new Promise(resolve=>{
-    if(!url) return resolve({success:false,error:"No bank url — sign in on the main EquiStories site first."});
-    const cb="bkCb_"+Date.now()+"_"+Math.random().toString(36).slice(2,6);
-    const s=document.createElement("script");
-    let done=false;
-    const finish=d=>{ if(!done){done=true; delete window[cb]; s.remove(); resolve(d);} };
-    window[cb]=finish;
-    s.onerror=()=>finish({success:false,error:"Couldn't reach the bank."});
-    setTimeout(()=>finish({success:false,error:"The bank didn't answer in time."}),15000);
-    s.src=url+"?callback="+cb+"&data="+encodeURIComponent(JSON.stringify(payload));
-    document.head.appendChild(s);
-  });
-}
-const escrowStatus = showId => bankCall({action:"getShowEscrow", showId});
+// Show prize escrow — migrated off the old (retired) Google Apps Script
+// bank onto the same Railway server every other app uses. requireAuth on
+// that server only accepts a real Firebase idToken, so unlike the old
+// system there's no password fallback here — you need a live sign-in.
+const escrowStatus = showId => railwayCall('/getShowEscrow/'+encodeURIComponent(showId), { method:'GET' });
 function holdPrize(showId, amount){
   const l=hostLogin(); if(!l) return Promise.resolve({success:false,error:"not signed in"});
   return (async()=>{
     const idToken = window.EquiAuth ? await window.EquiAuth.token() : null;
-    if(!idToken && !l.password) return {success:false, error:"Your session expired — sign in again at the top."};
-    return bankCall({action:"holdShowPrize", showId, funderId:l.userId,
-                     idToken:idToken||undefined, password:idToken?undefined:l.password, amount});
+    if(!idToken) return {success:false, error:"Your session expired — sign in again at the top."};
+    return railwayCall('/holdShowPrize', { idToken, body:{ showId, amount } });
   })();
 }
 function releasePrize(showId, payouts){
   const l=hostLogin(); if(!l) return Promise.resolve({success:false,error:"not signed in"});
   return (async()=>{
     const idToken = window.EquiAuth ? await window.EquiAuth.token() : null;
-    if(!idToken && !l.password) return {success:false, error:"Your session expired — sign in again at the top."};
-    return bankCall({action:"releaseShowPrize", showId, funderId:l.userId,
-                     idToken:idToken||undefined, password:idToken?undefined:l.password,
-                     payouts:JSON.stringify(payouts)});
+    if(!idToken) return {success:false, error:"Your session expired — sign in again at the top."};
+    return railwayCall('/releaseShowPrize', { idToken, body:{ showId, payouts } });
   })();
 }
 
@@ -3153,12 +3131,12 @@ async function adoptSharedSession(){
     if(!window.EquiAuth.user) return;       // no Firebase session to adopt
     const token = await window.EquiAuth.token();
     if(!token) return;
-    const who = await bankCall({action:"getMyAccount", idToken:token});
-    if(who?.success && who.data?.linked){
+    const who = await railwayCall('/getMyAccount', { idToken:token, body:{} });
+    if(who?.success && who.linked){
       localStorage.setItem("equi-lite-bank", JSON.stringify({
-        userId: who.data.userId, password:"", linked:true }));
+        userId: who.userId, password:"", linked:true }));
       renderAuth();
-      console.log('[EquiShows] adopted shared session:', who.data.userId);
+      console.log('[EquiShows] adopted shared session:', who.userId);
     }
   }catch(e){ console.warn('[EquiShows] session adopt failed:', e); }
 }
