@@ -27,38 +27,9 @@
   body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--equi-serif); line-height:1.6; }
   a{ color:var(--accent); }
 
-  /* Two new decorative frames, fully standalone — deliberately NOT sharing
-     the "equi-frame" base class (see frameClass() comment), so nothing from
-     the external stylesheet can conflict with their shape/border again. */
-  .equi-frame-standalone--floral{
-    display:inline-block; position:relative; border-radius:50%; overflow:visible;
-    border:3px solid #e8a8c0; box-shadow:0 0 0 2px var(--panel,#1a130c);
-    box-sizing:border-box;
-  }
-  .equi-frame-standalone--floral img,
-  .equi-frame-standalone--floral > div{ width:100%; height:100%; border-radius:50%; display:block; }
-  .equi-frame-standalone--floral::before{
-    content:"🌸"; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%);
-    font-size:1.4em; filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));
-  }
-  .equi-frame-standalone--floral::after{
-    content:"🌿"; position:absolute; bottom:-4px; left:20%;
-    font-size:1.1em; transform:rotate(-20deg); filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));
-  }
-
-  .equi-frame-standalone--starburst{
-    display:inline-block; position:relative; border-radius:50%; overflow:visible;
-    border:3px dashed #c9a84c; box-shadow:0 0 0 2px var(--panel,#1a130c);
-    box-sizing:border-box;
-  }
-  .equi-frame-standalone--starburst img,
-  .equi-frame-standalone--starburst > div{ width:100%; height:100%; border-radius:50%; display:block; }
-  .equi-frame-standalone--starburst::before{
-    content:"✦"; position:absolute; top:-10px; right:-4px; font-size:1.1em; color:#e8c766;
-  }
-  .equi-frame-standalone--starburst::after{
-    content:"✧"; position:absolute; bottom:-8px; left:-6px; font-size:1em; color:#e8c766;
-  }
+  /* Frame CSS (floral/starburst standalone frames, plus the new PNG-overlay
+     frames) now lives in equi-constants.js, which injects it once and shares
+     it with Stable Manager — see injectFrameCSS() there. */
 
   /* Preserve line breaks/spacing exactly as typed in the About text (and
      status updates / forum posts, same principle) — without this, plain
@@ -836,33 +807,9 @@ function memberHref(uid){ return "?player=" + encodeURIComponent(uid); }
 // existing profiles load unchanged.
 let __memberEdit = { on:false, links:null };
 
-// The frames members can pick for their avatar / portraits. Styles live in
-// equi-shell.css so the tracker can offer exactly the same set.
-const EQUI_FRAMES = [
-  ["none","No frame"], ["brass","Brass"], ["rope","Rope"], ["ribbon","Ribbon"],
-  ["rosette","Rosette"], ["plaque","Plaque"], ["moss","Moss"], ["plum","Plum"],
-  ["vignette","Vignette"], ["polaroid","Polaroid"],
-  ["starburst","Starburst"],
-];
-function frameClass(name){
-  // The two newest frames (floral, starburst) are fully self-contained —
-  // they deliberately do NOT include the shared "equi-frame" base class.
-  // That base class (defined in the external stylesheet) was fighting with
-  // their circular shape/border, which is what caused the stray line
-  // artifact through the middle of the frame. Standalone class = zero
-  // chance of conflicting with anything else on the site.
-  if(name==='floral' || name==='starburst') return 'equi-frame-standalone equi-frame-standalone--' + name;
-  const ok = EQUI_FRAMES.some(f=>f[0]===name);
-  return "equi-frame equi-frame--" + (ok ? name : "none");
-}
-// Wrap an image in the member's chosen frame.
-function framedImg(url, frame, size, caption){
-  const px = size || 160;
-  if(!url) return `<div class="${frameClass(frame)}" style="width:${px}px;height:${px}px;">
-      <div style="width:100%;height:100%;border-radius:inherit;background:var(--deep);display:flex;align-items:center;justify-content:center;font-size:2.6em;">&#128100;</div></div>`;
-  return `<div class="${frameClass(frame)}" style="width:${px}px;height:${px}px;"${caption?` data-caption="${__esc(caption)}"`:''}>
-    <img src="${__esc(url)}" referrerpolicy="no-referrer" alt="" onerror="this.style.visibility='hidden'" /></div>`;
-}
+// EQUI_FRAMES, frameClass(), framedImg() now come from equi-constants.js,
+// shared with Stable Manager so horse/rider profiles can offer the same
+// frame picker (including the new PNG-overlay frames) as player profiles.
 
 function newHubProfile(){
   return { displayName:"", pronouns:"", avatar:"", discord:"", bio:"", about:"",
@@ -905,7 +852,7 @@ function renderMemberEditor(v, uid, p, mine, theirs){
       <input id="mp_discord" value="${__esc(p.discord||'')}" placeholder="yourname" />
 
       <label for="mp_frame">Portrait frame</label>
-      <select id="mp_frame">${EQUI_FRAMES.map(f=>`<option value="${f[0]}"${(p.frame||'none')===f[0]?' selected':''}>${f[1]}</option>`).join("")}</select>
+      <select id="mp_frame">${frameOptionsHtml(p.frame, uid)}</select>
       <div id="mp_frame_prev" style="margin-top:8px;"></div>
 
       <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin-top:8px;">
@@ -997,7 +944,8 @@ Scripts, iframes and forms are stripped for everyone's safety.">${__esc(p.about|
       discord:     v.querySelector('#mp_discord').value.trim(),
       bio:         v.querySelector('#mp_bio').value.trim(),
       about:       (v.querySelector('#mp_about')||{value:p.about||''}).value,
-      frame:       (v.querySelector('#mp_frame')||{value:p.frame||'none'}).value,
+      frame:       frameAllowed((v.querySelector('#mp_frame')||{value:p.frame||'none'}).value, uid)
+                     ? (v.querySelector('#mp_frame')||{value:p.frame||'none'}).value : 'none',
       featuredHorseId: (v.querySelector('#mp_feathorse')||{value:''}).value || null,
       featuredRiderId: (v.querySelector('#mp_featrider')||{value:''}).value || null,
       customCss:   isPremiumMember(uid) ? (v.querySelector('#mp_css')||{value:''}).value : (p.customCss||''),
