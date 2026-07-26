@@ -1248,6 +1248,12 @@ async function deleteHorseFromSheets(horseId){
 // ---- rider persistence (mirrors horses; art log in its own sheet) ----
 async function saveRider(rider){
   if(!bankAccount.linked) return false;
+  // Stamped into the rider's own data (not just the Firestore doc's owner
+  // metadata) so it survives ANY read path — a single DB.get('riders', id),
+  // used when someone else views this rider's profile, doesn't appear to
+  // carry the owner metadata the way listByOwner does. This field always
+  // will, since it's part of the saved JSON itself.
+  rider.ownerId = bankAccount.userId;
   if(fsReady()){
     const inv0 = state.attireInventory||[];
     const riderDoc = { ...rider, attireItems: (rider.attireEquipped||[])
@@ -2923,8 +2929,10 @@ function renderRiderProfilePage(app, rider){
     </style>
     ${(() => {
       const isMine = state.riders.some(x=>x.id===rider.id);
-      const trueOwner = rider.__owner || rider.owner || (isMine ? bankAccount.userId : null);
-      console.log('[rider CSS debug]', { riderId: rider.id, __owner: rider.__owner, owner: rider.owner, isMine, trueOwner, isPremium: isPremiumMember(trueOwner), hasCss: !!rider.customCss });
+      // ownerId is the reliable one — stamped into the rider's own data by
+      // saveRider(), so it survives any read path. The others are fallbacks
+      // for riders saved before this fix existed, until they're next saved.
+      const trueOwner = rider.ownerId || rider.__owner || rider.owner || (isMine ? bankAccount.userId : null);
       return (isPremiumMember(trueOwner) && rider.customCss) ? `<style>${sanitizeShopCss(rider.customCss)}</style>` : '';
     })()}
 
