@@ -2857,7 +2857,7 @@ function renderRiderProfilePage(app, rider){
 
   const riderHasFrame = rider.frame && rider.frame !== 'none';
   const photoHtml = riderHasFrame
-    ? `<span id="rp_photo_frame" style="display:inline-block;cursor:${rider.image?'zoom-in':'default'};">${framedImg(rider.image, rider.frame, 300, rider.name)}</span>`
+    ? `<span id="rp_photo_frame" style="display:inline-block;cursor:${rider.image?'zoom-in':'default'};">${framedImg(rider.image, rider.frame, 'min(300px,55vw)', rider.name)}</span>`
     : rider.image
       ? `<img id="rp_photo_frame" src="${rider.image}" onclick="openLightbox('${jsStr(rider.image)}','${jsStr(rider.name)}')" style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;object-fit:cover;border:3px solid var(--equi-accent);cursor:zoom-in;" />`
       : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);">\ud83e\uddcd</div>`;
@@ -9034,7 +9034,7 @@ function renderHorseProfilePage(app, h){
 
   const hasFrame = h.frame && h.frame !== 'none';
   const photoHtml = hasFrame
-    ? `<span id="pp_photo_frame" style="display:inline-block;cursor:${h.profileImage?'zoom-in':'default'};">${framedImg(h.profileImage, h.frame, 300, h.name)}</span>`
+    ? `<span id="pp_photo_frame" style="display:inline-block;cursor:${h.profileImage?'zoom-in':'default'};">${framedImg(h.profileImage, h.frame, 'min(300px,55vw)', h.name)}</span>`
     : h.profileImage
       ? `<img id="pp_photo_frame" src="${h.profileImage}" onclick="openLightbox('${jsStr(h.profileImage)}','${jsStr(h.name)}')" style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;object-fit:cover;border:3px solid var(--equi-accent);cursor:zoom-in;" />`
       : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);"></div>`;
