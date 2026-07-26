@@ -2736,10 +2736,14 @@ function renderNav(){
   // Admin tab is appended ONLY for admins, so it never appears in the nav for
   // regular members.
   const visibleTabs = (who && isAdminMember(who.userId)) ? TABS.concat(["Admin"]) : TABS;
+  // "Members" is still the internal tab key everywhere (tab==="Members",
+  // data-go="Members", etc.) — only what's actually displayed changes here,
+  // since it now covers horses/riders too and "Members" undersold that.
+  const TAB_LABELS = { Members: "Directory" };
   $("nav").innerHTML = visibleTabs.map(t=>{
     const __n = (t==="Messages") ? (msgUnread()+resultsWaiting()) : 0;
     const badge = __n ? ` <span style="background:var(--equi-accent);color:var(--equi-ink);border-radius:9px;padding:0 6px;font-size:.82em;font-weight:bold;">${__n}</span>` : "";
-    return `<div class="tab ${t===tab?'active':''}" data-tab="${t}">${t}${badge}</div>`;
+    return `<div class="tab ${t===tab?'active':''}" data-tab="${t}">${TAB_LABELS[t]||t}${badge}</div>`;
   }).join("")
     + `<span class="equi-hd__user">
          <span class="small">${esc(who?who.userId:'')}</span>
