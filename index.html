@@ -297,6 +297,10 @@ window.__equiDBReady = new Promise(r => { window.__equiDBResolve = r; });
 
 <main class="wrap" id="view" style="padding-bottom:60px;"></main>
 
+<footer style="text-align:center;padding:20px 16px 32px;color:var(--dim,#c1ad92);font-size:.85em;border-top:1px solid var(--line,#4a3826);margin-top:20px;">
+  <a href="terms.html" style="color:inherit;">Terms of Service</a>
+</footer>
+
 <script>
 (function(){
 const $ = id => document.getElementById(id);
@@ -1353,7 +1357,9 @@ async function renderStatusUpdates(body, DB, profileUid, who, isSelf){
 async function renderMembers(v){
   v.innerHTML = `<div class="card"><h2>Members</h2>
     <p class="small">Everyone in the community. Click a name to see their stable, riders and links.</p>
-    <div id="mList">Loading…</div></div>`;
+    <input id="mSearch" placeholder="Search members, horses, or riders…" style="margin-top:8px;" />
+    <div id="mSearchResults" style="margin-top:10px;"></div>
+    <div id="mList" style="margin-top:14px;">Loading…</div></div>`;
   const DB = await __waitForDB();
   if(!DB){ $("mList").innerHTML='<span class="muted">Database unavailable.</span>'; return; }
   const [profiles, horses, riders] = await Promise.all([
@@ -1362,31 +1368,73 @@ async function renderMembers(v){
   if(!profiles.length){ $("mList").innerHTML='<span class="muted">No member profiles yet. Make yours in the Stable Manager → My Profile.</span>'; return; }
 
   const countBy = (arr,owner)=>arr.filter(x=>x.__owner===owner).length;
-  $("mList").innerHTML = `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));">`
-    + profiles.map(p=>{
+  const drawMemberGrid = ()=>{
+    $("mList").innerHTML = `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));">`
+      + profiles.map(p=>{
+          const uid=p.__owner||p.__id;
+          const name=(p.displayName||'').trim()||uid;
+          const av=p.avatar
+            ? `<img src="${__esc(p.avatar)}" referrerpolicy="no-referrer" style="width:130px;height:130px;border-radius:8px;object-fit:cover;border:1px solid var(--accent);flex:0 0 auto;" />`
+            : `<div style="width:130px;height:130px;border-radius:8px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:3em;background:var(--deep);flex:0 0 auto;">&#128100;</div>`;
+          return `<a class="linkbox" href="${memberHref(uid)}" data-member="${__esc(uid)}" style="display:flex;gap:14px;align-items:center;">
+            ${av}
+            <span style="min-width:0;">
+              <b>${__esc(name)}${premiumBadge(uid)}</b>
+              <span class="small">${countBy(horses,uid)} horses · ${countBy(riders,uid)} riders</span>
+              ${p.discord?`<span class="small muted">Discord: ${__esc(p.discord)}</span>`:''}
+            </span></a>`;
+        }).join("") + `</div>`;
+    wireMemberLinks();
+  };
+  function wireMemberLinks(){
+    document.querySelectorAll('[data-member]').forEach(function(a){
+      a.onclick=function(ev){
+        ev.preventDefault();
+        __memberView.uid=a.dataset.member;
+        history.pushState({player:a.dataset.member}, '', memberHref(a.dataset.member));
+        render();
+      };
+    });
+  }
+
+  // Search filters the SAME data already loaded above — no extra fetches,
+  // and it covers everyone site-wide (not just your own stable), since
+  // horses/riders/profiles are all public-read collections anyway.
+  function runSearch(qRaw){
+    const q = qRaw.trim().toLowerCase();
+    if(!q){ $("mSearchResults").innerHTML = ''; $("mList").style.display = ''; drawMemberGrid(); return; }
+    $("mList").style.display = 'none';
+
+    const matchedProfiles = profiles.filter(p=>{
+      const uid=p.__owner||p.__id||'';
+      const name=(p.displayName||'').trim()||uid;
+      return name.toLowerCase().includes(q) || uid.toLowerCase().includes(q);
+    });
+    const matchedHorses = horses.filter(h=>(h.name||'').toLowerCase().includes(q));
+    const matchedRiders = riders.filter(r=>(r.name||'').toLowerCase().includes(q));
+
+    const section = (title, items, renderItem)=> items.length ? `
+      <div class="card"><h3>${title} (${items.length})</h3>${items.map(renderItem).join('')}</div>` : '';
+
+    $("mSearchResults").innerHTML = [
+      section('Members', matchedProfiles, p=>{
         const uid=p.__owner||p.__id;
         const name=(p.displayName||'').trim()||uid;
-        const av=p.avatar
-          ? `<img src="${__esc(p.avatar)}" referrerpolicy="no-referrer" style="width:130px;height:130px;border-radius:8px;object-fit:cover;border:1px solid var(--accent);flex:0 0 auto;" />`
-          : `<div style="width:130px;height:130px;border-radius:8px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:3em;background:var(--deep);flex:0 0 auto;">&#128100;</div>`;
-        return `<a class="linkbox" href="${memberHref(uid)}" data-member="${__esc(uid)}" style="display:flex;gap:14px;align-items:center;">
-          ${av}
-          <span style="min-width:0;">
-            <b>${__esc(name)}${premiumBadge(uid)}</b>
-            <span class="small">${countBy(horses,uid)} horses · ${countBy(riders,uid)} riders</span>
-            ${p.discord?`<span class="small muted">Discord: ${__esc(p.discord)}</span>`:''}
-          </span></a>`;
-      }).join("") + `</div>`;
-  // Open profiles in-page rather than reloading — the href stays a real link so
-  // it can still be copied, shared or middle-clicked.
-  $("mList").querySelectorAll('[data-member]').forEach(function(a){
-    a.onclick=function(ev){
-      ev.preventDefault();
-      __memberView.uid=a.dataset.member;
-      history.pushState({player:a.dataset.member}, '', memberHref(a.dataset.member));
-      render();
-    };
-  });
+        return `<div class="linkbox" data-member="${__esc(uid)}" style="cursor:pointer;"><b>${__esc(name)}${premiumBadge(uid)}</b></div>`;
+      }),
+      section('Horses', matchedHorses, h=>
+        `<a class="linkbox" href="${__APPS.stable}?horse=${encodeURIComponent(h.id)}" target="_blank"><b>${__esc(h.name||'Unnamed')}</b>
+         <span class="small muted">${__esc(h.breed||'—')}${h.__owner?` · owned by ${__esc(h.__owner)}`:''}</span></a>`),
+      section('Riders', matchedRiders, r=>
+        `<a class="linkbox" href="${__APPS.stable}?rider=${encodeURIComponent(r.id)}" target="_blank"><b>${__esc(r.name||'Unnamed')}</b>
+         <span class="small muted">${r.__owner?`owned by ${__esc(r.__owner)}`:''}</span></a>`),
+      (!matchedProfiles.length && !matchedHorses.length && !matchedRiders.length) ? `<p class="small muted">No matches for "${__esc(qRaw)}".</p>` : ''
+    ].join('');
+    wireMemberLinks();
+  }
+  $("mSearch").oninput = ()=>runSearch($("mSearch").value);
+
+  drawMemberGrid();
 }
 
 // ============================================================
@@ -3014,7 +3062,10 @@ async function renderBreedPage(v, DB, who, breedId){
   const sub = __breedView.tab || "about";
 
   const tabs = ["about","imports","registry"].concat(staff?["admin"]:[]).concat(who?["my orders"]:[]);
+  const breedCssHtml = (isPremiumMember(breed.owner) && breed.customCss) ? `<style>${sanitizeShopCss(breed.customCss)}</style>` : '';
   v.innerHTML = `
+    ${breedCssHtml}
+    <div class="breed-profile-custom">
     <div class="breed-sub">
       <button class="ghost" id="bp_back">← All breeds</button>
     </div>
@@ -3031,6 +3082,7 @@ async function renderBreedPage(v, DB, who, breedId){
         ${tabs.map(t=>`<span class="bk-pill ${t===sub?'active':''}" data-sub="${t}">${t.replace(/\b\w/g,c=>c.toUpperCase())}</span>`).join("")}
       </div>
       <div id="bp_body"></div>
+    </div>
     </div>`;
 
   $("bp_back").onclick = ()=>{ __breedView={mode:"browse"}; renderBreeds(v); };
@@ -3311,6 +3363,13 @@ async function breedAdmin(body, DB, who, breed){
       <div style="margin-top:12px;"><button id="ba_save">Save breed page</button> <span id="ba_msg" class="small"></span></div>
     </div>
 
+    ${isPremiumMember(breed.owner) ? `<div class="card">
+      <h3>Custom CSS <span class="small" style="color:var(--brass-light);">★ Premium</span></h3>
+      <p class="small muted">Prefix selectors with <code>.breed-profile-custom</code> so your styling stays on this breed's page.</p>
+      <textarea id="ba_css" rows="8" style="font-family:var(--equi-mono);font-size:.85em;" placeholder=".breed-profile-custom .card{ background:#1a1006; }">${esc(breed.customCss||'')}</textarea>
+      <div style="margin-top:10px;"><button id="ba_css_save">Save Custom CSS</button> <span id="ba_css_msg" class="small"></span></div>
+    </div>` : ''}
+
     ${isFounder ? `<div class="card">
       <h3>Staff</h3>
       <p class="small">Staff can list imports and review orders. Add trusted members by their User ID.</p>
@@ -3407,6 +3466,16 @@ async function breedAdmin(body, DB, who, breed){
     if(breed.owner!==who.userId){ $("ba_msg").textContent="Only the founder can edit the breed page."; return; }
     try{ await DB.putBreed(breed.id, who.userId, patch); Object.assign(breed,patch); $("ba_msg").textContent="Saved."; }
     catch(err){ $("ba_msg").textContent="Failed: "+(err.message||err); }
+  };
+  if($("ba_css_save")) $("ba_css_save").onclick = async ()=>{
+    $("ba_css_msg").textContent="Saving…";
+    if(breed.owner!==who.userId){ $("ba_css_msg").textContent="Only the founder can edit this."; return; }
+    try{
+      const patch = { ...breed, customCss: $("ba_css").value };
+      await DB.putBreed(breed.id, who.userId, patch);
+      breed.customCss = patch.customCss;
+      $("ba_css_msg").textContent="Saved.";
+    }catch(err){ $("ba_css_msg").textContent="Failed: "+(err.message||err); }
   };
 
   // staff management (founder only)
@@ -3838,6 +3907,12 @@ async function renderShopManage(v, DB, who){
     <div class="card">
       <h2>${esc(shop.name)}</h2>
       <div class="small">${shop.businessName?`Payments go to <b>${esc(shop.businessName)}</b>`:`<span style="color:var(--bad)">No business linked yet — set one below so you can take payment.</span>`}</div>
+      <label style="margin-top:10px;">Shop Name</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input id="mg_name" value="${esc(shop.name||'')}" style="flex:1;min-width:180px;" />
+        <button id="mg_name_save" class="ghost" style="padding:9px 16px;">Save Name</button>
+      </div>
+      <span id="mg_name_msg" class="small"></span>
     </div>
 
     <div class="card">
@@ -4028,6 +4103,17 @@ async function renderShopManage(v, DB, who){
 
   $("mg_back").onclick = ()=>{ __shopView={mode:"browse"}; renderShops(v); };
   $("mg_view").onclick = ()=>{ __shopView={mode:"store",shopId:shop.id}; renderShops(v); };
+  $("mg_name_save").onclick = async ()=>{
+    const name = $("mg_name").value.trim();
+    if(!name){ $("mg_name_msg").textContent = "Shop needs a name."; return; }
+    $("mg_name_msg").textContent = "Saving…";
+    try{
+      await DB.put('shops', shop.id, who.userId, { ...shop, name });
+      shop.name = name;
+      $("mg_name_msg").textContent = "Saved.";
+      renderShopManage(v, DB, who); // refresh header/dropdown to show the new name
+    }catch(err){ $("mg_name_msg").textContent = "Failed: "+(err.message||err); }
+  };
   if($("mg_switch")) $("mg_switch").onchange = (e)=>{ __shopView={mode:"manage",shopId:e.target.value}; renderShops(v); };
   if($("mg_newshop")) $("mg_newshop").onclick = ()=>{ __shopView={mode:"create"}; renderShops(v); };
 
@@ -4327,6 +4413,7 @@ async function renderSaddlebag(v, DB, who){
         : k==='discount' ? `<span class="small muted" style="align-self:center;">Use at ${esc(e.shopName||'its shop')}'s checkout</span>`
         : ``}
       <button class="ghost" data-gift="${esc(e.id)}" style="padding:6px 12px;">🎁 Gift</button>
+      <button class="ghost" data-delitem="${esc(e.id)}" style="padding:6px 12px;color:var(--bad);">🗑 Delete</button>
     </div>`;
   };
 
@@ -4382,7 +4469,41 @@ have a <b>Use one</b> button — using it removes the token and records it perma
 
   v.querySelectorAll('[data-use]').forEach(b=>b.onclick=()=>useToken(v, DB, who, b.dataset.use));
   v.querySelectorAll('[data-gift]').forEach(b=>b.onclick=()=>giftItem(v, DB, who, b.dataset.gift));
+  v.querySelectorAll('[data-delitem]').forEach(b=>b.onclick=()=>deleteItem(v, DB, who, b.dataset.delitem));
   if($("bag_redeem")) $("bag_redeem").onclick=()=>claimShopCode(v, DB, who);
+}
+
+// Permanently remove one unit of a saddlebag item — for stuff you just
+// don't want anymore (misclicked buy, no longer needed). Unlike gifting,
+// this doesn't go anywhere; it's just gone. Confirms first since it can't
+// be undone.
+async function deleteItem(v, DB, who, entryId){
+  let inv;
+  try{ inv = await DB.get('inventory', who.userId); }catch(e){ inv=null; }
+  const items = (inv && inv.items) || [];
+  const e = items.find(x=>x.id===entryId);
+  if(!e){ renderSaddlebag(v, DB, who); return; }
+  if(!confirm(`Permanently delete "${e.name}" from your saddlebag? This can't be undone.`)) return;
+
+  if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
+
+  if(e.singleUse){
+    e.qty = Math.max(0, (Number(e.qty)||0) - 1);
+    e.usesLeft = e.qty;
+  } else if(Number(e.qty) > 1){
+    e.qty -= 1;
+  } else {
+    inv.items = items.filter(x=>x!==e);
+  }
+  const nowEmpty = (Number(e.qty)||0) <= 0 && !(e.singleUse===false && Number(e.usesLeft)>0);
+  if(nowEmpty) inv.items = items.filter(x=>x!==e);
+
+  try{
+    await DB.put('inventory', who.userId, who.userId, inv);
+    renderSaddlebag(v, DB, who);
+  }catch(err){
+    alert("Delete failed — nothing was removed. ("+(err.message||err)+")");
+  }
 }
 
 // Gift ONE unit of a saddlebag item to another member. Works for any kind —
