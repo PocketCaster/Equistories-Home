@@ -2889,6 +2889,27 @@ function riderGalleryHtml(rider){
   </div>`;
 }
 
+// Horses this rider is assigned to. Live-filtered from state.horses when
+// available (the owner, viewing their own stable) — but that's not there
+// for a public visitor, so this also self-heals a snapshot onto the
+// rider's own record (same pattern as backfillRiderGalleryImages), which
+// is what makes it show correctly for everyone after the owner's next view.
+function riderHorsesList(rider){
+  const isMine = state.riders.some(x=>x.id===rider.id);
+  if(isMine){
+    const live = state.horses.filter(h=>h.riderId===rider.id).map(h=>({id:h.id, name:h.name}));
+    const changed = JSON.stringify(live) !== JSON.stringify(rider.ridingHorses||[]);
+    if(changed){ rider.ridingHorses = live; saveRider(rider); } // fire-and-forget
+    return live;
+  }
+  return rider.ridingHorses || [];
+}
+function riderHorsesHtml(rider){
+  const list = riderHorsesList(rider);
+  if(!list.length) return `<span class="small" style="color:var(--equi-faint);">None yet.</span>`;
+  return list.map(h=>`<span data-act="open-horse-from-rider" data-id="${escAttr(h.id)}" style="color:var(--equi-accent);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;">${(h.name||'Unnamed').replace(/</g,'&lt;')}</span>`).join(", ");
+}
+
 function renderRiderProfilePage(app, rider){
   const shareUrl = new URL(window.location.origin + window.location.pathname);
   shareUrl.searchParams.set('rider', rider.id);
@@ -2984,6 +3005,11 @@ function renderRiderProfilePage(app, rider){
       </div>` : ""}
 
       <div class="pcard">
+        <h3>Horses</h3>
+        <div>${riderHorsesHtml(rider)}</div>
+      </div>
+
+      <div class="pcard">
         <h3>Attire</h3>
         <div>${attireHtml}</div>
       </div>
@@ -3007,6 +3033,7 @@ function renderRiderProfilePage(app, rider){
 
   const rEdit=app.querySelector('[data-act="rider-edit-profile"]');
   if(rEdit) rEdit.onclick=()=>showRiderProfileModal(rider.id);
+  app.querySelectorAll('[data-act="open-horse-from-rider"]').forEach(el=>el.onclick=()=>goToProfile(el.dataset.id));
   if(riderHasFrame && rider.image){
     const frameEl = app.querySelector('#rp_photo_frame');
     if(frameEl) frameEl.onclick = ()=>openLightbox(rider.image, rider.name);
@@ -3790,6 +3817,7 @@ function renderRoster(){
   wrap.querySelectorAll('[data-act="assign-rider"]').forEach(sel=>sel.onchange=async()=>{
     const h=state.horses.find(x=>x.id===sel.dataset.id); if(!h) return;
     h.riderId = sel.value || null;
+    h.riderName = h.riderId ? ((state.riders.find(r=>r.id===h.riderId)||{}).name || h.riderName) : h.riderName;
     recomputeHorse(h);              // fully-trained bonus depends on the assigned rider
     await saveHorse(h); await save(); render();
   });
@@ -9189,7 +9217,7 @@ function renderHorseProfilePage(app, h){
             </div>
           `:""}
           ${(h.ownerName||h.owner)?`<div class="small" style="text-align:center;">Owner: ${h.owner ? memberLink(h.owner, h.ownerName||h.owner) : escAttr(h.ownerName)}</div>`:""}
-          ${h.riderName?`<div class="small" style="text-align:center;">Rider: ${h.riderName}</div>`:""}
+          ${(h.riderId||h.riderName)?`<div class="small" style="text-align:center;">Rider: ${h.riderId?`<span data-act="open-rider" data-id="${escAttr(h.riderId)}" style="color:var(--equi-accent);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;">${((state.riders.find(r=>r.id===h.riderId)||{}).name||h.riderName||'View rider').replace(/</g,'&lt;')}</span>`:h.riderName.replace(/</g,'&lt;')}</div>`:""}
           ${h.stableName?`<div class="small" style="text-align:center;">Stable: ${h.stableLink?`<a href="${h.stableLink}" target="_blank">${h.stableName}</a>`:h.stableName}</div>`:""}
         </div>
         <div style="flex:1;min-width:220px;">
@@ -9271,6 +9299,8 @@ function renderHorseProfilePage(app, h){
   if(editProfileBtn) editProfileBtn.onclick = ()=>showProfileModal(h.id);
   const editLinBtn = app.querySelector('[data-act="edit-lineage-profile"]');
   if(editLinBtn) editLinBtn.onclick = ()=>showLineageModal(h.id);
+  const riderLink = app.querySelector('[data-act="open-rider"]');
+  if(riderLink) riderLink.onclick = ()=>goToRiderProfile(riderLink.dataset.id);
 
   // framedImg()'s markup has no inline onclick support, so the lightbox
   // click on a framed portrait gets wired up here instead of inline.
