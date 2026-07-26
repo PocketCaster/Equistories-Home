@@ -4851,10 +4851,16 @@ function renderTraining(){
     const box=card.querySelector('#tr_milestone_status');
     if(!m){ box.innerHTML=''; return; }
     const done=new Set(h.completedMilestones||[]);
-    const doneCount=m.options.filter(o=>done.has(o.id)).length;
+    // Equibreak fulfils the breaking requirement for foals and yearlings only
+    // (per the training guide) — two-year-olds need all 3 of their specific
+    // milestones, no substitute, since that's the mandatory backing/aids/
+    // groundwork trio rather than a flexible "any breaking image" credit.
+    const equibreakCounts = (h.stage==='foal' || h.stage==='yearling') && done.has('equibreak');
+    const doneCount=m.options.filter(o=>done.has(o.id)).length + (equibreakCounts?1:0);
     const ready=doneCount>=m.required;
     box.innerHTML=`<div class="prompt-box" style="border-color:${ready?'var(--equi-good)':'var(--equi-line)'};">
       <b>${h.name}</b> is a <b>${h.stage}</b> — ${doneCount}/${m.required} age-up milestone${m.required>1?'s':''} completed
+      ${equibreakCounts?` <span class="small" style="opacity:.75;">(includes 1 Equibreak credit)</span>`:''}
       ${ready?` · <button id="tr_ageup" style="margin-left:6px;">Age Up to ${m.next}</button>`:''}
     </div>`;
     const btn=box.querySelector('#tr_ageup');
