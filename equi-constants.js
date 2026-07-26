@@ -6,6 +6,10 @@
 //
 // USAGE: <script src="equi-constants.js"></script>  (load early, before
 // equi-bank.js and any page script that references these)
+//
+// BUILD MARKER: FRAME-LOCK-v2 — if you Ctrl+F this file (view-source, or the
+// raw file URL) and don't find "FRAME-LOCK-v2", the live copy is stale and
+// needs re-uploading.
 // ============================================
 
 // One list of site admins, used by the Hub, Stable Manager, Admin Hub, and
@@ -71,7 +75,7 @@ function frameOptionsHtml(current, uid){
   const allowed = isAdminMember(uid) || isPremiumMember(uid);
   return EQUI_FRAMES.map(f=>{
     const locked = isPremiumFrame(f[0]) && !allowed;
-    const label = locked ? f[1]+' — Premium \u2605' : f[1];
+    const label = locked ? '\u{1F512} '+f[1]+' (Premium)' : f[1];
     const sel = (current||'none')===f[0] ? ' selected' : '';
     const dis = locked ? ' disabled' : '';
     return `<option value="${f[0]}"${sel}${dis}>${label}</option>`;
