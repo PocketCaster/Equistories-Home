@@ -12,10 +12,39 @@
 // needs re-uploading.
 // ============================================
 
-// One list of site admins, used by the Hub, Stable Manager, Admin Hub, and
-// the shared nav. Add/remove someone here ONCE — it takes effect everywhere.
+// FOUNDER-LEVEL ADMIN — a permanent, code-level fallback so the site can
+// never be locked out of its own admin tools (e.g. if the siteAdmins
+// collection is ever empty or misconfigured). Everyday admin management now
+// happens through the Admin page instead — see __adminCache/loadAdminCache
+// below. Add/remove people there; only touch this array to change who has
+// unremovable founder access.
 const ADMIN_MEMBERS = ["PocketCaster"];
-function isAdminMember(uid){ return !!uid && ADMIN_MEMBERS.includes(uid); }
+// userId -> true, for admins granted dynamically via the Admin page (the
+// `siteAdmins` Firestore collection — one doc per admin, keyed by their own
+// userId, existence-only). Populated once per page load by loadAdminCache().
+const __adminCache = {};
+async function loadAdminCache(DB){
+  try{
+    const recs = await DB.listAll('siteAdmins');
+    recs.forEach(r=>{
+      const uid = r.__owner || r.__id || r.userId;
+      if(uid) __adminCache[uid] = true;
+    });
+  }catch(e){ /* siteAdmins store may not exist yet — that's fine */ }
+}
+function isAdminMember(uid){ return !!uid && (ADMIN_MEMBERS.includes(uid) || !!__adminCache[uid]); }
+// Grant/revoke a dynamic admin. Only ever called from the Admin page, which
+// already gates the button to isAdminMember(me) — but the real enforcement
+// is server-side, in firestore.rules (siteAdmins create/delete requires
+// isForumAdmin()), so a non-admin calling these directly still gets denied.
+async function grantAdmin(DB, targetUid){
+  await DB.put('siteAdmins', targetUid, targetUid, { grantedAt: new Date().toISOString() });
+  __adminCache[targetUid] = true;
+}
+async function revokeAdmin(DB, targetUid){
+  await DB.remove('siteAdmins', targetUid);
+  delete __adminCache[targetUid];
+}
 
 // Your live Railway bank server's base URL (no trailing slash).
 const RAILWAY_URL = "https://equistories-bank-server-production.up.railway.app"; // <-- set this once, here, for the whole site
