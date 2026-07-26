@@ -2732,79 +2732,84 @@ function showRiderProfileModal(riderId){
   const r=state.riders.find(x=>x.id===riderId);
   if(!r) return;
   const pp=riderPP(r);
-  const overlay=document.createElement('div');
-  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;color:var(--text);';
+  const app=document.getElementById('app');
+  const wrap=app;
 
-  overlay.innerHTML=`
-    <div class="card" style="max-width:1040px;width:94%;margin-top:20px;background:var(--equi-panel);border:1px solid var(--equi-line);box-shadow:0 12px 40px rgba(0,0,0,.6);">
-      <h3 style="margin-top:0;color:var(--equi-accent);">Edit Profile — ${escAttr(r.name)}</h3>
+  wrap.innerHTML=`
+    <div style="width:100%;margin:0 auto;padding:clamp(16px,3vw,32px);">
+      <div style="margin-bottom:12px;"><span data-act="back-to-profile" style="color:var(--equi-accent);text-decoration:none;cursor:pointer;">← Back</span></div>
+      <div class="card" style="max-width:1040px;width:100%;margin:0 auto;background:var(--equi-panel);border:1px solid var(--equi-line);">
+        <h3 style="margin-top:0;color:var(--equi-accent);">Edit Profile — ${escAttr(r.name)}</h3>
 
-      <div class="row" style="display:flex;gap:14px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:200px;"><label>Rider Name</label><input id="rm_name" value="${escAttr(r.name||'')}" placeholder="e.g. Natalia Jones" /></div>
-        <div><label>Pronouns <span class="small">(optional)</span></label><input id="rm_pronouns" value="${escAttr(r.pronouns||'')}" placeholder="she/her" style="max-width:150px;" /></div>
-      </div>
+        <div class="row" style="display:flex;gap:14px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;"><label>Rider Name</label><input id="rm_name" value="${escAttr(r.name||'')}" placeholder="e.g. Natalia Jones" /></div>
+          <div><label>Pronouns <span class="small">(optional)</span></label><input id="rm_pronouns" value="${escAttr(r.pronouns||'')}" placeholder="she/her" style="max-width:150px;" /></div>
+        </div>
 
-      <div style="margin-top:8px;"><label>Barn / Stable <span class="small">(optional)</span></label><input id="rm_barn" value="${escAttr(r.barn||'')}" placeholder="e.g. Claymont Acres" /></div>
-      <div style="margin-top:8px;">
-        <label>Profile Image Link <span class="small">(optional)</span></label>
-        <input id="rm_image" value="${escAttr(r.image||'')}" placeholder="https://… direct image address" />
-        <div id="rm_preview" style="margin-top:6px;">${r.image?urlImagePreviewHTML(r.image,'Rider'):''}</div>
-      </div>
-      <div style="margin-top:8px;">
-        <label>Portrait Frame <span class="small">(optional)</span></label>
-        <select id="rm_frame">${frameOptionsHtml(r.frame, bankAccount.userId)}</select>
-        <div id="rm_frame_prev" style="margin-top:8px;"></div>
-      </div>
-      <div style="margin-top:8px;"><label>Reference / Profile Sheet Link <span class="small">(optional)</span></label><input id="rm_link" value="${escAttr(r.link||'')}" placeholder="https://…" /></div>
-      ${pp>=100?`<div style="margin-top:8px;"><label>Custom Prestige Title <span class="small">(100+ PP)</span></label><input id="rm_title" value="${escAttr(r.customTitle||'')}" placeholder="Your awarded title" /></div>`:''}
-      <div style="margin-top:8px;"><label>Bio</label><textarea id="rm_bio" style="min-height:90px;" placeholder="Name, age, occupation, personality, backstory…">${(r.bio||'').replace(/</g,'&lt;')}</textarea></div>
+        <div style="margin-top:8px;"><label>Barn / Stable <span class="small">(optional)</span></label><input id="rm_barn" value="${escAttr(r.barn||'')}" placeholder="e.g. Claymont Acres" /></div>
+        <div style="margin-top:8px;">
+          <label>Profile Image Link <span class="small">(optional)</span></label>
+          <input id="rm_image" value="${escAttr(r.image||'')}" placeholder="https://… direct image address" />
+          <div id="rm_preview" style="margin-top:6px;">${r.image?urlImagePreviewHTML(r.image,'Rider'):''}</div>
+        </div>
+        <div style="margin-top:8px;">
+          <label>Portrait Frame <span class="small">(optional)</span></label>
+          <select id="rm_frame">${frameOptionsHtml(r.frame, bankAccount.userId)}</select>
+          <div id="rm_frame_prev" style="margin-top:8px;"></div>
+        </div>
+        <div style="margin-top:8px;"><label>Reference / Profile Sheet Link <span class="small">(optional)</span></label><input id="rm_link" value="${escAttr(r.link||'')}" placeholder="https://…" /></div>
+        ${pp>=100?`<div style="margin-top:8px;"><label>Custom Prestige Title <span class="small">(100+ PP)</span></label><input id="rm_title" value="${escAttr(r.customTitle||'')}" placeholder="Your awarded title" /></div>`:''}
+        <div style="margin-top:8px;"><label>Bio</label><textarea id="rm_bio" style="min-height:90px;" placeholder="Name, age, occupation, personality, backstory…">${(r.bio||'').replace(/</g,'&lt;')}</textarea></div>
 
-      ${isPremiumMember(bankAccount.userId) ? `
-      <div style="margin-top:14px;border-top:1px solid var(--equi-line);padding-top:10px;">
-        <label>Custom CSS <span class="small" style="color:var(--equi-brass-light);">&#9733; Premium</span></label>
-        <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.rider-profile-custom</code> so your styling stays on this rider's page. Hooks: <code>.pcard</code>, <code>h3</code>.</div>
-        <textarea id="rm_css" style="min-height:110px;font-family:monospace;font-size:.85em;" placeholder=".rider-profile-custom .pcard{ background:#1a1006; }">${escAttr(r.customCss||'')}</textarea>
-      </div>` : ''}
+        ${isPremiumMember(bankAccount.userId) ? `
+        <div style="margin-top:14px;border-top:1px solid var(--equi-line);padding-top:10px;">
+          <label>Custom CSS <span class="small" style="color:var(--equi-brass-light);">&#9733; Premium</span></label>
+          <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.rider-profile-custom</code> so your styling stays on this rider's page. Hooks: <code>.pcard</code>, <code>h3</code>.</div>
+          <textarea id="rm_css" style="min-height:110px;font-family:monospace;font-size:.85em;" placeholder=".rider-profile-custom .pcard{ background:#1a1006; }">${escAttr(r.customCss||'')}</textarea>
+        </div>` : ''}
 
-      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
-        <button id="rm_save" class="btn">Save Profile</button>
-        <button id="rm_cancel" class="secondary">Cancel</button>
-        <span class="small" id="rm_status" style="align-self:center;"></span>
+        <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="rm_save" class="btn">Save Profile</button>
+          <button id="rm_cancel" class="secondary">Cancel</button>
+          <span class="small" id="rm_status" style="align-self:center;"></span>
+        </div>
       </div>
     </div>`;
-  document.body.appendChild(overlay);
+
+  const backBtn = wrap.querySelector('[data-act="back-to-profile"]');
+  if(backBtn) backBtn.onclick = ()=>render();
 
   function drawFramePreview(){
-    const host = overlay.querySelector('#rm_frame_prev'); if(!host) return;
-    const fr = overlay.querySelector('#rm_frame').value;
-    const url = overlay.querySelector('#rm_image').value.trim();
+    const host = wrap.querySelector('#rm_frame_prev'); if(!host) return;
+    const fr = wrap.querySelector('#rm_frame').value;
+    const url = wrap.querySelector('#rm_image').value.trim();
     host.innerHTML = framedImg(url, fr, 140, r.name);
   }
   drawFramePreview();
-  overlay.querySelector('#rm_frame').onchange = drawFramePreview;
+  wrap.querySelector('#rm_frame').onchange = drawFramePreview;
 
-  overlay.querySelector('#rm_image').oninput=e=>{
-    overlay.querySelector('#rm_preview').innerHTML=urlImagePreviewHTML(e.target.value.trim()||null,'Rider');
+  wrap.querySelector('#rm_image').oninput=e=>{
+    wrap.querySelector('#rm_preview').innerHTML=urlImagePreviewHTML(e.target.value.trim()||null,'Rider');
     drawFramePreview();
   };
-  overlay.querySelector('#rm_cancel').onclick=()=>overlay.remove();
-  overlay.querySelector('#rm_save').onclick=async()=>{
-    const btn=overlay.querySelector('#rm_save'), st=overlay.querySelector('#rm_status');
+  wrap.querySelector('#rm_cancel').onclick=()=>render();
+  wrap.querySelector('#rm_save').onclick=async()=>{
+    const btn=wrap.querySelector('#rm_save'), st=wrap.querySelector('#rm_status');
     btn.disabled=true; btn.textContent='Saving…'; st.textContent='Saving…';
     try{
-      r.name     = overlay.querySelector('#rm_name').value.trim() || r.name;
-      r.pronouns = overlay.querySelector('#rm_pronouns').value.trim();
-      r.barn     = overlay.querySelector('#rm_barn').value.trim();
-      r.image    = overlay.querySelector('#rm_image').value.trim();
-      r.frame    = frameAllowed(overlay.querySelector('#rm_frame').value, bankAccount.userId)
-                     ? overlay.querySelector('#rm_frame').value : 'none';
-      r.link     = overlay.querySelector('#rm_link').value.trim();
-      r.bio      = overlay.querySelector('#rm_bio').value.trim();
-      const t=overlay.querySelector('#rm_title'); if(t) r.customTitle=t.value.trim();
-      const cssField = overlay.querySelector('#rm_css');
+      r.name     = wrap.querySelector('#rm_name').value.trim() || r.name;
+      r.pronouns = wrap.querySelector('#rm_pronouns').value.trim();
+      r.barn     = wrap.querySelector('#rm_barn').value.trim();
+      r.image    = wrap.querySelector('#rm_image').value.trim();
+      r.frame    = frameAllowed(wrap.querySelector('#rm_frame').value, bankAccount.userId)
+                     ? wrap.querySelector('#rm_frame').value : 'none';
+      r.link     = wrap.querySelector('#rm_link').value.trim();
+      r.bio      = wrap.querySelector('#rm_bio').value.trim();
+      const t=wrap.querySelector('#rm_title'); if(t) r.customTitle=t.value.trim();
+      const cssField = wrap.querySelector('#rm_css');
       if(cssField) r.customCss = cssField.value;
       await saveRider(r); await save();
-      overlay.remove(); render();
+      render();
     }catch(err){
       console.error('[Rider save]', err);
       btn.disabled=false; btn.textContent='Save Profile';
@@ -2812,6 +2817,7 @@ function showRiderProfileModal(riderId){
     }
   };
 }
+
 
 function renderRiderProfilePage(app, rider){
   const shareUrl = new URL(window.location.origin + window.location.pathname);
@@ -9251,79 +9257,84 @@ function renderHorseProfilePage(app, h){
 function showProfileModal(horseId){
   const h=state.horses.find(x=>x.id===horseId);
   if(!h) return;
-  const overlay=document.createElement('div');
-  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;color:var(--text);';
+  const app=document.getElementById('app');
+  const wrap=app; // kept as `wrap` in a couple of places below for clarity
 
-  overlay.innerHTML=`
-    <div class="card" style="max-width:1040px;width:94%;margin-top:20px;background:var(--equi-panel);border:1px solid var(--equi-line);box-shadow:0 12px 40px rgba(0,0,0,.6);">
-      <h3 style="margin-top:0;color:var(--equi-accent);">Edit Profile — ${escAttr(h.name)}</h3>
+  wrap.innerHTML=`
+    <div style="width:100%;margin:0 auto;padding:clamp(16px,3vw,32px);">
+      <div style="margin-bottom:12px;"><span data-act="back-to-profile" style="color:var(--equi-accent);text-decoration:none;cursor:pointer;">← Back to ${escAttr(h.name)}'s profile</span></div>
+      <div class="card" style="max-width:1040px;width:100%;margin:0 auto;background:var(--equi-panel);border:1px solid var(--equi-line);">
+        <h3 style="margin-top:0;color:var(--equi-accent);">Edit Profile — ${escAttr(h.name)}</h3>
 
-      <div class="row" style="display:flex;gap:14px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:200px;"><label>Breed</label><input id="pm_breed" value="${escAttr(h.breed||'')}" placeholder="e.g. Thoroughbred" /></div>
-        <div><label>Age</label><input id="pm_age" value="${escAttr(h.age||'')}" placeholder="e.g. 5" style="max-width:110px;" /></div>
-      </div>
-      <div class="small" style="margin-top:-2px;opacity:.7;">Changing age here won't skip training age-up milestones — the horse's stage (foal/yearling/adult) still updates from those. Changing breed won't recompute existing genetics.</div>
+        <div class="row" style="display:flex;gap:14px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;"><label>Breed</label><input id="pm_breed" value="${escAttr(h.breed||'')}" placeholder="e.g. Thoroughbred" /></div>
+          <div><label>Age</label><input id="pm_age" value="${escAttr(h.age||'')}" placeholder="e.g. 5" style="max-width:110px;" /></div>
+        </div>
+        <div class="small" style="margin-top:-2px;opacity:.7;">Changing age here won't skip training age-up milestones — the horse's stage (foal/yearling/adult) still updates from those. Changing breed won't recompute existing genetics.</div>
 
-      <div style="margin-top:8px;">
-        <label>Portrait Frame <span class="small">(optional)</span></label>
-        <select id="pm_frame">${frameOptionsHtml(h.frame, h.owner||h.ownerName||bankAccount.userId)}</select>
-        <div id="pm_frame_prev" style="margin-top:8px;"></div>
-      </div>
+        <div style="margin-top:8px;">
+          <label>Portrait Frame <span class="small">(optional)</span></label>
+          <select id="pm_frame">${frameOptionsHtml(h.frame, h.owner||h.ownerName||bankAccount.userId)}</select>
+          <div id="pm_frame_prev" style="margin-top:8px;"></div>
+        </div>
 
-      <div class="row" style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:200px;"><label>Barn Name <span class="small">(optional)</span></label><input id="pm_barn" value="${escAttr(h.barnName||'')}" placeholder="e.g. Fortune — the everyday name" /></div>
-        <div><label>Height <span class="small">(optional)</span></label><input id="pm_height" value="${escAttr(h.height||'')}" placeholder="e.g. 16.2 hh" style="max-width:150px;" /></div>
-      </div>
+        <div class="row" style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;"><label>Barn Name <span class="small">(optional)</span></label><input id="pm_barn" value="${escAttr(h.barnName||'')}" placeholder="e.g. Fortune — the everyday name" /></div>
+          <div><label>Height <span class="small">(optional)</span></label><input id="pm_height" value="${escAttr(h.height||'')}" placeholder="e.g. 16.2 hh" style="max-width:150px;" /></div>
+        </div>
 
-      <div style="margin-top:8px;">
-        <label>Discipline</label>
-        <select id="pm_discipline">
-          <option value="">— none chosen —</option>
-          ${Object.keys(DISCIPLINES).map(d=>`<option value="${d}"${h.discipline===d?' selected':''}>${d} — ${DISCIPLINES[d].stats.map(x=>STAT_LABELS[x]).join(', ')}</option>`).join("")}
-        </select>
-        <div class="small" style="opacity:.7;margin-top:3px;">The stats for this discipline get highlighted on the horse's card, profile and training tab.</div>
-      </div>
+        <div style="margin-top:8px;">
+          <label>Discipline</label>
+          <select id="pm_discipline">
+            <option value="">— none chosen —</option>
+            ${Object.keys(DISCIPLINES).map(d=>`<option value="${d}"${h.discipline===d?' selected':''}>${d} — ${DISCIPLINES[d].stats.map(x=>STAT_LABELS[x]).join(', ')}</option>`).join("")}
+          </select>
+          <div class="small" style="opacity:.7;margin-top:3px;">The stats for this discipline get highlighted on the horse's card, profile and training tab.</div>
+        </div>
 
-      <div style="margin-top:8px;"><label>Import Sheet Link <span class="small">(optional)</span></label><input id="pm_import" value="${escAttr(h.importLink||'')}" placeholder="https://… reference/import sheet" /></div>
-      <div class="row" style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:200px;"><label>Owner Name</label><input id="pm_owner" value="${escAttr(h.ownerName||'')}" placeholder="e.g. @YourUsername" /></div>
-        <div style="flex:1;min-width:200px;"><label>Owner Link <span class="small">(optional)</span></label><input id="pm_ownerlink" value="${escAttr(h.ownerLink||'')}" placeholder="https://… (DeviantArt, Toyhouse…)" /></div>
-      </div>
-      <div style="margin-top:8px;"><label>Rider Name <span class="small">(optional)</span></label><input id="pm_rider" value="${escAttr(h.riderName||'')}" placeholder="e.g. Jane Smith" /></div>
-      <div class="row" style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:200px;"><label>Stable / Boarding <span class="small">(optional)</span></label><input id="pm_stable" value="${escAttr(h.stableName||'')}" placeholder="e.g. Willowbrook Stables" /></div>
-        <div style="flex:1;min-width:200px;"><label>Stable Link <span class="small">(optional)</span></label><input id="pm_stablelink" value="${escAttr(h.stableLink||'')}" placeholder="https://…" /></div>
-      </div>
-      <div style="margin-top:8px;"><label>Personality</label><textarea id="pm_personality" style="min-height:90px;" placeholder="Describe this horse — personality, quirks, and character...">${(h.personality||'').replace(/</g,'&lt;')}</textarea></div>
-      <div style="margin-top:8px;"><label>History</label><textarea id="pm_history" style="min-height:90px;" placeholder="Background story, significant events, journey so far…">${(h.horseHistory||'').replace(/</g,'&lt;')}</textarea></div>
+        <div style="margin-top:8px;"><label>Import Sheet Link <span class="small">(optional)</span></label><input id="pm_import" value="${escAttr(h.importLink||'')}" placeholder="https://… reference/import sheet" /></div>
+        <div class="row" style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;"><label>Owner Name</label><input id="pm_owner" value="${escAttr(h.ownerName||'')}" placeholder="e.g. @YourUsername" /></div>
+          <div style="flex:1;min-width:200px;"><label>Owner Link <span class="small">(optional)</span></label><input id="pm_ownerlink" value="${escAttr(h.ownerLink||'')}" placeholder="https://… (DeviantArt, Toyhouse…)" /></div>
+        </div>
+        <div style="margin-top:8px;"><label>Rider Name <span class="small">(optional)</span></label><input id="pm_rider" value="${escAttr(h.riderName||'')}" placeholder="e.g. Jane Smith" /></div>
+        <div class="row" style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;"><label>Stable / Boarding <span class="small">(optional)</span></label><input id="pm_stable" value="${escAttr(h.stableName||'')}" placeholder="e.g. Willowbrook Stables" /></div>
+          <div style="flex:1;min-width:200px;"><label>Stable Link <span class="small">(optional)</span></label><input id="pm_stablelink" value="${escAttr(h.stableLink||'')}" placeholder="https://…" /></div>
+        </div>
+        <div style="margin-top:8px;"><label>Personality</label><textarea id="pm_personality" style="min-height:90px;" placeholder="Describe this horse — personality, quirks, and character...">${(h.personality||'').replace(/</g,'&lt;')}</textarea></div>
+        <div style="margin-top:8px;"><label>History</label><textarea id="pm_history" style="min-height:90px;" placeholder="Background story, significant events, journey so far…">${(h.horseHistory||'').replace(/</g,'&lt;')}</textarea></div>
 
-      ${isPremiumMember(h.owner||h.ownerName||bankAccount.userId) ? `
-      <div style="margin-top:14px;border-top:1px solid var(--equi-line);padding-top:10px;">
-        <label>Custom CSS <span class="small" style="color:var(--equi-brass-light);">&#9733; Premium</span></label>
-        <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.horse-profile-custom</code> so your styling stays on this horse's page. Hooks: <code>.pcard</code>, <code>h3</code>.</div>
-        <textarea id="pm_css" style="min-height:110px;font-family:monospace;font-size:.85em;" placeholder=".horse-profile-custom .pcard{ background:#1a1006; }">${escAttr(h.customCss||'')}</textarea>
-      </div>` : ''}
+        ${isPremiumMember(h.owner||h.ownerName||bankAccount.userId) ? `
+        <div style="margin-top:14px;border-top:1px solid var(--equi-line);padding-top:10px;">
+          <label>Custom CSS <span class="small" style="color:var(--equi-brass-light);">&#9733; Premium</span></label>
+          <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.horse-profile-custom</code> so your styling stays on this horse's page. Hooks: <code>.pcard</code>, <code>h3</code>.</div>
+          <textarea id="pm_css" style="min-height:110px;font-family:monospace;font-size:.85em;" placeholder=".horse-profile-custom .pcard{ background:#1a1006; }">${escAttr(h.customCss||'')}</textarea>
+        </div>` : ''}
 
-      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
-        <button id="pm_save" class="btn">Save Profile</button>
-        <button id="pm_cancel" class="secondary">Cancel</button>
-        <span class="small" id="pm_status" style="align-self:center;"></span>
+        <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="pm_save" class="btn">Save Profile</button>
+          <button id="pm_cancel" class="secondary">Cancel</button>
+          <span class="small" id="pm_status" style="align-self:center;"></span>
+        </div>
       </div>
     </div>`;
-  document.body.appendChild(overlay);
+
+  const backBtn = wrap.querySelector('[data-act="back-to-profile"]');
+  if(backBtn) backBtn.onclick = ()=>renderHorseProfilePage(app, h);
 
   function drawFramePreview(){
-    const host = overlay.querySelector('#pm_frame_prev'); if(!host) return;
-    const fr = overlay.querySelector('#pm_frame').value;
+    const host = wrap.querySelector('#pm_frame_prev'); if(!host) return;
+    const fr = wrap.querySelector('#pm_frame').value;
     host.innerHTML = framedImg(h.profileImage, fr, 140, h.name);
   }
   drawFramePreview();
-  overlay.querySelector('#pm_frame').onchange = drawFramePreview;
+  wrap.querySelector('#pm_frame').onchange = drawFramePreview;
 
-  overlay.querySelector('#pm_cancel').onclick=()=>overlay.remove();
-  overlay.querySelector('#pm_save').onclick=async()=>{
-    const saveBtn = overlay.querySelector('#pm_save');
-    const statusEl = overlay.querySelector('#pm_status');
+  wrap.querySelector('#pm_cancel').onclick=()=>renderHorseProfilePage(app, h);
+  wrap.querySelector('#pm_save').onclick=async()=>{
+    const saveBtn = wrap.querySelector('#pm_save');
+    const statusEl = wrap.querySelector('#pm_status');
     saveBtn.disabled = true;
     const origLabel = saveBtn.textContent;
     saveBtn.textContent = 'Saving…';
@@ -9332,23 +9343,23 @@ function showProfileModal(horseId){
       statusEl.textContent = "Still working — slow connections or a busy sheet can take a bit longer. Don't close this window.";
     }, 6000);
     try{
-      h.breed = overlay.querySelector('#pm_breed').value.trim() || h.breed;
-      h.frame = frameAllowed(overlay.querySelector('#pm_frame').value, h.owner||h.ownerName||bankAccount.userId)
-                  ? overlay.querySelector('#pm_frame').value : 'none';
-      const newAge = Number(overlay.querySelector('#pm_age').value);
+      h.breed = wrap.querySelector('#pm_breed').value.trim() || h.breed;
+      h.frame = frameAllowed(wrap.querySelector('#pm_frame').value, h.owner||h.ownerName||bankAccount.userId)
+                  ? wrap.querySelector('#pm_frame').value : 'none';
+      const newAge = Number(wrap.querySelector('#pm_age').value);
       if(!isNaN(newAge) && newAge >= 0) h.age = newAge;
-      h.barnName   = overlay.querySelector('#pm_barn').value.trim();
-      h.height     = overlay.querySelector('#pm_height').value.trim();
-      h.importLink = overlay.querySelector('#pm_import').value.trim();
-      h.discipline = overlay.querySelector('#pm_discipline').value;
-      h.ownerName  = overlay.querySelector('#pm_owner').value.trim();
-      h.ownerLink  = overlay.querySelector('#pm_ownerlink').value.trim();
-      h.riderName  = overlay.querySelector('#pm_rider').value.trim();
-      h.stableName = overlay.querySelector('#pm_stable').value.trim();
-      h.stableLink = overlay.querySelector('#pm_stablelink').value.trim();
-      h.personality  = overlay.querySelector('#pm_personality').value.trim();
-      h.horseHistory = overlay.querySelector('#pm_history').value.trim();
-      const cssField = overlay.querySelector('#pm_css');
+      h.barnName   = wrap.querySelector('#pm_barn').value.trim();
+      h.height     = wrap.querySelector('#pm_height').value.trim();
+      h.importLink = wrap.querySelector('#pm_import').value.trim();
+      h.discipline = wrap.querySelector('#pm_discipline').value;
+      h.ownerName  = wrap.querySelector('#pm_owner').value.trim();
+      h.ownerLink  = wrap.querySelector('#pm_ownerlink').value.trim();
+      h.riderName  = wrap.querySelector('#pm_rider').value.trim();
+      h.stableName = wrap.querySelector('#pm_stable').value.trim();
+      h.stableLink = wrap.querySelector('#pm_stablelink').value.trim();
+      h.personality  = wrap.querySelector('#pm_personality').value.trim();
+      h.horseHistory = wrap.querySelector('#pm_history').value.trim();
+      const cssField = wrap.querySelector('#pm_css');
       if(cssField) h.customCss = cssField.value;
       // Save the horse record and the shared stable state in parallel —
       // they're independent writes, so there's no need to wait on one
@@ -9356,7 +9367,7 @@ function showProfileModal(horseId){
       // compared to running them one after another.
       const [ok] = await Promise.all([ saveHorse(h), save() ]);
       clearTimeout(slowNotice);
-      overlay.remove(); render();
+      renderHorseProfilePage(app, h);
       if(!ok) alert(`Profile was updated here, but saving it to the database failed. Try again — if it keeps happening, sign out and sign back in (top of the page).`);
     }catch(err){
       clearTimeout(slowNotice);
