@@ -55,7 +55,26 @@
 <script src="equi-bank.js"></script>
 </head>
 <body>
-<div id="equi-nav"></div>
+<!-- ============================================================
+     SHARED SITE HEADER — plain HTML on purpose, like every other page.
+     equi-nav.js (loaded in <head>) fills the #nav tab row and wires Sign out;
+     if it fails to load, the crest, wordmark and tagline still render.
+     ============================================================ -->
+<header class="equi-hd">
+  <div class="equi-hd__wrap">
+    <div class="equi-hd__brand">
+      <a href="index.html" aria-label="EquiStories home">
+        <img class="equi-hd__logo" src="equistories-logo.png" alt=""
+             onerror="this.style.display='none'" />
+      </a>
+      <div class="equi-hd__words">
+        <h1 class="equi-hd__title">EquiStories</h1>
+        <p class="equi-hd__tagline">Member-run rider associations — join a club, post on its wall, and climb its ranks.</p>
+      </div>
+    </div>
+    <nav id="nav" class="equi-hd__nav"></nav>
+  </div>
+</header>
 
 <div id="app" class="wrap" style="max-width:900px;margin:0 auto;padding:20px;">
 
@@ -166,7 +185,7 @@ async function renderBrowse(){
   const createEl = $("a_create");
   const isPremium = who && isPremiumMember(who.userId);
   if(!who){
-    createEl.innerHTML = `<h3>Found an Association</h3><p class="small">Sign in on the Hub first.</p>`;
+    createEl.innerHTML = `<h3>Found an Association</h3><p class="small"><a href="index.html">Sign in on the Hub</a> to found one.</p>`;
     return;
   }
   if(!isPremium){
@@ -233,7 +252,8 @@ async function renderOneAssociation(assocId){
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
         ${who ? (isMember
           ? `<button class="ghost danger" id="a_leave">Leave Association</button>`
-          : `<button id="a_join">Join Association</button>`) : ''}
+          : `<button id="a_join">Join Association</button>`)
+          : `<a class="tag" href="index.html" style="text-decoration:none;">Sign in to join →</a>`}
         ${isOwner ? `<button class="ghost" id="a_manage_toggle">⚙ Manage</button>` : ''}
       </div>
       <div id="a_status" class="small" style="margin-top:6px;"></div>
