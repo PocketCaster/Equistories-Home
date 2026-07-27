@@ -48,6 +48,25 @@
   .wall-reply{ margin:6px 0 0 20px; padding:8px 10px; border-left:2px solid var(--line); font-size:.95em; }
   .rank-row{ display:flex; gap:8px; align-items:center; border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin-bottom:6px; }
   .rank-row input{ flex:1; }
+  .pinned-banner{ border:1px solid var(--brass-mid); border-left:4px solid var(--honey); border-radius:8px;
+                   padding:12px 14px; margin:16px 0; background:linear-gradient(135deg, rgba(201,168,76,.14), rgba(201,168,76,.03)); }
+  .spotlight-card{ display:flex; gap:14px; align-items:flex-start; }
+  .spotlight-avatar{ width:52px; height:52px; border-radius:50%; background:var(--gold-shine); color:#2a1c08;
+                      display:flex; align-items:center; justify-content:center; font-size:1.3em; font-weight:700;
+                      flex-shrink:0; font-family:var(--equi-display); }
+  .gallery-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; margin-top:10px; }
+  .gallery-item{ border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--deep); }
+  .gallery-item img{ width:100%; height:130px; object-fit:cover; display:block; background:var(--panel2); }
+  .gallery-item .gi-body{ padding:8px 10px; }
+  .gallery-item .gi-like{ margin-top:6px; }
+  .event-row{ border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:8px; background:var(--deep); }
+  .event-row.past{ opacity:.55; }
+  .reaction-bar{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .reaction-btn{ background:var(--panel2); border:1px solid var(--line); color:var(--dim); border-radius:14px;
+                 padding:3px 10px; font-size:.86em; cursor:pointer; font-family:var(--equi-serif); }
+  button.reaction-btn.active{ border-color:var(--brass-mid); color:var(--text); background:rgba(201,168,76,.16); }
+  span.reaction-btn{ cursor:default; }
+  .bio-box{ margin-top:6px; padding:6px 10px; border-left:2px solid var(--line); font-size:.9em; color:var(--dim); }
 </style>
 
 <script src="equi-nav.js" data-app="associations" defer></script>
@@ -120,6 +139,10 @@ function rankBadgeHtml(rank){
   const color = rank.color || '#c9a84c';
   return `<span class="badge" style="background:${esc(color)};color:#1a130c;">${rank.emoji?esc(rank.emoji)+' ':''}${esc(rank.name)}</span>`;
 }
+function initials(name){
+  const s = String(name||'?').trim();
+  return s ? s[0].toUpperCase() : '?';
+}
 
 async function loadAssociation(id){
   try{ const a = await DB.get('associations', id); return a || null; }catch(e){ return null; }
@@ -138,6 +161,18 @@ async function loadWallPosts(assocId){
     return (all||[]).filter(p=>p.associationId===assocId).sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
   }catch(e){ return []; }
 }
+async function loadGallery(assocId){
+  try{
+    return ((await DB.listByField('associationGallery','associationId', assocId))||[])
+      .sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+  }catch(e){ return []; }
+}
+async function loadEvents(assocId){
+  try{
+    return ((await DB.listByField('associationEvents','associationId', assocId))||[])
+      .sort((a,b)=>new Date(a.when||0)-new Date(b.when||0));
+  }catch(e){ return []; }
+}
 
 // Award points for wall activity and recompute nothing else — rank is
 // always derived live from points, never stored separately, so it can
@@ -149,6 +184,55 @@ async function awardAssocPoints(assocId, amount){
   if(!mem) return; // must be a member already (joining creates this doc)
   const points = (Number(mem.points)||0) + amount;
   await DB.putWithField('associationMembers', docId, who.userId, { ...mem, points, associationId: assocId }, 'associationId', assocId);
+}
+
+// Toggle the current user's presence in a wall post's per-emoji reaction list.
+async function toggleReaction(assocId, postId, emoji){
+  if(!who) return;
+  try{
+    const post = await DB.get('associationPosts', postId);
+    if(!post) return;
+    const reactions = { ...(post.reactions||{}) };
+    const list = new Set(reactions[emoji]||[]);
+    if(list.has(who.userId)) list.delete(who.userId); else list.add(who.userId);
+    reactions[emoji] = Array.from(list);
+    await DB.put('associationPosts', postId, post.owner, { ...post, reactions });
+    renderOneAssociation(assocId);
+  }catch(e){}
+}
+async function toggleGalleryLike(assocId, itemId){
+  if(!who) return;
+  try{
+    const item = await DB.get('associationGallery', itemId);
+    if(!item) return;
+    const likes = new Set(item.likes||[]);
+    if(likes.has(who.userId)) likes.delete(who.userId); else likes.add(who.userId);
+    await DB.putWithField('associationGallery', itemId, item.owner, { ...item, likes:Array.from(likes) }, 'associationId', assocId);
+    renderOneAssociation(assocId);
+  }catch(e){}
+}
+async function toggleRsvp(assocId, eventId){
+  if(!who) return;
+  try{
+    const ev = await DB.get('associationEvents', eventId);
+    if(!ev) return;
+    const rsvps = new Set(ev.rsvps||[]);
+    if(rsvps.has(who.userId)) rsvps.delete(who.userId); else rsvps.add(who.userId);
+    await DB.putWithField('associationEvents', eventId, ev.owner, { ...ev, rsvps:Array.from(rsvps) }, 'associationId', assocId);
+    renderOneAssociation(assocId);
+  }catch(e){}
+}
+async function saveBio(assocId){
+  if(!who) return;
+  const input = $("a_bio_input");
+  const statusEl = $("a_bio_status");
+  const text = input.value.trim();
+  statusEl.textContent = "Saving…";
+  try{
+    const mem = await loadMyMembership(assocId);
+    await DB.putWithField('associationMembers', assocId+'_'+who.userId, who.userId, { ...mem, associationId:assocId, bio:text }, 'associationId', assocId);
+    renderOneAssociation(assocId);
+  }catch(err){ statusEl.textContent = "Failed: "+(err.message||err); }
 }
 
 async function render(){
@@ -223,24 +307,77 @@ async function renderOneAssociation(assocId){
     return;
   }
   const isOwner = who && who.userId === (a.ownerId || a.__owner || a.owner);
-  const [members, myMembership, posts] = await Promise.all([
-    loadMembers(assocId), loadMyMembership(assocId), loadWallPosts(assocId)
+  const [members, myMembership, posts, gallery, events] = await Promise.all([
+    loadMembers(assocId), loadMyMembership(assocId), loadWallPosts(assocId), loadGallery(assocId), loadEvents(assocId)
   ]);
   const isMember = !!myMembership;
   const ranks = a.ranks || [];
 
   const rosterHtml = members.length ? members.map(m=>{
     const rank = currentRank(m.points, ranks);
-    return `<div class="roster-row">
-      <span>${esc(m.__owner||m.owner||'?')}</span>
-      <span>${rankBadgeHtml(rank)} <span class="small">${m.points||0} pts</span></span>
+    return `<div class="roster-row" style="flex-direction:column;align-items:stretch;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <span>${esc(m.__owner||m.owner||'?')}</span>
+        <span>${rankBadgeHtml(rank)} <span class="small">${m.points||0} pts</span></span>
+      </div>
+      ${m.bio ? `<div class="bio-box">${esc(m.bio)}</div>` : ''}
     </div>`;
   }).join('') : `<p class="small muted">No members yet.</p>`;
 
-  const wallHtml = posts.length ? await renderWallPosts(posts) : `<p class="small muted">No posts yet. ${isMember?'Be the first!':'Join to post.'}</p>`;
+  const bioSectionHtml = isMember ? `
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">
+      <label>My club bio <span class="small muted">(shown next to your name on the roster)</span></label>
+      <textarea id="a_bio_input" rows="2" placeholder="Tell the club a bit about you and your horse…">${esc(myMembership.bio||'')}</textarea>
+      <div style="margin-top:8px;"><button class="ghost" id="a_bio_save">Save Bio</button> <span id="a_bio_status" class="small"></span></div>
+    </div>` : '';
+
+  const spotlightMember = members.filter(m=>(m.points||0)>0).sort((a,b)=>(b.points||0)-(a.points||0))[0];
+  const spotlightHtml = spotlightMember ? `
+    <div class="card">
+      <h3>🌟 Member Spotlight</h3>
+      <div class="spotlight-card">
+        <div class="spotlight-avatar">${esc(initials(spotlightMember.__owner||spotlightMember.owner))}</div>
+        <div>
+          <b style="color:var(--accent);">${esc(spotlightMember.__owner||spotlightMember.owner||'?')}</b>
+          ${rankBadgeHtml(currentRank(spotlightMember.points, ranks))}
+          <span class="small muted">${spotlightMember.points||0} pts</span>
+          ${spotlightMember.bio ? `<div class="bio-box">${esc(spotlightMember.bio)}</div>` : ''}
+        </div>
+      </div>
+    </div>` : '';
+
+  const galleryHtml = gallery.length ? gallery.map(g=>{
+    const liked = who && (g.likes||[]).includes(who.userId);
+    return `<div class="gallery-item">
+      <img src="${esc(g.imageUrl)}" alt="${esc(g.caption||'')}" onerror="this.style.display='none'" />
+      <div class="gi-body">
+        <div class="small">${esc(g.caption||'')}</div>
+        <div class="small muted">${esc(g.owner)} · ${when(g.createdAt)}</div>
+        <div class="gi-like">${who
+          ? `<button class="ghost gal-like-btn" data-galid="${esc(g.id)}" style="padding:3px 10px;font-size:.85em;${liked?'border-color:var(--brass-mid);':''}">${liked?'♥':'♡'} ${(g.likes||[]).length}</button>`
+          : `<span class="small muted">♡ ${(g.likes||[]).length}</span>`}</div>
+      </div>
+    </div>`;
+  }).join('') : `<p class="small muted">No photos yet. ${isMember?'Add the first one!':'Join to add photos.'}</p>`;
+
+  const eventsNow = Date.now();
+  const eventsHtml = events.length ? events.map(ev=>{
+    const isPast = ev.when && new Date(ev.when).getTime() < eventsNow;
+    const going = who && (ev.rsvps||[]).includes(who.userId);
+    return `<div class="event-row${isPast?' past':''}">
+      <b style="color:var(--accent);">${esc(ev.title||'Untitled')}</b>
+      <div class="small muted">${ev.when ? new Date(ev.when).toLocaleString() : 'Time TBD'} · proposed by ${esc(ev.owner)}</div>
+      ${ev.description ? `<div class="small" style="margin-top:4px;">${esc(ev.description)}</div>` : ''}
+      ${who ? `<div style="margin-top:6px;"><button class="ghost ev-rsvp-btn" data-evid="${esc(ev.id)}" style="padding:4px 12px;${going?'border-color:var(--brass-mid);':''}">${going?'✓ Going':'RSVP'}</button> <span class="small muted">${(ev.rsvps||[]).length} going</span></div>` : ''}
+    </div>`;
+  }).join('') : `<p class="small muted">No events scheduled yet. ${isMember?'Propose one!':'Join to propose events.'}</p>`;
+
+  const wallHtml = posts.length ? await renderWallPosts(assocId, posts) : `<p class="small muted">No posts yet. ${isMember?'Be the first!':'Join to post.'}</p>`;
 
   const ownerUid = a.ownerId || a.__owner || a.owner;
   const customCssHtml = (isPremiumMember(ownerUid) && a.customCss) ? `<style>${sanitizeShopCss(a.customCss)}</style>` : '';
+  const pinnedHtml = a.announcement ? `<div class="pinned-banner"><b style="color:var(--brass-light);">📌 Pinned</b>
+      <div style="margin-top:4px;white-space:pre-wrap;">${esc(a.announcement)}</div></div>` : '';
 
   app.innerHTML = `
     ${customCssHtml}
@@ -259,11 +396,37 @@ async function renderOneAssociation(assocId){
       <div id="a_status" class="small" style="margin-top:6px;"></div>
     </div>
 
+    ${pinnedHtml}
+
     ${isOwner ? `<div class="card" id="a_manage" style="display:none;"></div>` : ''}
+
+    ${spotlightHtml}
 
     <div class="card">
       <h3>Roster (${members.length})</h3>
       <div id="a_roster">${rosterHtml}</div>
+      ${bioSectionHtml}
+    </div>
+
+    <div class="card">
+      <h3>🖼 Gallery</h3>
+      ${isMember ? `
+        <label>Image URL</label><input id="a_gal_url" placeholder="https://…" />
+        <label>Caption</label><input id="a_gal_caption" placeholder="What's this a photo of?" />
+        <div style="margin-top:8px;"><button id="a_gal_btn">Add to Gallery</button> <span id="a_gal_status" class="small"></span></div>
+      ` : who ? `<p class="small muted">Join to add photos.</p>` : ''}
+      <div class="gallery-grid" id="a_gallery">${galleryHtml}</div>
+    </div>
+
+    <div class="card">
+      <h3>📅 Upcoming Events</h3>
+      ${isMember ? `
+        <label>Title</label><input id="a_ev_title" placeholder="e.g. Spring Show Meetup" />
+        <label>When</label><input id="a_ev_when" type="datetime-local" />
+        <label>Details</label><textarea id="a_ev_desc" rows="2" placeholder="Optional details"></textarea>
+        <div style="margin-top:8px;"><button id="a_ev_btn">Propose Event</button> <span id="a_ev_status" class="small"></span></div>
+      ` : who ? `<p class="small muted">Join to propose events.</p>` : ''}
+      <div id="a_events" style="margin-top:10px;">${eventsHtml}</div>
     </div>
 
     <div class="card">
@@ -311,25 +474,73 @@ async function renderOneAssociation(assocId){
       $("a_post_status").textContent = "Posting…";
       const id = 'ap_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
       try{
-        await DB.put('associationPosts', id, who.userId, { id, owner:who.userId, associationId:assocId, text, createdAt:new Date().toISOString() });
+        await DB.put('associationPosts', id, who.userId, { id, owner:who.userId, associationId:assocId, text, reactions:{}, createdAt:new Date().toISOString() });
         await awardAssocPoints(assocId, 2); // new post: +2
         renderOneAssociation(assocId);
       }catch(err){ $("a_post_status").textContent = "Failed: "+(err.message||err); }
     };
   }
+  if(isMember){
+    const bioBtn = $("a_bio_save");
+    if(bioBtn) bioBtn.onclick = ()=> saveBio(assocId);
+
+    const galBtn = $("a_gal_btn");
+    if(galBtn) galBtn.onclick = async ()=>{
+      const url = $("a_gal_url").value.trim();
+      if(!url){ $("a_gal_status").textContent = "Add an image URL first."; return; }
+      const caption = $("a_gal_caption").value.trim();
+      $("a_gal_status").textContent = "Adding…";
+      const id = 'ag_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      try{
+        await DB.putWithField('associationGallery', id, who.userId, { id, owner:who.userId, associationId:assocId, imageUrl:url, caption, likes:[], createdAt:new Date().toISOString() }, 'associationId', assocId);
+        renderOneAssociation(assocId);
+      }catch(err){ $("a_gal_status").textContent = "Failed: "+(err.message||err); }
+    };
+
+    const evBtn = $("a_ev_btn");
+    if(evBtn) evBtn.onclick = async ()=>{
+      const title = $("a_ev_title").value.trim();
+      if(!title){ $("a_ev_status").textContent = "Give it a title first."; return; }
+      const whenVal = $("a_ev_when").value;
+      const desc = $("a_ev_desc").value.trim();
+      $("a_ev_status").textContent = "Proposing…";
+      const id = 'ae_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      try{
+        await DB.putWithField('associationEvents', id, who.userId, { id, owner:who.userId, associationId:assocId, title, description:desc, when: whenVal ? new Date(whenVal).toISOString() : '', rsvps:[], createdAt:new Date().toISOString() }, 'associationId', assocId);
+        renderOneAssociation(assocId);
+      }catch(err){ $("a_ev_status").textContent = "Failed: "+(err.message||err); }
+    };
+  }
+  app.querySelectorAll('.gal-like-btn').forEach(btn=>{
+    btn.onclick = ()=> toggleGalleryLike(assocId, btn.dataset.galid);
+  });
+  app.querySelectorAll('.ev-rsvp-btn').forEach(btn=>{
+    btn.onclick = ()=> toggleRsvp(assocId, btn.dataset.evid);
+  });
   wireWallReplyButtons(assocId);
 }
 
-async function renderWallPosts(posts){
+async function renderWallPosts(assocId, posts){
   const blocks = await Promise.all(posts.map(async p=>{
     let replies = [];
     try{ replies = (await DB.listSub('associationPosts', p.id, 'replies')).sort((a,b)=>new Date(a.createdAt||0)-new Date(b.createdAt||0)); }catch(e){}
     const repliesHtml = replies.map(r=>`
       <div class="wall-reply"><b>${esc(r.owner)}</b> <span class="small muted">${when(r.createdAt)}</span><br>${esc(r.text)}</div>
     `).join('');
+    const reactions = p.reactions || {};
+    const emojiList = ['🐴','❤️','😂'];
+    const activeEmojis = emojiList.filter(em=>(reactions[em]||[]).length);
+    const reactionBar = who
+      ? `<div class="reaction-bar">${emojiList.map(em=>{
+          const users = reactions[em]||[];
+          const active = users.includes(who.userId);
+          return `<button class="reaction-btn${active?' active':''}" data-postid="${esc(p.id)}" data-emoji="${esc(em)}">${em}${users.length?' '+users.length:''}</button>`;
+        }).join('')}</div>`
+      : (activeEmojis.length ? `<div class="reaction-bar">${activeEmojis.map(em=>`<span class="reaction-btn">${em} ${(reactions[em]||[]).length}</span>`).join('')}</div>` : '');
     return `<div class="wall-post" data-postid="${esc(p.id)}">
       <b style="color:var(--accent);">${esc(p.owner)}</b> <span class="small muted">${when(p.createdAt)}</span>
       <div style="margin-top:4px;white-space:pre-wrap;">${esc(p.text)}</div>
+      ${reactionBar}
       ${repliesHtml}
       ${who ? `<div style="margin-top:8px;display:flex;gap:6px;">
         <input class="a_reply_input" placeholder="Reply…" style="flex:1;" />
@@ -341,6 +552,9 @@ async function renderWallPosts(posts){
 }
 
 function wireWallReplyButtons(assocId){
+  app.querySelectorAll('button.reaction-btn[data-postid]').forEach(btn=>{
+    btn.onclick = ()=> toggleReaction(assocId, btn.dataset.postid, btn.dataset.emoji);
+  });
   app.querySelectorAll('.a_reply_btn').forEach(btn=>{
     btn.onclick = async ()=>{
       const postId = btn.dataset.postid;
@@ -385,6 +599,10 @@ function renderManagePanel(a, isOwner){
     <label>Description</label><textarea id="am_desc" rows="3">${esc(a.description||'')}</textarea>
     <div style="margin-top:10px;"><button id="am_save_basic">Save</button> <span id="am_status_basic" class="small"></span></div>
 
+    <h3 style="margin-top:20px;">📌 Pinned Announcement <span class="small muted">(shown at the top of the page — leave blank to hide)</span></h3>
+    <textarea id="am_announcement" rows="2" placeholder="e.g. Club show this Saturday at 3pm server time!">${esc(a.announcement||'')}</textarea>
+    <div style="margin-top:10px;"><button id="am_save_announcement">Save Announcement</button> <span id="am_status_announcement" class="small"></span></div>
+
     <h3 style="margin-top:20px;">Ranks <span class="small muted">(owner-defined — members' rank comes automatically from points crossing a threshold)</span></h3>
     <div id="a_ranks_list"></div>
     <button class="ghost" id="am_add_rank" style="margin-top:6px;">+ Add rank</button>
@@ -404,6 +622,13 @@ function renderManagePanel(a, isOwner){
     statusEl.textContent = "Saving…";
     const next = { ...a, name: el.querySelector('#am_name').value.trim(), description: el.querySelector('#am_desc').value.trim() };
     try{ await DB.put('associations', a.id, who.userId, next); a.name=next.name; a.description=next.description; statusEl.textContent="Saved."; renderOneAssociation(a.id); }
+    catch(err){ statusEl.textContent = "Failed: "+(err.message||err); }
+  };
+  el.querySelector('#am_save_announcement').onclick = async ()=>{
+    const statusEl = el.querySelector('#am_status_announcement');
+    statusEl.textContent = "Saving…";
+    const next = { ...a, announcement: el.querySelector('#am_announcement').value.trim() };
+    try{ await DB.put('associations', a.id, who.userId, next); a.announcement=next.announcement; statusEl.textContent="Saved."; renderOneAssociation(a.id); }
     catch(err){ statusEl.textContent = "Failed: "+(err.message||err); }
   };
   el.querySelector('#am_add_rank').onclick = ()=>{ ranksState.push({name:'New Rank', threshold:0, emoji:'🏅', color:'#c9a84c'}); drawRanks(); };
