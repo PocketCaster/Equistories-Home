@@ -93,7 +93,7 @@ html:root{
   --text: var(--equi-text);
   --dim: var(--equi-dim);
   --accent: var(--equi-accent);
-  --accent2: var(--equi-good);
+  --accent2: var(--equi-accent-2);   /* orchid — prestige/rider/headings (was mis-wired to green) */
   --good: var(--equi-good);
   --warn: var(--equi-warn);
   --danger: var(--equi-bad);
