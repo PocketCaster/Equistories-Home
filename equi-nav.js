@@ -50,7 +50,8 @@
   var TABS = [
     { key: "hub",    label: "Community",      href: "index.html"  },
     { key: "stable", label: "Stable Manager", href: "stable.html" },
-    { key: "shows",  label: "Shows",          href: "shows.html"  }
+    { key: "shows",  label: "Shows",          href: "shows.html"  },
+    { key: "associations", label: "Associations", href: "associations.html" }
   ];
   var ADMIN_TAB = { key: "admin", label: "Admin", href: "admin.html" };
 
