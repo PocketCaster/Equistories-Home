@@ -273,6 +273,11 @@
 </style>
   <link rel="stylesheet" href="equi-shell.css" />
   <link rel="stylesheet" href="equi-components.css" />
+  <style>
+  /* Loaded AFTER equi-shell.css so it always wins: --accent2 was mis-wired to
+     moss green in the shell; force it back to the intended orchid site-wide. */
+  :root{ --accent2:#c9a8e8; }
+  </style>
 </head>
 <body>
 <!-- ============================================================
@@ -2256,7 +2261,7 @@ async function renderCommunity(v){
       <div class="rg-cat-body">
         ${byCat[cat].map(g=>`
           <div id="${g.anchor}" style="scroll-margin-top:80px;margin-top:14px;">
-            <h4 style="color:var(--accent2);margin:0 0 6px;">${__esc(g.title)}</h4>
+            <h4 style="color:var(--accent);margin:0 0 6px;">${__esc(g.title)}</h4>
             <div style="line-height:1.6;">${mdish(g.body)}</div>
           </div>`).join("")}
       </div>
@@ -2331,7 +2336,7 @@ function richFormat(t, opts){
     if(lines.every(l=>l.trim().startsWith('- ')))
       return `<ul>${lines.map(l=>`<li>${__richInline(l.trim().slice(2))}</li>`).join('')}</ul>`;
     if(lines[0].startsWith('## '))
-      return `<h4 style="color:var(--accent2);margin:12px 0 4px;">${__esc(lines[0].slice(3))}</h4>`
+      return `<h4 style="color:var(--accent);margin:12px 0 4px;">${__esc(lines[0].slice(3))}</h4>`
         + (lines.slice(1).length?`<p>${lines.slice(1).map(__richInline).join(chat?'<br>':' ')}</p>`:'');
     return `<p>${lines.map(__richInline).join(chat?'<br>':' ')}</p>`;
   }).join('');
