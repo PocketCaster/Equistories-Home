@@ -2157,7 +2157,7 @@ async function renderForumThread(v, DB, who, boards){
   });
 
   // Reaction buttons — every post, OP included.
-  v.querySelectorAll('.forum-post').forEach((card, idx)=>{
+  v.querySelectorAll('.pb-post').forEach((card, idx)=>{
     if(!who) return;
     const isOP = idx===0;
     const path = isOP ? {threadId:t.id, owner:t.owner, threadData:t} : {threadId:t.id, replyId: replies[idx-1] && replies[idx-1].id};
@@ -3355,10 +3355,24 @@ async function breedImportsView(body, DB, who, breed, staff){
       const rec={ id, owner:who.userId, breedId:breed.id, kind:"custom",
         horseName, refs:$("co_refs").value.trim(), price:Math.max(0,Number($("co_price").value)||0),
         note:"", status:"submitted", submittedAt:new Date().toISOString() };
-      try{ await DB.putWithField('breedOrders', id, who.userId, rec, 'breedId', rec.breedId); $("co_msg").textContent="Submitted — staff will review it."; $("co_name").value="";$("co_refs").value="";$("co_price").value="0"; }
+      try{ await DB.putWithField('breedOrders', id, who.userId, rec, 'breedId', rec.breedId); $("co_msg").textContent="Submitted — staff will review it."; $("co_name").value="";$("co_refs").value="";$("co_price").value="0"; notifyBreedImportRequest(breed, rec); }
       catch(err){ $("co_msg").textContent="Failed: "+(err.message||err); }
     };
   }
+}
+
+// Alert the breed's owner and staff that a new import request came in.
+// Best-effort: a failed notify must never block or break the order itself.
+async function notifyBreedImportRequest(breed, order){
+  try{
+    const token = await (async()=>{ try{ await window.EquiAuth.ready; return await window.EquiAuth.token(); }catch(e){ return null; } })();
+    if(!token) return;
+    const recipients = [...new Set([breed.owner, ...(breed.staff||[])].filter(Boolean))];
+    for(const uid of recipients){
+      try{ await railwayCall('/notifyImportRequest', { idToken: token,
+        body:{ toUserId: uid, breedName: breed.name, horseName: order.horseName, kind: order.kind } }); }catch(e){}
+    }
+  }catch(e){}
 }
 
 async function breedOrderPremade(body, DB, who, breed, imports, importId){
@@ -3379,6 +3393,7 @@ async function breedOrderPremade(body, DB, who, breed, imports, importId){
     // hold the import — best effort (only staff own the import doc; if this fails,
     // staff still see the order and can decline duplicates)
     try{ imp.status='pending'; imp.heldBy=who.userId; await DB.put('breedImports', imp.id, imp.owner||breed.owner, imp); }catch(e){}
+    notifyBreedImportRequest(breed, order);
     __breedView={mode:"page",breedId:breed.id,tab:"my orders"}; renderBreeds(document.getElementById('view'));
   }catch(err){ alert("Couldn't submit the order: "+(err.message||err)); }
 }
