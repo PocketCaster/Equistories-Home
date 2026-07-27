@@ -258,6 +258,18 @@
     .pb-post__side{ border-right:none; border-bottom:1px solid var(--line); flex-direction:row; text-align:left; gap:10px; }
     .pb-post__name{ margin-top:0; }
   }
+  /* Rules & Guides — collapsible category panels */
+  .rg-cat{ margin-bottom:10px; padding:0; overflow:hidden; }
+  .rg-cat > summary{ list-style:none; cursor:pointer; display:flex; align-items:center; gap:10px;
+    padding:13px 16px; font-family:var(--equi-display); font-size:1.18em; font-weight:700;
+    color:var(--accent2); user-select:none; border-bottom:1px solid transparent; }
+  .rg-cat > summary::-webkit-details-marker{ display:none; }
+  .rg-cat > summary:hover{ color:var(--brass-light); }
+  .rg-cat[open] > summary{ border-bottom:1px solid var(--line); }
+  .rg-cat .rg-count{ margin-left:auto; color:var(--dim); font-family:var(--equi-serif); font-weight:400; font-size:.7em; }
+  .rg-cat .rg-chev{ color:var(--accent2); transition:transform .18s ease; font-size:.85em; }
+  .rg-cat[open] .rg-chev{ transform:rotate(90deg); }
+  .rg-cat .rg-cat-body{ padding:2px 16px 16px; }
 </style>
   <link rel="stylesheet" href="equi-shell.css" />
   <link rel="stylesheet" href="equi-components.css" />
@@ -2193,8 +2205,12 @@ async function renderCommunity(v){
   v.innerHTML = `
     <div class="card">
       <h2>Rules &amp; Guides</h2>
-      <p class="small">Everything you need to play EquiStories — the site rules and how-to guides. Use the menu to jump to a section.</p>
+      <p class="small">Everything you need to play EquiStories — the site rules and how-to guides. Tap a section to open it, or use the menu to jump to a specific guide.</p>
       <div id="cgToc"></div>
+      <div id="cgTools" style="margin-top:12px;display:none;gap:8px;">
+        <button class="ghost" id="cgExpand" style="padding:4px 12px;">Expand all</button>
+        <button class="ghost" id="cgCollapse" style="padding:4px 12px;">Collapse all</button>
+      </div>
     </div>
     <div id="cgBody"><p class="small muted">Loading…</p></div>`;
 
@@ -2220,27 +2236,42 @@ async function renderCommunity(v){
     byCat[cat].push({ title:g.title||"Untitled", body:g.body||"", anchor:"guide-"+(g.id||("i"+i)) });
   });
 
-  $("cgToc").innerHTML = order.map(cat=>`
+  // Jump menu — each tag opens its category panel and scrolls to the entry.
+  $("cgToc").innerHTML = order.map((cat,ci)=>`
     <div style="margin-top:10px;">
       <div class="small" style="text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin-bottom:5px;">${__esc(cat)}</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
-        ${byCat[cat].map(g=>`<a class="tag" style="cursor:pointer;" data-jump="${g.anchor}">${__esc(g.title)}</a>`).join("")}
+        ${byCat[cat].map(g=>`<a class="tag" style="cursor:pointer;" data-cat="rgcat-${ci}" data-jump="${g.anchor}">${__esc(g.title)}</a>`).join("")}
       </div>
     </div>`).join("");
 
-  $("cgBody").innerHTML = order.map(cat=>`
-    <div class="card">
-      <h3 style="color:var(--accent2);border-bottom:1px solid var(--line);padding-bottom:6px;margin-top:0;">${__esc(cat)}</h3>
-      ${byCat[cat].map(g=>`
-        <div id="${g.anchor}" style="scroll-margin-top:80px;margin-top:16px;">
-          <h4 style="color:var(--accent);margin:0 0 6px;">${__esc(g.title)}</h4>
-          <div style="line-height:1.6;">${mdish(g.body)}</div>
-        </div>`).join("")}
-    </div>`).join("");
+  // One collapsible <details> panel per category (all start collapsed).
+  $("cgBody").innerHTML = order.map((cat,ci)=>`
+    <details class="rg-cat card" id="rgcat-${ci}">
+      <summary>
+        <span>${__esc(cat)}</span>
+        <span class="rg-count">${byCat[cat].length} ${byCat[cat].length===1?'entry':'entries'}</span>
+        <span class="rg-chev">▸</span>
+      </summary>
+      <div class="rg-cat-body">
+        ${byCat[cat].map(g=>`
+          <div id="${g.anchor}" style="scroll-margin-top:80px;margin-top:14px;">
+            <h4 style="color:var(--accent2);margin:0 0 6px;">${__esc(g.title)}</h4>
+            <div style="line-height:1.6;">${mdish(g.body)}</div>
+          </div>`).join("")}
+      </div>
+    </details>`).join("");
 
+  $("cgTools").style.display = "flex";
+  $("cgExpand").onclick   = ()=> v.querySelectorAll('details.rg-cat').forEach(d=> d.open = true);
+  $("cgCollapse").onclick = ()=> v.querySelectorAll('details.rg-cat').forEach(d=> d.open = false);
+
+  // Jump: open the containing panel first, then scroll to the entry.
   v.querySelectorAll('[data-jump]').forEach(a=>a.onclick=()=>{
-    const el=document.getElementById(a.dataset.jump);
-    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+    const panel = document.getElementById(a.dataset.cat);
+    if(panel) panel.open = true;
+    const el = document.getElementById(a.dataset.jump);
+    if(el) setTimeout(()=> el.scrollIntoView({behavior:'smooth', block:'start'}), 40);
   });
 }
 
@@ -3361,18 +3392,53 @@ async function breedImportsView(body, DB, who, breed, staff){
   }
 }
 
-// Alert the breed's owner and staff that a new import request came in.
-// Best-effort: a failed notify must never block or break the order itself.
-async function notifyBreedImportRequest(breed, order){
+// Alert the breed's owner and staff about an import event (a new request, or a
+// buyer claiming an approved order). Best-effort: a failed notify must never
+// block or break the order itself.
+async function notifyBreedStaff(endpoint, breed, order){
   try{
     const token = await (async()=>{ try{ await window.EquiAuth.ready; return await window.EquiAuth.token(); }catch(e){ return null; } })();
     if(!token) return;
     const recipients = [...new Set([breed.owner, ...(breed.staff||[])].filter(Boolean))];
     for(const uid of recipients){
-      try{ await railwayCall('/notifyImportRequest', { idToken: token,
+      try{ await railwayCall(endpoint, { idToken: token,
         body:{ toUserId: uid, breedName: breed.name, horseName: order.horseName, kind: order.kind } }); }catch(e){}
     }
   }catch(e){}
+}
+const notifyBreedImportRequest = (breed, order)=> notifyBreedStaff('/notifyImportRequest', breed, order);
+const notifyBreedImportClaimed = (breed, order)=> notifyBreedStaff('/notifyImportClaimed', breed, order);
+
+// Check that a business name resolves to a real registered business — exact
+// match, the same lookup payBusiness uses. Returns {ok, exists, canonical};
+// canonical is the stored spelling so callers can flag a case/space mismatch.
+async function verifyBusinessName(name){
+  const n=(name||'').trim();
+  if(!n) return { ok:true, empty:true };
+  try{
+    const token = await (async()=>{ try{ await window.EquiAuth.ready; return await window.EquiAuth.token(); }catch(e){ return null; } })();
+    if(!token) return { ok:false };
+    const r = await railwayCall('/verifyBusiness', { idToken: token, body:{ businessName:n } });
+    if(!r || !r.success) return { ok:false };
+    return { ok:true, exists:!!r.exists, canonical:r.businessName||null };
+  }catch(e){ return { ok:false }; }
+}
+
+// Wire a "Verify" button + status span next to a business-name input.
+// inputId → the text field; btnId/statusId → the button and status <span>.
+function wireBusinessVerify(inputId, btnId, statusId){
+  const btn=$(btnId), inp=$(inputId), out=$(statusId);
+  if(!btn || !inp || !out) return;
+  btn.onclick = async ()=>{
+    const typed = inp.value.trim();
+    if(!typed){ out.textContent="Enter a business name first."; out.style.color="var(--dim)"; return; }
+    out.textContent="Checking…"; out.style.color="var(--dim)";
+    const r = await verifyBusinessName(typed);
+    if(!r.ok){ out.textContent="Couldn't reach the bank to check — try again."; out.style.color="var(--bad)"; return; }
+    if(!r.exists){ out.textContent="✗ No business found with that exact name. Check spelling, capitals and spaces against the Bank."; out.style.color="var(--bad)"; return; }
+    if(r.canonical && r.canonical!==typed){ out.textContent=`✗ Close, but the registered name is “${r.canonical}”. Match it exactly (imports pay by exact name).`; out.style.color="var(--bad)"; return; }
+    out.textContent="✓ Verified — this name resolves to a registered business."; out.style.color="var(--good)";
+  };
 }
 
 async function breedOrderPremade(body, DB, who, breed, imports, importId){
@@ -3485,6 +3551,7 @@ async function breedClaimOrder(body, DB, who, breed, order){
     order.status="placed"; order.horseId=horseId; order.placedAt=new Date().toISOString();
     await DB.putWithField('breedOrders', order.id, who.userId, order, 'breedId', order.breedId);
   }catch(e){}
+  notifyBreedImportClaimed(breed, order);
   alert(`“${order.horseName}” is now in your tracker and the ${breed.name} registry. Open the Stable Manager to add art and details.`);
   renderBreeds(document.getElementById('view'));
 }
@@ -3559,7 +3626,13 @@ async function breedAdmin(body, DB, who, breed){
       <textarea id="ba_inst" rows="3">${esc(breed.importInstructions||'')}</textarea>
       <label>Banner image link</label><input id="ba_banner" value="${esc(breed.banner||'')}" />
       <label>Blurb</label><input id="ba_blurb" value="${esc(breed.blurb||'')}" />
-      <label>Business name (imports paid here)</label><input id="ba_biz" value="${esc(breed.businessName||'')}" />
+      <label>Business name (imports paid here)</label>
+      <input id="ba_biz" value="${esc(breed.businessName||'')}" />
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap;">
+        <button type="button" id="ba_biz_verify" class="ghost" style="padding:4px 12px;">Verify business</button>
+        <span id="ba_biz_status" class="small"></span>
+      </div>
+      <p class="small muted" style="margin:4px 0 0;">Imports are paid by exact business name — verify it matches the Bank so buyers don't hit “no business found”.</p>
       <label>Colors</label>
       <div class="swatch-row">
         <div class="swatch"><span class="small">Accent</span><input type="color" id="ba_accent" value="${esc(th.accent)}"></div>
@@ -3661,6 +3734,7 @@ async function breedAdmin(body, DB, who, breed){
 
   attachRichToolbar($("ba_about"));
   attachRichToolbar($("ba_inst"));
+  wireBusinessVerify("ba_biz","ba_biz_verify","ba_biz_status");
   if($("ba_save")) $("ba_save").onclick = async ()=>{
     const patch=Object.assign({},breed,{
       about:$("ba_about").value.trim(), importInstructions:$("ba_inst").value.trim(),
@@ -4130,6 +4204,10 @@ async function renderShopManage(v, DB, who){
       <textarea id="mg_blurb" rows="2" placeholder="A line about your shop…">${esc(shop.blurb||'')}</textarea>
       <label>Business name (from the Bank — exactly as registered)</label>
       <input id="mg_biz" placeholder="e.g. Maeve's Tack Corner" value="${esc(shop.businessName||'')}" />
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap;">
+        <button type="button" id="mg_biz_verify" class="ghost" style="padding:4px 12px;">Verify business</button>
+        <span id="mg_biz_status" class="small"></span>
+      </div>
       <label>Colors</label>
       <div class="swatch-row">
         <div class="swatch"><span class="small">Accent</span><input type="color" id="mg_c_accent" value="${esc(th.accent)}"></div>
@@ -4332,6 +4410,7 @@ async function renderShopManage(v, DB, who){
     else { bn.className="banner noimg"; bn.style.backgroundImage=""; bn.textContent="🏪"; }
   };
   ["mg_c_accent","mg_c_panel","mg_c_head","mg_banner"].forEach(id=>{ const el=$(id); if(el) el.oninput=syncPreview; });
+  wireBusinessVerify("mg_biz","mg_biz_verify","mg_biz_status");
 
   $("mg_save").onclick = async ()=>{
     const patch = Object.assign({}, shop, {
