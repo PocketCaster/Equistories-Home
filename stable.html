@@ -133,10 +133,15 @@ const ART_EXP = {
   "Uncolored Headshot":1, "Colored Headshot":2,
   "Uncolored Halfbody":2, "Colored Halfbody":3,
   "Uncolored Fullbody":3, "Colored Fullbody":4,
+  // Premade bases / reused lineart are low-effort, so they earn the same as the
+  // "uncolored" tier at each size.
+  "Premade Base / Reused Lineart — Headshot":1,
+  "Premade Base / Reused Lineart — Halfbody":2,
+  "Premade Base / Reused Lineart — Fullbody":3,
 };
 
 const BONUS_EXP = {
-  "Background":3, "Shading":3, "Rider/Handler shown":4, "Additional Creature (per)":2,
+  "Background":3, "Premade Background":1, "Shading":3, "Rider/Handler shown":4, "Additional Creature (per)":2,
   "Simple Animation":2, "Complex Animation":5,
 };
 
@@ -7267,7 +7272,7 @@ function computeBaseColor(extension, agouti){
 const BREED_GENETICS = {
   "thoroughbred":    ["sooty","grey","roan","sabino1","dominantwhite","splash","frame","cream","rabicano"],
   "quarter horse":   ["sooty","pangare","cream","dun","tobiano","sabino1","splash","frame","roan","grey","pearl"],
-  "paint":           ["sooty","pangare","cream","dun","tobiano","sabino1","splash","frame","roan","grey","pearl"],
+  "paint":           ["sooty","pangare","cream","dun","silver","tobiano","sabino1","splash","frame","roan","grey","pearl"],
   "appaloosa":       ["sooty","pangare","cream","dun","leopard","patn1","patn2","roan","sabino1","grey"],
   "knabstrupper":    ["sooty","pangare","leopard","patn1","patn2","grey"],
   "arabian":         ["sooty","grey","sabino1"],
