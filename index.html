@@ -1251,13 +1251,13 @@ async function renderMemberProfile(v, uid){
         'toUserId', myFriendStatus.toUserId);
       notifyFriend(otherUid, 'accepted');
       renderMemberProfile(v, uid);
-    }catch(e){ fAccept.disabled = false; }
+    }catch(e){ alert('Accept failed — '+(e&&(e.code||e.message)||e)); fAccept.disabled = false; }
   };
   const fDecline = v.querySelector('[data-friend-decline]');
   if(fDecline) fDecline.onclick = async ()=>{
     fDecline.disabled = true;
     try{ if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); } await DB.remove('friendRequests', friendPairId(who.userId, fDecline.dataset.friendDecline)); renderMemberProfile(v, uid); }
-    catch(e){ fDecline.disabled = false; }
+    catch(e){ alert('Decline failed — '+(e&&(e.code||e.message)||e)); fDecline.disabled = false; }
   };
   const fRemove = v.querySelector('[data-friend-remove]');
   if(fRemove) fRemove.onclick = async ()=>{
@@ -1278,12 +1278,12 @@ async function renderMemberProfile(v, uid){
         'toUserId', uid);
       notifyFriend(otherUid, 'accepted');
       renderMemberProfile(v, uid);
-    }catch(e){ b.disabled = false; }
+    }catch(e){ alert('Accept failed — '+(e&&(e.code||e.message)||e)); b.disabled = false; }
   });
   v.querySelectorAll('[data-freq-decline]').forEach(b=>b.onclick=async()=>{
     b.disabled = true;
     try{ if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); } await DB.remove('friendRequests', friendPairId(uid, b.dataset.freqDecline)); renderMemberProfile(v, uid); }
-    catch(e){ b.disabled = false; }
+    catch(e){ alert('Decline failed — '+(e&&(e.code||e.message)||e)); b.disabled = false; }
   });
   v.querySelectorAll('[data-friendlink]').forEach(a=>a.onclick=(ev)=>{
     ev.preventDefault();
