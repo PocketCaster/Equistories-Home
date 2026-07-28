@@ -1266,31 +1266,11 @@ async function renderMemberProfile(v, uid){
     try{ if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); } await DB.remove('friendRequests', friendPairId(who.userId, fRemove.dataset.friendRemove)); renderMemberProfile(v, uid); }
     catch(e){ fRemove.disabled = false; }
   };
-  v.querySelectorAll('[data-freq-accept]').forEach(b=>b.onclick=async()=>{
-    b.disabled = true;
-    const otherUid = b.dataset.freqAccept;
-    const req = incomingRequests.find(r=>r.fromUserId===otherUid);
-    if(!req) return;
-    try{
-      if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
-      await DB.putWithField('friendRequests', friendPairId(uid, otherUid), otherUid,
-        { fromUserId: otherUid, toUserId: uid, status:'accepted', createdAt: req.createdAt, respondedAt:new Date().toISOString() },
-        'toUserId', uid);
-      notifyFriend(otherUid, 'accepted');
-      renderMemberProfile(v, uid);
-    }catch(e){ alert('Accept failed — '+(e&&(e.code||e.message)||e)); b.disabled = false; }
-  });
-  v.querySelectorAll('[data-freq-decline]').forEach(b=>b.onclick=async()=>{
-    b.disabled = true;
-    try{ if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); } await DB.remove('friendRequests', friendPairId(uid, b.dataset.freqDecline)); renderMemberProfile(v, uid); }
-    catch(e){ alert('Decline failed — '+(e&&(e.code||e.message)||e)); b.disabled = false; }
-  });
-  v.querySelectorAll('[data-friendlink]').forEach(a=>a.onclick=(ev)=>{
-    ev.preventDefault();
-    __memberView.uid = a.dataset.friendlink;
-    history.pushState({player:a.dataset.friendlink}, '', memberHref(a.dataset.friendlink));
-    render();
-  });
+  // Friend-request Accept/Decline and friend links are wired inside
+  // renderProfileTabBody() now — those buttons live in the About tab body,
+  // which renders AFTER this point, so wiring them here caught nothing
+  // (the real cause of "Accept does nothing, no error").
+
 
   function paintTabBar(){
     v.querySelectorAll('[data-ptab]').forEach(el=>{
@@ -1372,6 +1352,31 @@ async function renderMemberProfile(v, uid){
         ev.preventDefault();
         __breedView = { mode:"page", breedId:el.dataset.breedlink, tab:"about" };
         tab = "Breeds";
+        render();
+      });
+      body.querySelectorAll('[data-freq-accept]').forEach(b=>b.onclick=async()=>{
+        b.disabled = true;
+        const otherUid = b.dataset.freqAccept;
+        const req = incomingRequests.find(r=>r.fromUserId===otherUid);
+        if(!req){ b.disabled = false; return; }
+        try{
+          if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
+          await DB.putWithField('friendRequests', friendPairId(uid, otherUid), otherUid,
+            { fromUserId: otherUid, toUserId: uid, status:'accepted', createdAt: req.createdAt, respondedAt:new Date().toISOString() },
+            'toUserId', uid);
+          notifyFriend(otherUid, 'accepted');
+          renderMemberProfile(v, uid);
+        }catch(e){ alert('Accept failed — '+(e&&(e.code||e.message)||e)); b.disabled = false; }
+      });
+      body.querySelectorAll('[data-freq-decline]').forEach(b=>b.onclick=async()=>{
+        b.disabled = true;
+        try{ if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); } await DB.remove('friendRequests', friendPairId(uid, b.dataset.freqDecline)); renderMemberProfile(v, uid); }
+        catch(e){ alert('Decline failed — '+(e&&(e.code||e.message)||e)); b.disabled = false; }
+      });
+      body.querySelectorAll('[data-friendlink]').forEach(a=>a.onclick=(ev)=>{
+        ev.preventDefault();
+        __memberView.uid = a.dataset.friendlink;
+        history.pushState({player:a.dataset.friendlink}, '', memberHref(a.dataset.friendlink));
         render();
       });
     }
