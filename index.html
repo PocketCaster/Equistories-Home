@@ -1226,6 +1226,7 @@ async function renderMemberProfile(v, uid){
     fAdd.disabled = true;
     const otherUid = fAdd.dataset.friendAdd;
     try{
+      if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
       await DB.putWithField('friendRequests', friendPairId(who.userId, otherUid), who.userId,
         { fromUserId: who.userId, toUserId: otherUid, status:'pending', createdAt:new Date().toISOString() },
         'toUserId', otherUid);
@@ -1236,7 +1237,7 @@ async function renderMemberProfile(v, uid){
   const fCancel = v.querySelector('[data-friend-cancel]');
   if(fCancel) fCancel.onclick = async ()=>{
     fCancel.disabled = true;
-    try{ await DB.remove('friendRequests', friendPairId(who.userId, fCancel.dataset.friendCancel)); renderMemberProfile(v, uid); }
+    try{ if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); } await DB.remove('friendRequests', friendPairId(who.userId, fCancel.dataset.friendCancel)); renderMemberProfile(v, uid); }
     catch(e){ fCancel.disabled = false; }
   };
   const fAccept = v.querySelector('[data-friend-accept]');
@@ -1244,6 +1245,7 @@ async function renderMemberProfile(v, uid){
     fAccept.disabled = true;
     const otherUid = fAccept.dataset.friendAccept;
     try{
+      if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
       await DB.putWithField('friendRequests', friendPairId(who.userId, otherUid), myFriendStatus.fromUserId || otherUid,
         { fromUserId: myFriendStatus.fromUserId, toUserId: myFriendStatus.toUserId, status:'accepted', createdAt: myFriendStatus.createdAt, respondedAt:new Date().toISOString() },
         'toUserId', myFriendStatus.toUserId);
@@ -1254,14 +1256,14 @@ async function renderMemberProfile(v, uid){
   const fDecline = v.querySelector('[data-friend-decline]');
   if(fDecline) fDecline.onclick = async ()=>{
     fDecline.disabled = true;
-    try{ await DB.remove('friendRequests', friendPairId(who.userId, fDecline.dataset.friendDecline)); renderMemberProfile(v, uid); }
+    try{ if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); } await DB.remove('friendRequests', friendPairId(who.userId, fDecline.dataset.friendDecline)); renderMemberProfile(v, uid); }
     catch(e){ fDecline.disabled = false; }
   };
   const fRemove = v.querySelector('[data-friend-remove]');
   if(fRemove) fRemove.onclick = async ()=>{
     if(!confirm("Remove this friend?")) return;
     fRemove.disabled = true;
-    try{ await DB.remove('friendRequests', friendPairId(who.userId, fRemove.dataset.friendRemove)); renderMemberProfile(v, uid); }
+    try{ if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); } await DB.remove('friendRequests', friendPairId(who.userId, fRemove.dataset.friendRemove)); renderMemberProfile(v, uid); }
     catch(e){ fRemove.disabled = false; }
   };
   v.querySelectorAll('[data-freq-accept]').forEach(b=>b.onclick=async()=>{
@@ -1270,6 +1272,7 @@ async function renderMemberProfile(v, uid){
     const req = incomingRequests.find(r=>r.fromUserId===otherUid);
     if(!req) return;
     try{
+      if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
       await DB.putWithField('friendRequests', friendPairId(uid, otherUid), otherUid,
         { fromUserId: otherUid, toUserId: uid, status:'accepted', createdAt: req.createdAt, respondedAt:new Date().toISOString() },
         'toUserId', uid);
@@ -1279,7 +1282,7 @@ async function renderMemberProfile(v, uid){
   });
   v.querySelectorAll('[data-freq-decline]').forEach(b=>b.onclick=async()=>{
     b.disabled = true;
-    try{ await DB.remove('friendRequests', friendPairId(uid, b.dataset.freqDecline)); renderMemberProfile(v, uid); }
+    try{ if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); } await DB.remove('friendRequests', friendPairId(uid, b.dataset.freqDecline)); renderMemberProfile(v, uid); }
     catch(e){ b.disabled = false; }
   });
   v.querySelectorAll('[data-friendlink]').forEach(a=>a.onclick=(ev)=>{
