@@ -254,7 +254,7 @@ function gearStatCap(uid){ return isAdminMember(uid) ? Infinity : (isPremiumMemb
 // A small crown badge shown beside premium members' names.
 function premiumBadge(uid){
   if(!isPremiumMember(uid)) return "";
-  return ` <span title="Premium member" style="display:inline-block;font-size:.85em;color:var(--equi-brass-light);vertical-align:baseline;">&#128081;</span>`;
+  return ` <span title="Premium member" style="display:inline-block;vertical-align:-.18em;margin-left:.18em;line-height:0;"><svg width="1.05em" height="1.05em" viewBox="-38 -38 76 76" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M-19.5,27.8 A34 34 0 1 1 19.5,27.8 L12.6,18 A22 22 0 1 0 -12.6,18 Z" fill="#CDA94E" stroke="#8a6a24" stroke-width="2" stroke-linejoin="round"/><circle cx="-26.3" cy="9.6" r="2" fill="#6E541C"/><circle cx="-24.2" cy="-14" r="2" fill="#6E541C"/><circle cx="0" cy="-28" r="2" fill="#6E541C"/><circle cx="24.2" cy="-14" r="2" fill="#6E541C"/><circle cx="26.3" cy="9.6" r="2" fill="#6E541C"/><path d="M0,4 L1.5,8 L5.7,8.2 L2.4,10.8 L3.5,14.9 L0,12.5 L-3.5,14.9 L-2.4,10.8 L-5.7,8.2 L-1.5,8 Z" fill="#F0DA96" stroke="#8a6a24" stroke-width="0.8"/></svg></span>`;
 }
 // A proper gold pill badge for site admins — always dark text on a bright
 // gold-shine background, so contrast can't accidentally regress the way the
