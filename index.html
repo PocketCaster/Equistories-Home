@@ -1157,7 +1157,7 @@ async function renderMemberProfile(v, uid){
     <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;">
       ${circleAvatar}
       <div style="flex:1;min-width:250px;">
-        <h2 style="margin:0;text-shadow:${p.banner?'0 1px 4px rgba(0,0,0,.8);':'none'}">${__esc(name)}${premiumBadge(uid)}${adminBadge(uid)}${backerBadge(uid)}</h2>
+        <h2 style="margin:0;text-shadow:${p.banner?'0 1px 4px rgba(0,0,0,.8);':'none'}">${__esc(name)}${premiumBadge(uid)}${adminBadge(uid)}</h2>
         <div class="small muted" style="text-shadow:${p.banner?'0 1px 3px rgba(0,0,0,.8);':'none'}">${__esc(uid)}${p.pronouns?` &middot; ${__esc(p.pronouns)}`:''}</div>
         ${p.bio?`<p class="profile-tagline" style="margin:8px 0 0;font-family:'Caveat',cursive;font-size:1.25rem;color:${p.banner?'#f0e6d2':'var(--dim)'};text-shadow:${p.banner?'0 1px 4px rgba(0,0,0,.8);':'none'}">${__esc(p.bio)}</p>`:''}
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
