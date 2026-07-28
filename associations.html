@@ -1,654 +1,270 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>EquiStories — Associations</title>
-<link rel="stylesheet" href="equi-shell.css" />
-<link rel="stylesheet" href="equi-components.css" />
-<style>
-  :root{
-    --bg:#1a130c; --panel:#241a12; --panel2:#2c2016; --line:#4a3826;
-    --text:#f3e9d8; --dim:#c1ad92;
-    --accent:#d29a3e; --accent2:#c9a8e8; --good:#8a9e68; --bad:#b5623a; --deep:#140e07;
-    --honey:#c8842a; --rust:#9b4f2a; --moss:#5a6e3a;
-    --brass-light:#e8c97a; --brass-mid:#c9a84c; --brass-dark:#8a6820;
-    --gold-shine:linear-gradient(135deg,#e8c97a 0%,#c9a84c 30%,#f2d97e 50%,#c9a84c 70%,#8a6820 100%);
-  }
-  body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--equi-serif); line-height:1.6; }
-  a{ color:var(--accent); }
-  h1{ margin:0; font-family:var(--equi-display); font-weight:700; font-size:clamp(1.8rem,4vw,2.6rem);
-      background:var(--gold-shine); -webkit-background-clip:text; background-clip:text; color:transparent; letter-spacing:.5px; }
-  .card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px; margin:16px 0;
-         box-shadow:0 2px 14px rgba(0,0,0,.25), inset 0 0 0 1px rgba(201,168,76,.07); }
-  .card h2{ margin:0 0 10px; font-family:var(--equi-display); color:var(--accent); font-size:1.5em; }
-  .card h3{ margin:0 0 8px; font-family:var(--equi-display); color:var(--accent); font-size:1.22em; }
-  .small{ font-size:.92em; color:var(--dim); }
-  .muted{ opacity:.7; }
-  .tag{ display:inline-block; font-size:.9em; padding:3px 9px; border-radius:10px;
-        background:var(--deep); color:var(--dim); border:1px solid var(--line); }
-  .badge{ display:inline-flex; align-items:center; gap:4px; font-size:.85em; font-weight:700;
-          padding:3px 10px; border-radius:20px; box-shadow:0 1px 3px rgba(0,0,0,.35); }
-  button{ background:linear-gradient(135deg,var(--honey),var(--rust)); color:#fff6ea; border:none; padding:9px 18px; border-radius:6px;
-          font-weight:700; cursor:pointer; font-family:var(--equi-display); font-size:1em; }
-  button:hover:not(:disabled){ filter:brightness(1.06); }
-  button:disabled{ opacity:.6; cursor:not-allowed; }
-  button.ghost{ background:#2c2118; color:var(--text); border:1px solid var(--line); box-shadow:none; font-family:var(--equi-serif); font-weight:500; }
-  button.ghost:hover{ border-color:var(--brass-mid); filter:none; }
-  button.danger{ background:#5a2020; }
-  input, textarea, select{ width:100%; padding:9px; font-size:1em; background:var(--deep); border:1px solid var(--line);
-          color:var(--text); border-radius:5px; font-family:var(--equi-serif); box-sizing:border-box; }
-  input:focus, textarea:focus, select:focus{ outline:none; border-color:var(--brass-mid); box-shadow:0 0 0 2px rgba(201,168,76,.22); }
-  label{ font-size:.88em; color:var(--dim); text-transform:uppercase; display:block; margin-top:10px; letter-spacing:.03em; }
-  .assoc-card{ display:block; text-decoration:none; color:inherit; cursor:pointer; }
-  .assoc-card:hover{ border-color:var(--brass-mid); }
-  .roster-row{ display:flex; align-items:center; justify-content:space-between; gap:10px;
-               padding:8px 12px; border:1px solid var(--line); border-radius:8px; margin-bottom:6px; background:var(--deep); }
-  .wall-post{ border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin-bottom:10px; background:var(--deep); }
-  .wall-reply{ margin:6px 0 0 20px; padding:8px 10px; border-left:2px solid var(--line); font-size:.95em; }
-  .rank-row{ display:flex; gap:8px; align-items:center; border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin-bottom:6px; }
-  .rank-row input{ flex:1; }
-  .pinned-banner{ border:1px solid var(--brass-mid); border-left:4px solid var(--honey); border-radius:8px;
-                   padding:12px 14px; margin:16px 0; background:linear-gradient(135deg, rgba(201,168,76,.14), rgba(201,168,76,.03)); }
-  .spotlight-card{ display:flex; gap:14px; align-items:flex-start; }
-  .spotlight-avatar{ width:52px; height:52px; border-radius:50%; background:var(--gold-shine); color:#2a1c08;
-                      display:flex; align-items:center; justify-content:center; font-size:1.3em; font-weight:700;
-                      flex-shrink:0; font-family:var(--equi-display); }
-  .gallery-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; margin-top:10px; }
-  .gallery-item{ border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--deep); }
-  .gallery-item img{ width:100%; height:130px; object-fit:cover; display:block; background:var(--panel2); }
-  .gallery-item .gi-body{ padding:8px 10px; }
-  .gallery-item .gi-like{ margin-top:6px; }
-  .event-row{ border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:8px; background:var(--deep); }
-  .event-row.past{ opacity:.55; }
-  .reaction-bar{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
-  .reaction-btn{ background:var(--panel2); border:1px solid var(--line); color:var(--dim); border-radius:14px;
-                 padding:3px 10px; font-size:.86em; cursor:pointer; font-family:var(--equi-serif); }
-  button.reaction-btn.active{ border-color:var(--brass-mid); color:var(--text); background:rgba(201,168,76,.16); }
-  span.reaction-btn{ cursor:default; }
-  .bio-box{ margin-top:6px; padding:6px 10px; border-left:2px solid var(--line); font-size:.9em; color:var(--dim); }
-</style>
+// ============================================
+// EquiStories — SHARED Firestore data layer + auth
+// One copy, loaded by every page (Hub, Stable Manager, Shows, Admin) instead
+// of each page carrying its own pasted copy. Fix a bug once, it's fixed
+// everywhere — this is "Stage 2: shared core" from README-SHELL.md.
+//
+// Docs are stored as { owner, id, json, updatedAt } everywhere except a
+// couple of fields deliberately hoisted OUT of the json blob so Firestore
+// RULES and QUERIES can see them (breeds' staffUids, messages' `to`,
+// reservations' `reservedFor`) — see putBreed()/putWithField() below.
+//
+// USAGE: <script type="module" src="equi-core.js"></script>
+// Must load AFTER the tiny inline snippet that creates window.__equiDBReady
+// (that part stays inline in each page's <head> since it must run
+// synchronously before this deferred module does — see equi-shell doc).
+// ============================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword,
+         createUserWithEmailAndPassword, sendPasswordResetEmail, updatePassword,
+         signOut as fbSignOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-<script src="equi-nav.js" data-app="associations" defer></script>
-<script src="equi-constants.js"></script>
-<script src="equi-bank.js"></script>
-</head>
-<body>
-<!-- ============================================================
-     SHARED SITE HEADER — plain HTML on purpose, like every other page.
-     equi-nav.js (loaded in <head>) fills the #nav tab row and wires Sign out;
-     if it fails to load, the crest, wordmark and tagline still render.
-     ============================================================ -->
-<header class="equi-hd">
-  <div class="equi-hd__wrap">
-    <div class="equi-hd__brand">
-      <a href="index.html" aria-label="EquiStories home">
-        <img class="equi-hd__logo" src="equistories-logo.png" alt=""
-             onerror="this.style.display='none'" />
-      </a>
-      <div class="equi-hd__words">
-        <h1 class="equi-hd__title">EquiStories</h1>
-        <p class="equi-hd__tagline">Member-run rider associations — join a club, post on its wall, and climb its ranks.</p>
-      </div>
-    </div>
-    <nav id="nav" class="equi-hd__nav"></nav>
-  </div>
-</header>
+const firebaseConfig = {
+  apiKey: "AIzaSyAJfBnY0sDc6W_yzzrpm8NKkNZv1cu7jMU",
+  authDomain: "equistories-rpg.firebaseapp.com",
+  projectId: "equistories-rpg",
+  storageBucket: "equistories-rpg.firebasestorage.app",
+  messagingSenderId: "801283742596",
+  appId: "1:801283742596:web:370951947bf862efcfdbd1"
+};
 
-<div id="app" class="wrap" style="padding-top:18px;padding-bottom:32px;">
-
-<script>
-window.__equiDBReady = new Promise(r => { window.__equiDBResolve = r; });
-</script>
-<script type="module" src="equi-core.js"></script>
-
-<script>
-function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-function jsStr(s){ return String(s==null?"":s).replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/\n/g,"\\n"); }
-const $ = id => document.getElementById(id);
-
-async function waitForDB(ms=8000){
-  try{ await Promise.race([window.__equiDBReady||Promise.resolve(false),
-                           new Promise(r=>setTimeout(()=>r(false),ms))]); }catch(e){}
-  return (window.EquiDB && window.EquiDB.available) ? window.EquiDB : null;
-}
-
-const app = document.getElementById("app");
-let DB = null;
-let who = null; // {userId} from equiSession(), or null if not linked
-
-function when(iso){
-  if(!iso) return '';
-  const d = new Date(iso), diff = (Date.now()-d.getTime())/1000;
-  if(diff<60) return 'just now';
-  if(diff<3600) return Math.floor(diff/60)+'m ago';
-  if(diff<86400) return Math.floor(diff/3600)+'h ago';
-  if(diff<604800) return Math.floor(diff/86400)+'d ago';
-  return d.toLocaleDateString();
-}
-
-// A member's current rank, from their points against the association's
-// owner-defined ladder — same idea as riderTitle()'s PP ladder, just
-// custom-named and custom-thresholded per association.
-function currentRank(points, ranks){
-  const sorted = (ranks||[]).slice().sort((a,b)=>(b.threshold||0)-(a.threshold||0));
-  return sorted.find(r=>(points||0) >= (r.threshold||0)) || null;
-}
-function rankBadgeHtml(rank){
-  if(!rank) return '';
-  const color = rank.color || '#c9a84c';
-  return `<span class="badge" style="background:${esc(color)};color:#1a130c;">${rank.emoji?esc(rank.emoji)+' ':''}${esc(rank.name)}</span>`;
-}
-function initials(name){
-  const s = String(name||'?').trim();
-  return s ? s[0].toUpperCase() : '?';
-}
-
-async function loadAssociation(id){
-  try{ const a = await DB.get('associations', id); return a || null; }catch(e){ return null; }
-}
-async function loadMembers(assocId){
-  try{ return (await DB.listByField('associationMembers','associationId', assocId)) || []; }
-  catch(e){ return []; }
-}
-async function loadMyMembership(assocId){
-  if(!who) return null;
-  try{ return await DB.get('associationMembers', assocId+'_'+who.userId); }catch(e){ return null; }
-}
-async function loadWallPosts(assocId){
+let db=null, authOk=false, auth=null;
+const ready = (async()=>{
   try{
-    const all = await DB.listAll('associationPosts');
-    return (all||[]).filter(p=>p.associationId===assocId).sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
-  }catch(e){ return []; }
-}
-async function loadGallery(assocId){
-  try{
-    return ((await DB.listByField('associationGallery','associationId', assocId))||[])
-      .sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
-  }catch(e){ return []; }
-}
-async function loadEvents(assocId){
-  try{
-    return ((await DB.listByField('associationEvents','associationId', assocId))||[])
-      .sort((a,b)=>new Date(a.when||0)-new Date(b.when||0));
-  }catch(e){ return []; }
-}
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
+    // Wait for Firebase to restore any existing session before deciding who
+    // the user is — otherwise a refresh briefly looks like a signed-out visitor.
+    await new Promise(res=>{ const un=onAuthStateChanged(auth, ()=>{ un(); res(); }); });
+    if(!auth.currentUser){
+      try { await signInAnonymously(auth); } catch(e){ console.warn('[EquiDB] anon auth off:', e.code||e); }
+    }
+    authOk = !!auth.currentUser;
+    return true;
+  }catch(e){ console.error('[EquiDB] init failed:', e); db=null; return false; }
+})();
 
-// Award points for wall activity and recompute nothing else — rank is
-// always derived live from points, never stored separately, so it can
-// never drift out of sync with the ranks ladder.
-async function awardAssocPoints(assocId, amount){
-  if(!who) return;
-  const docId = assocId+'_'+who.userId;
-  let mem = await DB.get('associationMembers', docId);
-  if(!mem) return; // must be a member already (joining creates this doc)
-  const points = (Number(mem.points)||0) + amount;
-  await DB.putWithField('associationMembers', docId, who.userId, { ...mem, points, associationId: assocId }, 'associationId', assocId);
-}
+const friendlyAuth = e => ({
+  'auth/invalid-email':"That email address doesn't look right.",
+  'auth/user-not-found':'No account found with that email.',
+  'auth/wrong-password':'Incorrect password.',
+  'auth/invalid-credential':'Incorrect email or password.',
+  'auth/email-already-in-use':'That email already has an account — sign in instead.',
+  'auth/weak-password':'Password must be at least 6 characters.',
+  'auth/too-many-requests':'Too many attempts. Wait a minute and try again.',
+  'auth/network-request-failed':'Network problem — check your connection.',
+}[e && e.code] || (e && e.message) || 'Something went wrong.');
 
-// Toggle the current user's presence in a wall post's per-emoji reaction list.
-async function toggleReaction(assocId, postId, emoji){
-  if(!who) return;
-  try{
-    const post = await DB.get('associationPosts', postId);
-    if(!post) return;
-    const reactions = { ...(post.reactions||{}) };
-    const list = new Set(reactions[emoji]||[]);
-    if(list.has(who.userId)) list.delete(who.userId); else list.add(who.userId);
-    reactions[emoji] = Array.from(list);
-    await DB.put('associationPosts', postId, post.owner, { ...post, reactions });
-    renderOneAssociation(assocId);
-  }catch(e){}
-}
-async function toggleGalleryLike(assocId, itemId){
-  if(!who) return;
-  try{
-    const item = await DB.get('associationGallery', itemId);
-    if(!item) return;
-    const likes = new Set(item.likes||[]);
-    if(likes.has(who.userId)) likes.delete(who.userId); else likes.add(who.userId);
-    await DB.putWithField('associationGallery', itemId, item.owner, { ...item, likes:Array.from(likes) }, 'associationId', assocId);
-    renderOneAssociation(assocId);
-  }catch(e){}
-}
-async function toggleRsvp(assocId, eventId){
-  if(!who) return;
-  try{
-    const ev = await DB.get('associationEvents', eventId);
-    if(!ev) return;
-    const rsvps = new Set(ev.rsvps||[]);
-    if(rsvps.has(who.userId)) rsvps.delete(who.userId); else rsvps.add(who.userId);
-    await DB.putWithField('associationEvents', eventId, ev.owner, { ...ev, rsvps:Array.from(rsvps) }, 'associationId', assocId);
-    renderOneAssociation(assocId);
-  }catch(e){}
-}
-async function saveBio(assocId){
-  if(!who) return;
-  const input = $("a_bio_input");
-  const statusEl = $("a_bio_status");
-  const text = input.value.trim();
-  statusEl.textContent = "Saving…";
-  try{
-    const mem = await loadMyMembership(assocId);
-    await DB.putWithField('associationMembers', assocId+'_'+who.userId, who.userId, { ...mem, associationId:assocId, bio:text }, 'associationId', assocId);
-    renderOneAssociation(assocId);
-  }catch(err){ statusEl.textContent = "Failed: "+(err.message||err); }
-}
+window.EquiAuth = {
+  ready,
+  get user(){ return auth && auth.currentUser && !auth.currentUser.isAnonymous ? auth.currentUser : null; },
+  get uid(){ return auth && auth.currentUser ? auth.currentUser.uid : null; },
+  get email(){ const u=this.user; return u ? u.email : ''; },
+  async token(){ const u=this.user; if(!u) return null; try{ return await u.getIdToken(); }catch(e){ return null; } },
+  async signIn(email,password){
+    try{ const c=await signInWithEmailAndPassword(auth,email,password); return {success:true,user:c.user}; }
+    catch(e){ return {success:false,error:friendlyAuth(e)}; }
+  },
+  async signUp(email,password){
+    try{ const c=await createUserWithEmailAndPassword(auth,email,password); return {success:true,user:c.user}; }
+    catch(e){ return {success:false,error:friendlyAuth(e)}; }
+  },
+  async resetPassword(email){
+    try{ await sendPasswordResetEmail(auth,email); return {success:true}; }
+    catch(e){ return {success:false,error:friendlyAuth(e)}; }
+  },
+  async changePassword(newPassword){
+    try{ await updatePassword(auth.currentUser, newPassword); return {success:true}; }
+    catch(e){ return {success:false,error:friendlyAuth(e)}; }
+  },
+  // Swap the random email-account session for one whose uid IS the bank userId.
+  // After this, Firestore rules can trust request.auth.uid as the true owner.
+  async upgradeToOwner(customToken){
+    try{ await signInWithCustomToken(auth, customToken); return true; }
+    catch(e){ console.error('[EquiAuth] owner upgrade failed:', e.code||e); return false; }
+  },
+  async signOut(){
+    try{ await fbSignOut(auth); }catch(e){}
+    try{ await signInAnonymously(auth); }catch(e){}   // keep writes working pre-migration
+  },
+};
 
-async function render(){
-  DB = await waitForDB();
-  who = equiSession();
+window.EquiDB = {
+  // Any write can be rejected if the Firestore session isn't yet signed in as
+  // the bank-owner uid the rules expect. Rather than make every caller on every
+  // page remember to upgrade first, we recover HERE: on a permission-denied,
+  // upgrade the owner session once and retry the write a single time. This is
+  // what makes friend accepts, association joins/posts, etc. reliable no matter
+  // when they're clicked. A second failure (or any non-permission error) throws
+  // as normal, so genuine "you can't write this" errors aren't masked.
+  async _ownerRetry(op){
+    try{ return await op(); }
+    catch(e){
+      const denied = e && (e.code === 'permission-denied' || e.code === 'firestore/permission-denied');
+      if(denied && typeof window.upgradeToOwnerSession === 'function'){
+        try{ await window.upgradeToOwnerSession(); }catch(_){}
+        return await op();
+      }
+      throw e;
+    }
+  },
+  ready,
+  get available(){ return !!db; },
+  get authed(){ return authOk; },
 
-  if(!DB){
-    app.innerHTML = `<div class="card"><h2>Associations</h2><p class="small">Database unavailable — try reloading.</p></div>`;
-    return;
-  }
+  async put(col,id,owner,obj){
+    if(!db) return false;
+    const rec = { owner:String(owner), id:String(id),
+      json:JSON.stringify(obj), updatedAt:new Date().toISOString() };
+    await this._ownerRetry(()=> setDoc(doc(db,col,String(id)), rec));
+    return true;
+  },
 
-  const params = new URLSearchParams(location.search);
-  const assocId = params.get('assoc');
-  if(assocId){ renderOneAssociation(assocId); return; }
-  renderBrowse();
-}
+  // Breeds need their staff list readable by Firestore RULES (which can't parse
+  // the json string), so we mirror it as a flat top-level array. Same envelope
+  // otherwise — reads still come back through get()/listAll() unchanged.
+  async putBreed(id, owner, obj){
+    if(!db) return false;
+    const staffUids = Array.isArray(obj.staff) ? obj.staff.map(String) : [];
+    const rec = { owner:String(owner), id:String(id),
+      json:JSON.stringify(obj), staffUids, updatedAt:new Date().toISOString() };
+    await this._ownerRetry(()=> setDoc(doc(db,'breeds',String(id)), rec));
+    return true;
+  },
 
-async function renderBrowse(){
-  app.innerHTML = `<div class="card"><h2>🏇 Rider Associations</h2>
-    <p class="small">Clubs run by members, for members. Join one to post on its wall and climb its own rank ladder — separate from your overall Rider PP.</p>
-  </div>
-  <div class="card" id="a_list"><h3>Browse</h3><p class="small">Loading…</p></div>
-  <div class="card" id="a_create"></div>`;
+  // Like put(), but keeps one field OUTSIDE the json blob so security rules and
+  // queries can see it. Firestore can't read inside the blob — a private message
+  // needs `to` hoisted here so a rule can restrict reads to the recipient; a
+  // breeding reservation needs `reservedFor` the same way.
+  async putWithField(col,id,owner,obj,field,value){
+    if(!db) return false;
+    const rec={ owner:String(owner), id:String(id),
+      json:JSON.stringify(obj), updatedAt:new Date().toISOString() };
+    rec[field]=String(value);
+    await this._ownerRetry(()=> setDoc(doc(db,col,String(id)), rec));
+    return true;
+  },
 
-  let all = [];
-  try{ all = await DB.listAll('associations'); }catch(e){}
-  const listEl = $("a_list");
-  listEl.innerHTML = `<h3>Browse</h3>` + (all.length ? all.map(a=>`
-    <a class="card assoc-card" href="?assoc=${encodeURIComponent(a.id)}">
-      <b style="color:var(--accent);font-family:var(--equi-display);">${esc(a.name||'Unnamed')}</b>
-      <div class="small" style="margin-top:4px;">${esc(a.description||'')}</div>
-    </a>`).join('') : `<p class="small muted">No associations yet — be the first to found one.</p>`);
+  async get(col,id){
+    if(!db) return null;
+    const s=await getDoc(doc(db,col,String(id)));
+    if(!s.exists()) return null;
+    try{ return JSON.parse(s.data().json); }catch(e){ return null; }
+  },
 
-  const createEl = $("a_create");
-  const isPremium = who && isPremiumMember(who.userId);
-  if(!who){
-    createEl.innerHTML = `<h3>Found an Association</h3><p class="small"><a href="index.html">Sign in on the Hub</a> to found one.</p>`;
-    return;
-  }
-  if(!isPremium){
-    createEl.innerHTML = `<h3>Found an Association <span class="small" style="color:var(--brass-light);">★ Premium</span></h3>
-      <p class="small">Founding an association is a premium perk — anyone can join and post in one once it exists, but starting one takes premium membership.</p>`;
-    return;
-  }
-  createEl.innerHTML = `
-    <h3>Found an Association <span class="small" style="color:var(--brass-light);">★ Premium</span></h3>
-    <label>Name</label><input id="ac_name" placeholder="e.g. The Cloverfield Riders' Guild" />
-    <label>Description</label><textarea id="ac_desc" rows="3" placeholder="What's this association about?"></textarea>
-    <div style="margin-top:10px;"><button id="ac_create">Found Association</button> <span id="ac_status" class="small"></span></div>`;
-  $("ac_create").onclick = async ()=>{
-    const name = $("ac_name").value.trim();
-    if(!name){ $("ac_status").textContent = "Give it a name first."; return; }
-    const id = 'assoc_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-    const rec = { id, name, ownerId: who.userId, description: $("ac_desc").value.trim(),
-      ranks: [{name:'Member', threshold:0, emoji:'🐴', color:'#8a6820'}],
-      customCss: '', createdAt: new Date().toISOString() };
-    $("ac_status").textContent = "Founding…";
-    try{
-      await DB.put('associations', id, who.userId, rec);
-      // Founder auto-joins as the first member.
-      await DB.putWithField('associationMembers', id+'_'+who.userId, who.userId, { associationId:id, points:0, joinedAt:new Date().toISOString() }, 'associationId', id);
-      location.href = '?assoc='+encodeURIComponent(id);
-    }catch(err){ $("ac_status").textContent = "Failed: "+(err.message||err); }
-  };
-}
+  async remove(col,id){ if(!db) return false; await this._ownerRetry(()=> deleteDoc(doc(db,col,String(id)))); return true; },
 
-async function renderOneAssociation(assocId){
-  app.innerHTML = `<div class="card"><p class="small">Loading…</p></div>`;
-  const a = await loadAssociation(assocId);
-  if(!a){
-    app.innerHTML = `<div class="card"><h2>Not found</h2><p class="small">This association doesn't exist. <a href="associations.html">← Browse associations</a></p></div>`;
-    return;
-  }
-  const isOwner = who && who.userId === (a.ownerId || a.__owner || a.owner);
-  const [members, myMembership, posts, gallery, events] = await Promise.all([
-    loadMembers(assocId), loadMyMembership(assocId), loadWallPosts(assocId), loadGallery(assocId), loadEvents(assocId)
-  ]);
-  const isMember = !!myMembership;
-  const ranks = a.ranks || [];
+  // Indexed lookup on any hoisted field, e.g. every reservation set aside for me.
+  async listByField(col,field,value){
+    if(!db) return [];
+    const snap=await getDocs(query(collection(db,col), where(field,'==',String(value))));
+    const out=[]; snap.forEach(d=>{ try{ const o=JSON.parse(d.data().json); o.__owner=d.data().owner; o.__id=d.id; out.push(o); }catch(e){} });
+    return out;
+  },
 
-  const rosterHtml = members.length ? members.map(m=>{
-    const rank = currentRank(m.points, ranks);
-    return `<div class="roster-row" style="flex-direction:column;align-items:stretch;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-        <span>${esc(m.__owner||m.owner||'?')}</span>
-        <span>${rankBadgeHtml(rank)} <span class="small">${m.points||0} pts</span></span>
-      </div>
-      ${m.bio ? `<div class="bio-box">${esc(m.bio)}</div>` : ''}
-    </div>`;
-  }).join('') : `<p class="small muted">No members yet.</p>`;
+  async listByOwner(col,owner){
+    if(!db) return [];
+    const snap=await getDocs(query(collection(db,col), where('owner','==',String(owner))));
+    const out=[]; snap.forEach(d=>{ try{ out.push(JSON.parse(d.data().json)); }catch(e){} });
+    return out;
+  },
 
-  const bioSectionHtml = isMember ? `
-    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">
-      <label>My club bio <span class="small muted">(shown next to your name on the roster)</span></label>
-      <textarea id="a_bio_input" rows="2" placeholder="Tell the club a bit about you and your horse…">${esc(myMembership.bio||'')}</textarea>
-      <div style="margin-top:8px;"><button class="ghost" id="a_bio_save">Save Bio</button> <span id="a_bio_status" class="small"></span></div>
-    </div>` : '';
+  // Whole-collection reads (every member, every show, every custom breed).
+  // Fine for small-to-medium collections; avoid on horses/riders at scale.
+  async listAll(col){
+    if(!db) return [];
+    const snap=await getDocs(collection(db,col));
+    const out=[];
+    snap.forEach(d=>{ try{ const v=JSON.parse(d.data().json); v.__owner=d.data().owner; v.__id=d.id; out.push(v); }catch(e){} });
+    return out;
+  },
 
-  const spotlightMember = members.filter(m=>(m.points||0)>0).sort((a,b)=>(b.points||0)-(a.points||0))[0];
-  const spotlightHtml = spotlightMember ? `
-    <div class="card">
-      <h3>🌟 Member Spotlight</h3>
-      <div class="spotlight-card">
-        <div class="spotlight-avatar">${esc(initials(spotlightMember.__owner||spotlightMember.owner))}</div>
-        <div>
-          <b style="color:var(--accent);">${esc(spotlightMember.__owner||spotlightMember.owner||'?')}</b>
-          ${rankBadgeHtml(currentRank(spotlightMember.points, ranks))}
-          <span class="small muted">${spotlightMember.points||0} pts</span>
-          ${spotlightMember.bio ? `<div class="bio-box">${esc(spotlightMember.bio)}</div>` : ''}
-        </div>
-      </div>
-    </div>` : '';
+  // Like listAll(), but for the OTHER collection shape used on this site —
+  // flat documents with real fields (bankAccounts, businesses, items,
+  // legacyAccounts, linkedAccounts, notifications, etc — everything the
+  // Railway bank server writes directly, without the owner/id/json
+  // envelope). Returns each doc's actual fields plus its id.
+  // Like listAllFlat() but for a SUBcollection (e.g. forumThreads/{id}/replies).
+  async listSub(parentCol, parentId, subCol){
+    if(!db) return [];
+    const snap = await getDocs(collection(db, parentCol, String(parentId), subCol));
+    const out = [];
+    snap.forEach(d => out.push({ id: d.id, ...d.data() }));
+    return out;
+  },
 
-  const galleryHtml = gallery.length ? gallery.map(g=>{
-    const liked = who && (g.likes||[]).includes(who.userId);
-    return `<div class="gallery-item">
-      <img src="${esc(g.imageUrl)}" alt="${esc(g.caption||'')}" onerror="this.style.display='none'" />
-      <div class="gi-body">
-        <div class="small">${esc(g.caption||'')}</div>
-        <div class="small muted">${esc(g.owner)} · ${when(g.createdAt)}</div>
-        <div class="gi-like">${who
-          ? `<button class="ghost gal-like-btn" data-galid="${esc(g.id)}" style="padding:3px 10px;font-size:.85em;${liked?'border-color:var(--brass-mid);':''}">${liked?'♥':'♡'} ${(g.likes||[]).length}</button>`
-          : `<span class="small muted">♡ ${(g.likes||[]).length}</span>`}</div>
-      </div>
-    </div>`;
-  }).join('') : `<p class="small muted">No photos yet. ${isMember?'Add the first one!':'Join to add photos.'}</p>`;
+  // Auto-ID create in a subcollection. Returns the new doc's id, or null.
+  async addSub(parentCol, parentId, subCol, data){
+    if(!db) return null;
+    const { addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    const ref = await this._ownerRetry(()=> addDoc(collection(db, parentCol, String(parentId), subCol), data));
+    return ref.id;
+  },
 
-  const eventsNow = Date.now();
-  const eventsHtml = events.length ? events.map(ev=>{
-    const isPast = ev.when && new Date(ev.when).getTime() < eventsNow;
-    const going = who && (ev.rsvps||[]).includes(who.userId);
-    return `<div class="event-row${isPast?' past':''}">
-      <b style="color:var(--accent);">${esc(ev.title||'Untitled')}</b>
-      <div class="small muted">${ev.when ? new Date(ev.when).toLocaleString() : 'Time TBD'} · proposed by ${esc(ev.owner)}</div>
-      ${ev.description ? `<div class="small" style="margin-top:4px;">${esc(ev.description)}</div>` : ''}
-      ${who ? `<div style="margin-top:6px;"><button class="ghost ev-rsvp-btn" data-evid="${esc(ev.id)}" style="padding:4px 12px;${going?'border-color:var(--brass-mid);':''}">${going?'✓ Going':'RSVP'}</button> <span class="small muted">${(ev.rsvps||[]).length} going</span></div>` : ''}
-    </div>`;
-  }).join('') : `<p class="small muted">No events scheduled yet. ${isMember?'Propose one!':'Join to propose events.'}</p>`;
+  // Merge-update one doc in a subcollection (edits, reactions, etc).
+  async updateSub(parentCol, parentId, subCol, docId, fields){
+    if(!db) return false;
+    await this._ownerRetry(()=> setDoc(doc(db, parentCol, String(parentId), subCol, String(docId)), fields, { merge: true }));
+    return true;
+  },
 
-  const wallHtml = posts.length ? await renderWallPosts(assocId, posts) : `<p class="small muted">No posts yet. ${isMember?'Be the first!':'Join to post.'}</p>`;
+  async deleteSub(parentCol, parentId, subCol, docId){
+    if(!db) return false;
+    await this._ownerRetry(()=> deleteDoc(doc(db, parentCol, String(parentId), subCol, String(docId))));
+    return true;
+  },
 
-  const ownerUid = a.ownerId || a.__owner || a.owner;
-  const customCssHtml = (isPremiumMember(ownerUid) && a.customCss) ? `<style>${sanitizeShopCss(a.customCss)}</style>` : '';
-  const pinnedHtml = a.announcement ? `<div class="pinned-banner"><b style="color:var(--brass-light);">📌 Pinned</b>
-      <div style="margin-top:4px;white-space:pre-wrap;">${esc(a.announcement)}</div></div>` : '';
+  async listAllFlat(col){
+    if(!db) return [];
+    const snap = await getDocs(collection(db, col));
+    const out = [];
+    snap.forEach(d => out.push({ id: d.id, ...d.data() }));
+    return out;
+  },
 
-  app.innerHTML = `
-    ${customCssHtml}
-    <div class="assoc-profile-custom">
-    <div style="margin-bottom:6px;"><a href="associations.html" style="color:var(--accent);">← All associations</a></div>
-    <div class="card">
-      <h2>${esc(a.name||'Unnamed')}</h2>
-      <p class="small">${esc(a.description||'')}</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-        ${who ? (isMember
-          ? `<button class="ghost danger" id="a_leave">Leave Association</button>`
-          : `<button id="a_join">Join Association</button>`)
-          : `<a class="tag" href="index.html" style="text-decoration:none;">Sign in to join →</a>`}
-        ${isOwner ? `<button class="ghost" id="a_manage_toggle">⚙ Manage</button>` : ''}
-      </div>
-      <div id="a_status" class="small" style="margin-top:6px;"></div>
-    </div>
+  // Write to a flat-schema doc (see listAllFlat above). merge:true by
+  // default so a partial update doesn't wipe fields you didn't pass.
+  async setFlat(col, id, fields){
+    if(!db) return false;
+    await this._ownerRetry(()=> setDoc(doc(db, col, String(id)), fields, { merge: true }));
+    return true;
+  },
 
-    ${pinnedHtml}
-
-    ${isOwner ? `<div class="card" id="a_manage" style="display:none;"></div>` : ''}
-
-    ${spotlightHtml}
-
-    <div class="card">
-      <h3>Roster (${members.length})</h3>
-      <div id="a_roster">${rosterHtml}</div>
-      ${bioSectionHtml}
-    </div>
-
-    <div class="card">
-      <h3>🖼 Gallery</h3>
-      ${isMember ? `
-        <label>Image URL</label><input id="a_gal_url" placeholder="https://…" />
-        <label>Caption</label><input id="a_gal_caption" placeholder="What's this a photo of?" />
-        <div style="margin-top:8px;"><button id="a_gal_btn">Add to Gallery</button> <span id="a_gal_status" class="small"></span></div>
-      ` : who ? `<p class="small muted">Join to add photos.</p>` : ''}
-      <div class="gallery-grid" id="a_gallery">${galleryHtml}</div>
-    </div>
-
-    <div class="card">
-      <h3>📅 Upcoming Events</h3>
-      ${isMember ? `
-        <label>Title</label><input id="a_ev_title" placeholder="e.g. Spring Show Meetup" />
-        <label>When</label><input id="a_ev_when" type="datetime-local" />
-        <label>Details</label><textarea id="a_ev_desc" rows="2" placeholder="Optional details"></textarea>
-        <div style="margin-top:8px;"><button id="a_ev_btn">Propose Event</button> <span id="a_ev_status" class="small"></span></div>
-      ` : who ? `<p class="small muted">Join to propose events.</p>` : ''}
-      <div id="a_events" style="margin-top:10px;">${eventsHtml}</div>
-    </div>
-
-    <div class="card">
-      <h3>Wall</h3>
-      ${isMember ? `
-        <textarea id="a_post_body" rows="3" placeholder="Post something on the wall…"></textarea>
-        <div style="margin-top:8px;"><button id="a_post_btn">Post</button> <span id="a_post_status" class="small"></span></div>
-      ` : who ? `<p class="small muted">Join to post here.</p>` : `<p class="small muted">Sign in on the Hub, then join to post.</p>`}
-      <div id="a_wall" style="margin-top:14px;">${wallHtml}</div>
-    </div>
-    </div>
-  `;
-
-  if(isOwner){
-    $("a_manage_toggle").onclick = ()=>{
-      const el = $("a_manage");
-      const showing = el.style.display !== 'none';
-      if(showing){ el.style.display = 'none'; return; }
-      el.style.display = 'block';
-      renderManagePanel(a, isOwner);
-    };
-  }
-
-  if(who && !isMember){
-    $("a_join").onclick = async ()=>{
-      $("a_status").textContent = "Joining…";
-      try{
-        await DB.putWithField('associationMembers', assocId+'_'+who.userId, who.userId, { associationId:assocId, points:0, joinedAt:new Date().toISOString() }, 'associationId', assocId);
-        renderOneAssociation(assocId);
-      }catch(err){ $("a_status").textContent = "Failed: "+(err.message||err); }
-    };
-  }
-  if(who && isMember){
-    const leaveBtn = $("a_leave");
-    if(leaveBtn) leaveBtn.onclick = async ()=>{
-      if(!confirm("Leave this association? Your points here will be lost.")) return;
-      try{ await DB.remove('associationMembers', assocId+'_'+who.userId); renderOneAssociation(assocId); }
-      catch(err){ $("a_status").textContent = "Failed: "+(err.message||err); }
-    };
-  }
-  if(isMember){
-    $("a_post_btn").onclick = async ()=>{
-      const text = $("a_post_body").value.trim();
-      if(!text){ $("a_post_status").textContent = "Write something first."; return; }
-      $("a_post_status").textContent = "Posting…";
-      const id = 'ap_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-      try{
-        await DB.put('associationPosts', id, who.userId, { id, owner:who.userId, associationId:assocId, text, reactions:{}, createdAt:new Date().toISOString() });
-        await awardAssocPoints(assocId, 2); // new post: +2
-        renderOneAssociation(assocId);
-      }catch(err){ $("a_post_status").textContent = "Failed: "+(err.message||err); }
-    };
-  }
-  if(isMember){
-    const bioBtn = $("a_bio_save");
-    if(bioBtn) bioBtn.onclick = ()=> saveBio(assocId);
-
-    const galBtn = $("a_gal_btn");
-    if(galBtn) galBtn.onclick = async ()=>{
-      const url = $("a_gal_url").value.trim();
-      if(!url){ $("a_gal_status").textContent = "Add an image URL first."; return; }
-      const caption = $("a_gal_caption").value.trim();
-      $("a_gal_status").textContent = "Adding…";
-      const id = 'ag_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-      try{
-        await DB.putWithField('associationGallery', id, who.userId, { id, owner:who.userId, associationId:assocId, imageUrl:url, caption, likes:[], createdAt:new Date().toISOString() }, 'associationId', assocId);
-        renderOneAssociation(assocId);
-      }catch(err){ $("a_gal_status").textContent = "Failed: "+(err.message||err); }
-    };
-
-    const evBtn = $("a_ev_btn");
-    if(evBtn) evBtn.onclick = async ()=>{
-      const title = $("a_ev_title").value.trim();
-      if(!title){ $("a_ev_status").textContent = "Give it a title first."; return; }
-      const whenVal = $("a_ev_when").value;
-      const desc = $("a_ev_desc").value.trim();
-      $("a_ev_status").textContent = "Proposing…";
-      const id = 'ae_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-      try{
-        await DB.putWithField('associationEvents', id, who.userId, { id, owner:who.userId, associationId:assocId, title, description:desc, when: whenVal ? new Date(whenVal).toISOString() : '', rsvps:[], createdAt:new Date().toISOString() }, 'associationId', assocId);
-        renderOneAssociation(assocId);
-      }catch(err){ $("a_ev_status").textContent = "Failed: "+(err.message||err); }
-    };
-  }
-  app.querySelectorAll('.gal-like-btn').forEach(btn=>{
-    btn.onclick = ()=> toggleGalleryLike(assocId, btn.dataset.galid);
-  });
-  app.querySelectorAll('.ev-rsvp-btn').forEach(btn=>{
-    btn.onclick = ()=> toggleRsvp(assocId, btn.dataset.evid);
-  });
-  wireWallReplyButtons(assocId);
-}
-
-async function renderWallPosts(assocId, posts){
-  const blocks = await Promise.all(posts.map(async p=>{
-    let replies = [];
-    try{ replies = (await DB.listSub('associationPosts', p.id, 'replies')).sort((a,b)=>new Date(a.createdAt||0)-new Date(b.createdAt||0)); }catch(e){}
-    const repliesHtml = replies.map(r=>`
-      <div class="wall-reply"><b>${esc(r.owner)}</b> <span class="small muted">${when(r.createdAt)}</span><br>${esc(r.text)}</div>
-    `).join('');
-    const reactions = p.reactions || {};
-    const emojiList = ['🐴','❤️','😂'];
-    const activeEmojis = emojiList.filter(em=>(reactions[em]||[]).length);
-    const reactionBar = who
-      ? `<div class="reaction-bar">${emojiList.map(em=>{
-          const users = reactions[em]||[];
-          const active = users.includes(who.userId);
-          return `<button class="reaction-btn${active?' active':''}" data-postid="${esc(p.id)}" data-emoji="${esc(em)}">${em}${users.length?' '+users.length:''}</button>`;
-        }).join('')}</div>`
-      : (activeEmojis.length ? `<div class="reaction-bar">${activeEmojis.map(em=>`<span class="reaction-btn">${em} ${(reactions[em]||[]).length}</span>`).join('')}</div>` : '');
-    return `<div class="wall-post" data-postid="${esc(p.id)}">
-      <b style="color:var(--accent);">${esc(p.owner)}</b> <span class="small muted">${when(p.createdAt)}</span>
-      <div style="margin-top:4px;white-space:pre-wrap;">${esc(p.text)}</div>
-      ${reactionBar}
-      ${repliesHtml}
-      ${who ? `<div style="margin-top:8px;display:flex;gap:6px;">
-        <input class="a_reply_input" placeholder="Reply…" style="flex:1;" />
-        <button class="ghost a_reply_btn" data-postid="${esc(p.id)}" style="padding:6px 12px;">Reply</button>
-      </div>` : ''}
-    </div>`;
-  }));
-  return blocks.join('');
-}
-
-function wireWallReplyButtons(assocId){
-  app.querySelectorAll('button.reaction-btn[data-postid]').forEach(btn=>{
-    btn.onclick = ()=> toggleReaction(assocId, btn.dataset.postid, btn.dataset.emoji);
-  });
-  app.querySelectorAll('.a_reply_btn').forEach(btn=>{
-    btn.onclick = async ()=>{
-      const postId = btn.dataset.postid;
-      const input = btn.parentElement.querySelector('.a_reply_input');
-      const text = input.value.trim();
-      if(!text) return;
-      btn.disabled = true;
-      try{
-        await DB.addSub('associationPosts', postId, 'replies', { owner:who.userId, text, createdAt:new Date().toISOString() });
-        await awardAssocPoints(assocId, 1); // reply: +1
-        renderOneAssociation(assocId);
-      }catch(err){ alert("Failed to reply: "+(err.message||err)); btn.disabled = false; }
-    };
-  });
-}
-
-function renderManagePanel(a, isOwner){
-  const el = $("a_manage");
-  const isPremium = isPremiumMember(a.ownerId || a.__owner || a.owner);
-  let ranksState = (a.ranks||[]).map(r=>({...r}));
-
-  function drawRanks(){
-    const box = el.querySelector('#a_ranks_list');
-    box.innerHTML = ranksState.map((r,i)=>`
-      <div class="rank-row">
-        <input data-rf="name" data-i="${i}" value="${esc(r.name||'')}" placeholder="Rank name" />
-        <input data-rf="threshold" data-i="${i}" type="number" value="${r.threshold||0}" placeholder="Points needed" style="max-width:120px;" />
-        <input data-rf="emoji" data-i="${i}" value="${esc(r.emoji||'')}" placeholder="🏅" style="max-width:70px;" />
-        <input data-rf="color" data-i="${i}" type="color" value="${r.color||'#c9a84c'}" style="max-width:50px;padding:2px;" />
-        <button class="ghost danger" data-rdel="${i}" style="padding:4px 10px;">✕</button>
-      </div>`).join('');
-    box.querySelectorAll('[data-rf]').forEach(inp=>inp.oninput=()=>{
-      const i = +inp.dataset.i, f = inp.dataset.rf;
-      ranksState[i][f] = f==='threshold' ? Number(inp.value)||0 : inp.value;
+  // Raw rows including hoisted fields, for diagnostics — listAll() only
+  // returns the parsed json, which hides the very fields a query matches on.
+  async listAllRaw(col){
+    if(!db) return [];
+    const snap = await getDocs(collection(db, col));
+    const out=[];
+    snap.forEach(d=>{
+      const raw=d.data()||{};
+      let body={}; try{ body=JSON.parse(raw.json||"{}"); }catch(e){}
+      out.push({docId:d.id, owner:raw.owner, reservedFor:raw.reservedFor, body});
     });
-    box.querySelectorAll('[data-rdel]').forEach(btn=>btn.onclick=()=>{ ranksState.splice(+btn.dataset.rdel,1); drawRanks(); });
-  }
+    return out;
+  },
 
-  el.innerHTML = `
-    <h3>⚙ Manage Association</h3>
-    <label>Name</label><input id="am_name" value="${esc(a.name||'')}" />
-    <label>Description</label><textarea id="am_desc" rows="3">${esc(a.description||'')}</textarea>
-    <div style="margin-top:10px;"><button id="am_save_basic">Save</button> <span id="am_status_basic" class="small"></span></div>
+  // Bulk write for one-time migrations (batched = far fewer round trips).
+  async putMany(col, owner, items){
+    if(!db) return 0;
+    let done=0;
+    for(let i=0;i<items.length;i+=400){
+      const { writeBatch } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+      const batch = writeBatch(db);
+      items.slice(i,i+400).forEach(it=>{
+        batch.set(doc(db,col,String(it.id)), { owner:String(owner), id:String(it.id),
+          json:JSON.stringify(it), updatedAt:new Date().toISOString() });
+      });
+      await batch.commit();
+      done += Math.min(400, items.length-i);
+    }
+    return done;
+  },
+};
 
-    <h3 style="margin-top:20px;">📌 Pinned Announcement <span class="small muted">(shown at the top of the page — leave blank to hide)</span></h3>
-    <textarea id="am_announcement" rows="2" placeholder="e.g. Club show this Saturday at 3pm server time!">${esc(a.announcement||'')}</textarea>
-    <div style="margin-top:10px;"><button id="am_save_announcement">Save Announcement</button> <span id="am_status_announcement" class="small"></span></div>
-
-    <h3 style="margin-top:20px;">Ranks <span class="small muted">(owner-defined — members' rank comes automatically from points crossing a threshold)</span></h3>
-    <div id="a_ranks_list"></div>
-    <button class="ghost" id="am_add_rank" style="margin-top:6px;">+ Add rank</button>
-    <div style="margin-top:10px;"><button id="am_save_ranks">Save Ranks</button> <span id="am_status_ranks" class="small"></span></div>
-
-    <h3 style="margin-top:20px;">Custom CSS ${isPremium?'<span class="small" style="color:var(--brass-light);">★ Premium</span>':'<span class="small muted">(requires premium)</span>'}</h3>
-    ${isPremium ? `
-      <p class="small muted">Prefix selectors with <code>.assoc-profile-custom</code>.</p>
-      <textarea id="am_css" rows="6" style="font-family:monospace;font-size:.85em;" placeholder=".assoc-profile-custom .card{ background:#1a1006; }">${esc(a.customCss||'')}</textarea>
-      <div style="margin-top:10px;"><button id="am_save_css">Save CSS</button> <span id="am_status_css" class="small"></span></div>
-    ` : `<p class="small muted">Founding member needs an active premium subscription to style this association's page.</p>`}
-  `;
-  drawRanks();
-
-  el.querySelector('#am_save_basic').onclick = async ()=>{
-    const statusEl = el.querySelector('#am_status_basic');
-    statusEl.textContent = "Saving…";
-    const next = { ...a, name: el.querySelector('#am_name').value.trim(), description: el.querySelector('#am_desc').value.trim() };
-    try{ await DB.put('associations', a.id, who.userId, next); a.name=next.name; a.description=next.description; statusEl.textContent="Saved."; renderOneAssociation(a.id); }
-    catch(err){ statusEl.textContent = "Failed: "+(err.message||err); }
-  };
-  el.querySelector('#am_save_announcement').onclick = async ()=>{
-    const statusEl = el.querySelector('#am_status_announcement');
-    statusEl.textContent = "Saving…";
-    const next = { ...a, announcement: el.querySelector('#am_announcement').value.trim() };
-    try{ await DB.put('associations', a.id, who.userId, next); a.announcement=next.announcement; statusEl.textContent="Saved."; renderOneAssociation(a.id); }
-    catch(err){ statusEl.textContent = "Failed: "+(err.message||err); }
-  };
-  el.querySelector('#am_add_rank').onclick = ()=>{ ranksState.push({name:'New Rank', threshold:0, emoji:'🏅', color:'#c9a84c'}); drawRanks(); };
-  el.querySelector('#am_save_ranks').onclick = async ()=>{
-    const statusEl = el.querySelector('#am_status_ranks');
-    statusEl.textContent = "Saving…";
-    try{ await DB.put('associations', a.id, who.userId, { ...a, ranks: ranksState }); statusEl.textContent="Saved."; }
-    catch(err){ statusEl.textContent = "Failed: "+(err.message||err); }
-  };
-  const cssBtn = el.querySelector('#am_save_css');
-  if(cssBtn) cssBtn.onclick = async ()=>{
-    const statusEl = el.querySelector('#am_status_css');
-    statusEl.textContent = "Saving…";
-    try{ await DB.put('associations', a.id, who.userId, { ...a, customCss: el.querySelector('#am_css').value }); statusEl.textContent="Saved."; }
-    catch(err){ statusEl.textContent = "Failed: "+(err.message||err); }
-  };
-}
-
-render();
-</script>
-</div>
-</body>
-</html>
+ready.then(v=>{ try{ window.__equiDBResolve(v); }catch(e){} })
+     .catch(()=>{ try{ window.__equiDBResolve(false); }catch(e){} });
