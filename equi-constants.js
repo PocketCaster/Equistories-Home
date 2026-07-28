@@ -294,3 +294,128 @@ function sanitizeShopHtml(html){
   html = html.replace(/(href|src)\s*=\s*(["']?)\s*javascript:[^"'>\s]*\2/gi, '$1="#"');
   return html;
 }
+
+
+// ============================================================
+//  BADGE SYSTEM  — paste this at the very BOTTOM of equi-constants.js
+//  (just before the end of the file; it needs nothing above it).
+//  Shared by every page, same as ADMIN_MEMBERS / PREMIUM_MEMBERS.
+// ============================================================
+
+// Founding backers — permanent. Unlike the crown (which is premium and
+// turns off if someone lapses), the backer badge is a forever thank-you:
+// once someone's ID is in this list, they keep the badge even if they
+// later cancel. Add early supporters' User IDs here.
+const BACKER_MEMBERS = ["PocketCaster"];
+
+// The catalog of hand-granted badges: the backer badge plus any community
+// event badges. To hand a badge out, drop the player's User ID into that
+// badge's `holders` list. To add a NEW event badge, copy one of the event
+// blocks and give it a unique key (the part before the colon).
+const BADGE_CATALOG = {
+  backer: {
+    name: "Founding Backer",
+    icon: "\u{1F3F5}\u{FE0F}",              // 🏵️ rosette
+    desc: "Supported EquiStories in its earliest days. Thank you!",
+    holders: BACKER_MEMBERS
+  },
+
+  // ---- Community event badges ----------------------------------
+  // Example event badge. Add IDs to `holders` as people earn it.
+  "event-halloween-2026": {
+    name: "Spooky Season 2026",
+    icon: "\u{1F383}",                       // 🎃
+    desc: "Took part in the Halloween 2026 community event.",
+    holders: []          // e.g. ["SomeRider", "AnotherRider"]
+  },
+  // Copy the block above to add more events, e.g. "event-winter-2026".
+};
+
+// Tiny self-contained escaper so this block depends on nothing else.
+function __badgeEsc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Inline name badge (shows next to a name like the crown does).
+function backerBadge(uid){
+  if(!uid || !BACKER_MEMBERS.includes(uid)) return "";
+  return ` <span title="Founding Backer" style="display:inline-block;font-size:.9em;vertical-align:baseline;">\u{1F3F5}\u{FE0F}</span>`;
+}
+
+// Which catalog badges (backer + events) does this user hold?
+function catalogBadgesForUser(uid){
+  if(!uid) return [];
+  return Object.keys(BADGE_CATALOG)
+    .filter(k => (BADGE_CATALOG[k].holders || []).includes(uid))
+    .map(k => ({ id:k, ...BADGE_CATALOG[k] }));
+}
+
+// Given a member's points and an association's ranks, return the highest
+// rank they've reached (used so the association badge shows their rank
+// emoji/colour, not just a generic club icon).
+function assocRankFor(points, ranks){
+  const list = Array.isArray(ranks)
+    ? ranks.slice().sort((a,b)=>(a.threshold||0)-(b.threshold||0))
+    : [];
+  let cur = list[0] || { name:'Member', emoji:'\u{1F40E}', color:'#8a6820' };
+  for(const r of list){ if((points||0) >= (r.threshold||0)) cur = r; }
+  return cur;
+}
+
+// Builds the whole "Badge Case" card for a profile. Returns '' when the
+// member has no badges (and it isn't their own profile), so empty cases
+// never clutter other people's pages. All reads are best-effort: if the
+// association lookups fail, the profile still renders fine.
+async function badgeCaseCardHtml(DB, uid, isSelf){
+  const badges = [];
+
+  // 1) Catalog badges — backer + community events (manual holder lists).
+  catalogBadgesForUser(uid).forEach(b=>{
+    badges.push({ icon:b.icon, title:b.name, desc:b.desc, color:'#c9a84c' });
+  });
+
+  // 2) Association badges — one per club the member belongs to, showing
+  //    their current rank inside that club.
+  try{
+    const memberships = await DB.listByOwner('associationMembers', uid) || [];
+    for(const m of memberships){
+      const assocId = m.associationId || String(m.__id||'').split('_')[0];
+      if(!assocId) continue;
+      let a = null;
+      try{ a = await DB.get('associations', assocId); }catch(e){}
+      if(!a) continue;
+      const rank = assocRankFor(m.points, a.ranks);
+      badges.push({
+        icon:  rank.emoji || '\u{1F397}\u{FE0F}',    // 🎗️ fallback
+        title: (a.name || 'Association') + ' \u2014 ' + (rank.name || 'Member'),
+        desc:  'Member of ' + (a.name || 'this association') + '.',
+        color: rank.color || '#8a6820'
+      });
+    }
+  }catch(e){ /* best-effort — never break the profile over a badge */ }
+
+  if(!badges.length){
+    if(!isSelf) return '';
+    return `<div class="card">
+      <h3 style="margin-top:0;">Badge Case</h3>
+      <div class="small muted">No badges yet \u2014 earn them by backing EquiStories,
+      joining an association, or taking part in a community event.</div>
+    </div>`;
+  }
+
+  const chips = badges.map(b=>`
+    <div title="${__badgeEsc((b.title||'') + (b.desc ? ' \u2014 '+b.desc : ''))}"
+         style="display:flex;flex-direction:column;align-items:center;gap:4px;width:64px;">
+      <div style="width:52px;height:52px;border-radius:50%;display:flex;align-items:center;
+                  justify-content:center;font-size:1.5em;background:var(--deep,#2a2015);
+                  border:2px solid ${b.color||'#c9a84c'};box-shadow:0 1px 4px rgba(0,0,0,.35);">${b.icon||'\u{1F396}\u{FE0F}'}</div>
+      <div style="font-size:.62em;line-height:1.1;text-align:center;color:var(--dim,#8a7860);
+                  max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${__badgeEsc(b.title||'')}</div>
+    </div>`).join('');
+
+  return `<div class="card">
+    <h3 style="margin-top:0;">Badge Case <span class="small muted">(${badges.length})</span></h3>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">${chips}</div>
+  </div>`;
+}
