@@ -256,7 +256,7 @@ function gearStatCap(uid){ return isAdminMember(uid) ? Infinity : (isPremiumMemb
 // the name badge AND the premium status lines, so there's only ever one place
 // the premium mark is drawn.
 function premiumCrestSvg(){
-  return `<svg viewBox="-38 -38 76 76" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:1em;height:1em;vertical-align:-.15em;"><path d="M-19.5,27.8 A34 34 0 1 1 19.5,27.8 L12.6,18 A22 22 0 1 0 -12.6,18 Z" fill="#CDA94E" stroke="#8a6a24" stroke-width="2" stroke-linejoin="round"/><circle cx="-26.3" cy="9.6" r="2" fill="#6E541C"/><circle cx="-24.2" cy="-14" r="2" fill="#6E541C"/><circle cx="0" cy="-28" r="2" fill="#6E541C"/><circle cx="24.2" cy="-14" r="2" fill="#6E541C"/><circle cx="26.3" cy="9.6" r="2" fill="#6E541C"/><path d="M0,4 L1.5,8 L5.7,8.2 L2.4,10.8 L3.5,14.9 L0,12.5 L-3.5,14.9 L-2.4,10.8 L-5.7,8.2 L-1.5,8 Z" fill="#F0DA96" stroke="#8a6a24" stroke-width="0.8"/></svg>`;
+  return `<svg viewBox="-38 -38 76 76" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:1.4em;height:1.4em;vertical-align:-.32em;"><path d="M-19.5,27.8 A34 34 0 1 1 19.5,27.8 L12.6,18 A22 22 0 1 0 -12.6,18 Z" fill="#CDA94E" stroke="#8a6a24" stroke-width="2" stroke-linejoin="round"/><circle cx="-26.3" cy="9.6" r="2" fill="#6E541C"/><circle cx="-24.2" cy="-14" r="2" fill="#6E541C"/><circle cx="0" cy="-28" r="2" fill="#6E541C"/><circle cx="24.2" cy="-14" r="2" fill="#6E541C"/><circle cx="26.3" cy="9.6" r="2" fill="#6E541C"/><path d="M0,4 L1.5,8 L5.7,8.2 L2.4,10.8 L3.5,14.9 L0,12.5 L-3.5,14.9 L-2.4,10.8 L-5.7,8.2 L-1.5,8 Z" fill="#F0DA96" stroke="#8a6a24" stroke-width="0.8"/></svg>`;
 }
 // The premium crest shown beside a premium member's name.
 function premiumBadge(uid){
@@ -269,7 +269,7 @@ function premiumBadge(uid){
 // header. One definition, used everywhere "admin" needs to show up.
 function adminBadge(uid){
   if(!isAdminMember(uid)) return "";
-  return ` <span title="Site admin" style="display:inline-flex;align-items:center;gap:4px;font-size:.72em;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 10px;border-radius:20px;background:var(--gold-shine, linear-gradient(135deg,#e8c97a,#c9a84c));color:#241a14;box-shadow:0 1px 3px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.4);vertical-align:middle;line-height:1.6;">Admin</span>`;
+  return ` <span title="Site admin" style="display:inline-flex;align-items:center;gap:4px;font-size:.66em;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:20px;background:var(--gold-shine, linear-gradient(135deg,#e8c97a,#c9a84c));color:#241a14;box-shadow:0 1px 3px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.4);vertical-align:middle;line-height:1.6;">Admin</span>`;
 }
 
 // ============================================
