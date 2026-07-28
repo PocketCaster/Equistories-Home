@@ -3829,13 +3829,13 @@ const PREMIUM_SHOP_OWNERS = PREMIUM_MEMBERS;
 // "permanent" for the list) if active, otherwise a gentle invite to support.
 function premiumStatusLine(uid){
   if(ADMIN_MEMBERS.includes(uid) || PREMIUM_MEMBERS.includes(uid)){
-    return `<div class="small" style="color:var(--equi-brass-light);margin-top:2px;">&#128081; Premium member</div>`;
+    return `<div class="small" style="color:var(--equi-brass-light);margin-top:2px;">${premiumCrestSvg()} Premium member</div>`;
   }
   const until = __premiumCache[uid];
   if(until && until > Date.now()){
     const days = Math.ceil((until - Date.now())/(24*60*60*1000));
     const dateStr = new Date(until).toLocaleDateString();
-    return `<div class="small" style="color:var(--equi-brass-light);margin-top:2px;">&#128081; Premium active — ${days} day${days===1?'':'s'} left (until ${dateStr}). Renew anytime; early renewals add on.</div>`;
+    return `<div class="small" style="color:var(--equi-brass-light);margin-top:2px;">${premiumCrestSvg()} Premium active — ${days} day${days===1?'':'s'} left (until ${dateStr}). Renew anytime; early renewals add on.</div>`;
   }
   return `<div class="small muted" style="margin-top:2px;">Not premium. <a href="https://ko-fi.com/" target="_blank" style="color:var(--accent);">Support EquiStories</a> to unlock the golden horseshoe crest, custom shop looks, multiple shops, and +3 gear. Enter your User ID <b>${esc(uid)}</b> at checkout.</div>`;
 }
@@ -4281,7 +4281,7 @@ async function renderShopManage(v, DB, who){
     </div>
 
     ${isPremium ? `<div class="card">
-      <h3>👑 Premium — custom storefront look</h3>
+      <h3>${premiumCrestSvg()} Premium — custom storefront look</h3>
       <p class="small">Style your <b>whole</b> storefront — banner, colors, fonts, framing, layout — to match your old shop.
         Your CSS restyles the real shop; buying still runs on the hub's safe buttons underneath, so it's fully secure.
         <b>No JavaScript</b> is needed or allowed — it's pure look.</p>
