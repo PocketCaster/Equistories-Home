@@ -94,14 +94,33 @@ window.EquiAuth = {
 };
 
 window.EquiDB = {
+  // Any write can be rejected if the Firestore session isn't yet signed in as
+  // the bank-owner uid the rules expect. Rather than make every caller on every
+  // page remember to upgrade first, we recover HERE: on a permission-denied,
+  // upgrade the owner session once and retry the write a single time. This is
+  // what makes friend accepts, association joins/posts, etc. reliable no matter
+  // when they're clicked. A second failure (or any non-permission error) throws
+  // as normal, so genuine "you can't write this" errors aren't masked.
+  async _ownerRetry(op){
+    try{ return await op(); }
+    catch(e){
+      const denied = e && (e.code === 'permission-denied' || e.code === 'firestore/permission-denied');
+      if(denied && typeof window.upgradeToOwnerSession === 'function'){
+        try{ await window.upgradeToOwnerSession(); }catch(_){}
+        return await op();
+      }
+      throw e;
+    }
+  },
   ready,
   get available(){ return !!db; },
   get authed(){ return authOk; },
 
   async put(col,id,owner,obj){
     if(!db) return false;
-    await setDoc(doc(db,col,String(id)), { owner:String(owner), id:String(id),
-      json:JSON.stringify(obj), updatedAt:new Date().toISOString() });
+    const rec = { owner:String(owner), id:String(id),
+      json:JSON.stringify(obj), updatedAt:new Date().toISOString() };
+    await this._ownerRetry(()=> setDoc(doc(db,col,String(id)), rec));
     return true;
   },
 
@@ -111,8 +130,9 @@ window.EquiDB = {
   async putBreed(id, owner, obj){
     if(!db) return false;
     const staffUids = Array.isArray(obj.staff) ? obj.staff.map(String) : [];
-    await setDoc(doc(db,'breeds',String(id)), { owner:String(owner), id:String(id),
-      json:JSON.stringify(obj), staffUids, updatedAt:new Date().toISOString() });
+    const rec = { owner:String(owner), id:String(id),
+      json:JSON.stringify(obj), staffUids, updatedAt:new Date().toISOString() };
+    await this._ownerRetry(()=> setDoc(doc(db,'breeds',String(id)), rec));
     return true;
   },
 
@@ -125,7 +145,7 @@ window.EquiDB = {
     const rec={ owner:String(owner), id:String(id),
       json:JSON.stringify(obj), updatedAt:new Date().toISOString() };
     rec[field]=String(value);
-    await setDoc(doc(db,col,String(id)), rec);
+    await this._ownerRetry(()=> setDoc(doc(db,col,String(id)), rec));
     return true;
   },
 
@@ -136,7 +156,7 @@ window.EquiDB = {
     try{ return JSON.parse(s.data().json); }catch(e){ return null; }
   },
 
-  async remove(col,id){ if(!db) return false; await deleteDoc(doc(db,col,String(id))); return true; },
+  async remove(col,id){ if(!db) return false; await this._ownerRetry(()=> deleteDoc(doc(db,col,String(id)))); return true; },
 
   // Indexed lookup on any hoisted field, e.g. every reservation set aside for me.
   async listByField(col,field,value){
@@ -181,20 +201,20 @@ window.EquiDB = {
   async addSub(parentCol, parentId, subCol, data){
     if(!db) return null;
     const { addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-    const ref = await addDoc(collection(db, parentCol, String(parentId), subCol), data);
+    const ref = await this._ownerRetry(()=> addDoc(collection(db, parentCol, String(parentId), subCol), data));
     return ref.id;
   },
 
   // Merge-update one doc in a subcollection (edits, reactions, etc).
   async updateSub(parentCol, parentId, subCol, docId, fields){
     if(!db) return false;
-    await setDoc(doc(db, parentCol, String(parentId), subCol, String(docId)), fields, { merge: true });
+    await this._ownerRetry(()=> setDoc(doc(db, parentCol, String(parentId), subCol, String(docId)), fields, { merge: true }));
     return true;
   },
 
   async deleteSub(parentCol, parentId, subCol, docId){
     if(!db) return false;
-    await deleteDoc(doc(db, parentCol, String(parentId), subCol, String(docId)));
+    await this._ownerRetry(()=> deleteDoc(doc(db, parentCol, String(parentId), subCol, String(docId))));
     return true;
   },
 
@@ -210,7 +230,7 @@ window.EquiDB = {
   // default so a partial update doesn't wipe fields you didn't pass.
   async setFlat(col, id, fields){
     if(!db) return false;
-    await setDoc(doc(db, col, String(id)), fields, { merge: true });
+    await this._ownerRetry(()=> setDoc(doc(db, col, String(id)), fields, { merge: true }));
     return true;
   },
 
