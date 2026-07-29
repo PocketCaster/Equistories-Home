@@ -2667,7 +2667,7 @@ function renderResultsInbox(host){
 }
 
 let __msgView = { mode:"inbox", to:"", replyTo:null };
-let __notifFilter = "all";
+let __inboxFilter = "all"; // Messages inbox filter: 'all' | 'newsletters'
 
 function msgId(){ return 'm_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
 
@@ -2777,17 +2777,19 @@ function renderMessages(v){
         </div>
       </div>`;
 
-    const rows = list.length ? list.map((m,i)=>`
-      <div class="card" style="margin-bottom:8px;${(!m.read&&mode==='inbox')?'border-left:3px solid var(--accent,#c9a84c);':''}">
+    const viewList = (mode==='inbox' && __inboxFilter==='newsletters') ? list.filter(m=>m.newsletter) : list;
+    const rows = viewList.length ? viewList.map((m,i)=>`
+      <div class="card" style="margin-bottom:8px;${m.newsletter?'border-left:3px solid #d29a3e;background:rgba(210,154,62,.06);':((!m.read&&mode==='inbox')?'border-left:3px solid var(--accent,#c9a84c);':'')}">
         <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">
+          ${m.newsletter?'<span style="font-size:.72em;background:#d29a3e;color:#241403;font-weight:bold;padding:2px 8px;border-radius:999px;">📢 Newsletter</span>':''}
           <b>${esc(m.subject||'(no subject)')}</b>
           <span class="small muted">${mode==='sent'?'to '+esc(m.to):'from '+esc(m.from)} · ${esc(String(m.sentAt||'').slice(0,10))}</span>
           <span style="flex:1"></span>
-          ${mode==='inbox'?`<button class="ghost" data-mreply="${i}" style="padding:2px 9px;font-size:.85em;">Reply</button>`:''}
+          ${(mode==='inbox' && !m.newsletter)?`<button class="ghost" data-mreply="${i}" style="padding:2px 9px;font-size:.85em;">Reply</button>`:''}
           <button class="ghost" data-mdel="${i}" style="padding:2px 9px;font-size:.85em;">Delete</button>
         </div>
         <div style="margin-top:6px;">${richFormat(m.body, {chat:true})}</div>
-      </div>`).join("") : `<div class="card"><div class="small muted">${mode==='sent'?'Nothing sent yet.':'No messages.'}</div></div>`;
+      </div>`).join("") : `<div class="card"><div class="small muted">${mode==='sent'?'Nothing sent yet.':(__inboxFilter==='newsletters'?'No newsletters.':'No messages.')}</div></div>`;
 
     v.innerHTML=`
       ${notifCard}
@@ -2808,6 +2810,10 @@ function renderMessages(v){
           <span style="flex:1"></span>
           <button class="ghost" data-mtab="compose" style="${mode==='compose'?'font-weight:bold;':''}">Write a message</button>
         </div>
+        ${mode==='inbox' ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+          <button class="ghost" data-ifilter="all" style="padding:3px 11px;font-size:.85em;${__inboxFilter==='all'?'background:var(--accent,#c9a84c);color:#241403;font-weight:bold;border-radius:6px;':''}">All</button>
+          <button class="ghost" data-ifilter="newsletters" style="padding:3px 11px;font-size:.85em;${__inboxFilter==='newsletters'?'background:var(--accent,#c9a84c);color:#241403;font-weight:bold;border-radius:6px;':''}">📢 Newsletters</button>
+        </div>` : ''}
         ${__msgCache.error?`<div class="small" style="color:var(--equi-rust);margin-top:8px;">${__msgCache.error}</div>`:''}
       </div>
 
@@ -2869,7 +2875,7 @@ function renderMessages(v){
       renderMessages(v);
     });
     v.querySelectorAll('[data-mreply]').forEach(b=>b.onclick=()=>{
-      const m=list[Number(b.dataset.mreply)];
+      const m=viewList[Number(b.dataset.mreply)];
       const subj=String(m.subject||'').trim();
       const quoted=String(m.body||'').split('\n').map(l=>'> '+l).join('\n');
       __msgView.mode="compose";
@@ -2878,8 +2884,9 @@ function renderMessages(v){
       __msgView.replyBody = `\n\n**Original message from ${m.from||'?'}**${subj?` — "${subj}"`:''}\n${quoted}`;
       renderMessages(v);
     });
+    v.querySelectorAll('[data-ifilter]').forEach(b=>b.onclick=()=>{ __inboxFilter=b.dataset.ifilter; renderMessages(v); });
     v.querySelectorAll('[data-mdel]').forEach(b=>b.onclick=async()=>{
-      const m=list[Number(b.dataset.mdel)];
+      const m=viewList[Number(b.dataset.mdel)];
       if(!confirm('Delete this message?')) return;
       b.disabled=true; await deleteMessage(m); renderMessages(v);
     });
