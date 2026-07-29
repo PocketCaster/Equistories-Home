@@ -2764,16 +2764,24 @@ function renderMessages(v){
     if(notifWho && DB){
       try{ friendReqs = ((await DB.listByField('friendRequests','toUserId', notifWho))||[]).filter(f=>f.status==='pending'); }catch(e){}
     }
+    const newsletterNotifs = (__msgCache.inbox||[]).filter(m=>m.newsletter && !m.read);
+    const notifTotal = friendReqs.length + newsletterNotifs.length;
     const notifCard = `
       <div class="card">
-        <b style="color:var(--accent);">Notifications${friendReqs.length?` (${friendReqs.length})`:''}</b>
+        <b style="color:var(--accent);">Notifications${notifTotal?` (${notifTotal})`:''}</b>
         <div style="margin-top:10px;">
-          ${friendReqs.length ? friendReqs.map(r=>`
+          ${friendReqs.map(r=>`
             <div class="bk-notif unread" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
               <div style="flex:1;min-width:150px;"><b>Friend request</b><div><b>${esc(r.fromUserId)}</b> wants to be your friend.</div></div>
               <button class="btn" data-nf-acc="${esc(r.fromUserId)}" style="padding:4px 11px;font-size:.85em;">Accept</button>
               <button class="ghost" data-nf-dec="${esc(r.fromUserId)}" style="padding:4px 11px;font-size:.85em;">Decline</button>
-            </div>`).join('') : '<div class="small muted">No new notifications.</div>'}
+            </div>`).join('')}
+          ${newsletterNotifs.map(m=>`
+            <div class="bk-notif unread" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:150px;"><b>📢 New newsletter</b><div>${esc(m.subject||'(no subject)')}</div></div>
+              <button class="ghost" data-nf-news="1" style="padding:4px 11px;font-size:.85em;">Read</button>
+            </div>`).join('')}
+          ${notifTotal ? '' : '<div class="small muted">No new notifications.</div>'}
         </div>
       </div>`;
 
@@ -2884,6 +2892,7 @@ function renderMessages(v){
       __msgView.replyBody = `\n\n**Original message from ${m.from||'?'}**${subj?` — "${subj}"`:''}\n${quoted}`;
       renderMessages(v);
     });
+    v.querySelectorAll('[data-nf-news]').forEach(b=>b.onclick=()=>{ __inboxFilter='newsletters'; __msgView.mode='inbox'; renderMessages(v); });
     v.querySelectorAll('[data-ifilter]').forEach(b=>b.onclick=()=>{ __inboxFilter=b.dataset.ifilter; renderMessages(v); });
     v.querySelectorAll('[data-mdel]').forEach(b=>b.onclick=async()=>{
       const m=viewList[Number(b.dataset.mdel)];
@@ -3165,6 +3174,15 @@ function render(){
       if(c && c.inbox && c.inbox.length) renderNav();
       if(window.EquiNav && window.EquiNav.setBadge) window.EquiNav.setBadge('hub', msgUnread()+resultsWaiting());
     });
+  }
+  // Live notifications: quietly re-check mail every 60s so a newsletter or new
+  // message lights up the Messages badge for members who are already online,
+  // without them having to reload.
+  if(!window.__equiMsgPoll){
+    window.__equiMsgPoll = setInterval(()=>{
+      if(!me()) return;
+      loadMessages(true).then(()=>renderNav()).catch(()=>{});
+    }, 60000);
   }
   const v=$("view");
   v.innerHTML = `<div class="card"><div class="small">Loading…</div></div>`;
