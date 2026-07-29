@@ -202,6 +202,11 @@ async function boot(){
     app.innerHTML = `<div class="card"><h2>Admin</h2><p class="small">Database unavailable — try reloading.</p></div>`;
     return;
   }
+  // Load the dynamic admin list (siteAdmins) BEFORE gating access. Without
+  // this, __adminCache is empty here and ONLY the hardcoded founder passes —
+  // which is why admins added via the Admin page could see the Admin tab but
+  // got bounced the moment they opened this panel.
+  try{ await loadAdminCache(EquiDB); }catch(e){}
   if(!isAdminMember(who && who.userId)){
     app.innerHTML = `<div class="card"><h2>Admin</h2><p class="small">This page is for site admins only.</p></div>`;
     return;
@@ -211,6 +216,19 @@ async function boot(){
     <div class="card">
       <h2>⚙ Admin Hub</h2>
       <p class="small">Every site-wide admin control, in one place. Per-shop and per-breed owner controls stay with their own shop/breed — this page is only for things that affect the whole site.</p>
+    </div>
+
+    <div class="card">
+      <h3>📢 Newsletter <span class="small muted">(sends a message to every member's inbox)</span></h3>
+      <p class="small muted" style="margin-top:0;">Writes one inbox message to every registered member — announcements, event notices, updates. Members read and delete it like any other message.</p>
+      <label class="small">Subject</label>
+      <input id="a_nl_subject" placeholder="e.g. Spring Show Season is here!" maxlength="120" />
+      <label class="small" style="margin-top:8px;">Message</label>
+      <textarea id="a_nl_body" rows="6" placeholder="Write your newsletter here…" style="width:100%;"></textarea>
+      <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button id="a_nl_send">Send to all members</button>
+        <span id="a_nl_status" class="small" style="min-height:1.2em;"></span>
+      </div>
     </div>
 
     <div class="card">
@@ -333,6 +351,35 @@ async function boot(){
   // community fields still stored (start/affiliate/widgetbot) are preserved.
   const hubCfg = (await EquiDB.get('config','hub')) || {};
   $("a_discord").value = hubCfg.discord || "";
+
+  $("a_nl_send").onclick = async ()=>{
+    const subject = ($("a_nl_subject").value||"").trim().slice(0,120);
+    const body = ($("a_nl_body").value||"").trim().slice(0,4000);
+    const st = $("a_nl_status");
+    if(!body){ st.textContent = "Write a message first."; return; }
+    let recipients = [];
+    try{ recipients = (await EquiDB.listAll('profiles')).map(p=>p.__owner||p.__id).filter(Boolean); }
+    catch(e){ st.textContent = "Couldn't load members: "+(e&&(e.message||e.code)||e); return; }
+    recipients = Array.from(new Set(recipients)).filter(u=> u && u !== (who&&who.userId));
+    if(!recipients.length){ st.textContent = "No members found."; return; }
+    if(!confirm("Send this newsletter to "+recipients.length+" member"+(recipients.length===1?"":"s")+"? This can't be undone.")) return;
+    $("a_nl_send").disabled = true;
+    let sent=0, failed=0;
+    const chunk = 12;
+    for(let i=0;i<recipients.length;i+=chunk){
+      const batch = recipients.slice(i,i+chunk);
+      await Promise.all(batch.map(async to=>{
+        const id = 'msg_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+        const rec = { id, from: who.userId, to:String(to), subject, body, sentAt:new Date().toISOString(), read:false, newsletter:true };
+        try{ await EquiDB.putWithField('messages', id, who.userId, rec, 'to', String(to)); sent++; }
+        catch(e){ failed++; }
+      }));
+      st.textContent = "Sending… "+sent+"/"+recipients.length+(failed?(" ("+failed+" failed)"):"");
+    }
+    $("a_nl_send").disabled = false;
+    st.textContent = "Done — delivered to "+sent+" member"+(sent===1?"":"s")+(failed?(", "+failed+" failed — press Send again to retry those"):"")+".";
+    if(!failed){ $("a_nl_subject").value=""; $("a_nl_body").value=""; }
+  };
 
   $("a_save_community").onclick = async ()=>{
     $("a_status_community").textContent = "Saving…";
