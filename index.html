@@ -2758,48 +2758,22 @@ function renderMessages(v){
     const mode=__msgView.mode;
     const list = mode==="sent" ? __msgCache.sent : __msgCache.inbox;
 
-    // ---- Notification center data ----
+    // ---- Notification center (SOCIAL only — Bank/Work notifications stay in the Bank tab) ----
     const notifWho = who ? who.userId : null;
-    let friendReqs = [], serverNotifs = [];
+    let friendReqs = [];
     if(notifWho && DB){
       try{ friendReqs = ((await DB.listByField('friendRequests','toUserId', notifWho))||[]).filter(f=>f.status==='pending'); }catch(e){}
     }
-    try{ const tk = await idToken(); const rn = await railwayCall('/getNotifications', { method:'GET', idToken: tk }); serverNotifs = (rn && rn.success) ? (rn.data||[]) : []; }catch(e){}
-    const notifCat = (t)=>{ t=String(t||'').toLowerCase();
-      if(t.includes('friend')) return 'friends';
-      if(t.includes('breed')||t.includes('order')||t.includes('import')||t.includes('genetic')) return 'breeds';
-      if(t.includes('mention')||t.includes('reply')) return 'mentions';
-      if(t.includes('show')||t.includes('result')||t.includes('ribbon')||t.includes('payout')||t.includes('escrow')||t.includes('placement')) return 'shows';
-      return 'system';
-    };
-    const nf = __notifFilter||'all';
-    // Server "friend_request" notices would duplicate the actionable cards below, so hide those specifically.
-    const catNotifs = serverNotifs.filter(n=> !/friend_request/i.test(String(n.type||'')) && (nf==='all' || notifCat(n.type)===nf));
-    const showFriends = (nf==='all'||nf==='friends');
-    const notifUnread = serverNotifs.filter(n=>!n.read).length + friendReqs.length;
-    const notifChip = (id,label)=>`<button class="ghost" data-nfilter="${id}" style="padding:3px 11px;font-size:.85em;${nf===id?'background:var(--accent,#c9a84c);color:#241403;font-weight:bold;border-radius:6px;':''}">${label}</button>`;
     const notifCard = `
       <div class="card">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <b style="color:var(--accent);">Notifications${notifUnread?` (${notifUnread})`:''}</b>
-          <span style="flex:1;"></span>
-          <button class="ghost" id="ntf_markall" style="padding:2px 9px;font-size:.85em;">Mark all read</button>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">
-          ${notifChip('all','All')}${notifChip('friends','Friend requests')}${notifChip('breeds','Breed requests')}${notifChip('mentions','Mentions & replies')}${notifChip('shows','Show results')}${notifChip('system','System')}
-        </div>
-        <div>
-          ${showFriends ? friendReqs.map(r=>`
+        <b style="color:var(--accent);">Notifications${friendReqs.length?` (${friendReqs.length})`:''}</b>
+        <div style="margin-top:10px;">
+          ${friendReqs.length ? friendReqs.map(r=>`
             <div class="bk-notif unread" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
               <div style="flex:1;min-width:150px;"><b>Friend request</b><div><b>${esc(r.fromUserId)}</b> wants to be your friend.</div></div>
               <button class="btn" data-nf-acc="${esc(r.fromUserId)}" style="padding:4px 11px;font-size:.85em;">Accept</button>
               <button class="ghost" data-nf-dec="${esc(r.fromUserId)}" style="padding:4px 11px;font-size:.85em;">Decline</button>
-            </div>`).join('') : ''}
-          ${catNotifs.length ? catNotifs.slice(0,40).map(n=>`
-            <div class="bk-notif ${n.read?'':'unread'}">
-              <div><b>${esc(String(n.type||'').replace(/_/g,' '))}</b></div>
-              <div>${esc(n.message||'')}</div>
-            </div>`).join('') : ((showFriends && friendReqs.length) ? '' : '<div class="small muted" style="padding:4px 0;">Nothing here.</div>')}
+            </div>`).join('') : '<div class="small muted">No new notifications.</div>'}
         </div>
       </div>`;
 
@@ -2872,9 +2846,7 @@ function renderMessages(v){
       if(rr) rr.onclick=()=>{ __resultsCache.loadedAt=0; loadHubResults(true).then(()=>renderResultsInbox(resHost)); };
     }
 
-    // ---- Notification center handlers ----
-    v.querySelectorAll('[data-nfilter]').forEach(b=>b.onclick=()=>{ __notifFilter=b.dataset.nfilter; renderMessages(v); });
-    const nmark=v.querySelector('#ntf_markall'); if(nmark) nmark.onclick=async()=>{ try{ const tk=await idToken(); await railwayCall('/markNotificationsRead',{ idToken:tk, body:{} }); }catch(e){} renderMessages(v); };
+    // ---- Notification center handlers (friend requests only; Bank stays in Bank) ----
     v.querySelectorAll('[data-nf-acc]').forEach(b=>b.onclick=async()=>{
       b.disabled=true;
       const other=b.dataset.nfAcc;
