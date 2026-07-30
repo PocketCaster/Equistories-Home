@@ -248,7 +248,7 @@ function hasActiveStoredPremium(uid){
   const until = __premiumCache[uid];
   return !!until && until > Date.now();
 }
-function isPremiumMember(uid){ return !!uid && (PREMIUM_MEMBERS.includes(uid) || hasActiveStoredPremium(uid)); }
+function isPremiumMember(uid){ return !!uid && (PREMIUM_MEMBERS.includes(uid) || isAdminMember(uid) || hasActiveStoredPremium(uid)); }
 // Per-stat gear cap: regular +2, premium +3, admin unlimited.
 function gearStatCap(uid){ return isAdminMember(uid) ? Infinity : (isPremiumMember(uid) ? 3 : 2); }
 // The premium crest (gold horseshoe) as an inline SVG, sized to ~1em so it
@@ -379,7 +379,7 @@ async function badgeCaseCardHtml(DB, uid, isSelf){
 
   // 1) Catalog badges — backer + community events (manual holder lists).
   catalogBadgesForUser(uid).forEach(b=>{
-    badges.push({ icon:b.icon, title:b.name, desc:b.desc, color:'#c9a84c' });
+    badges.push({ icon:b.icon, image:b.image, title:b.name, desc:b.desc, color:'#c9a84c' });
   });
 
   // 2) Association badges — one per club the member belongs to, showing
@@ -395,6 +395,7 @@ async function badgeCaseCardHtml(DB, uid, isSelf){
       const rank = assocRankFor(m.points, a.ranks);
       badges.push({
         icon:  rank.emoji || '\u{1F397}\u{FE0F}',    // 🎗️ fallback
+        image: rank.image || '',
         title: (a.name || 'Association') + ' \u2014 ' + (rank.name || 'Member'),
         desc:  'Member of ' + (a.name || 'this association') + '.',
         color: rank.color || '#8a6820'
@@ -414,9 +415,9 @@ async function badgeCaseCardHtml(DB, uid, isSelf){
   const chips = badges.map(b=>`
     <div title="${__badgeEsc((b.title||'') + (b.desc ? ' \u2014 '+b.desc : ''))}"
          style="display:flex;flex-direction:column;align-items:center;gap:4px;width:64px;">
-      <div style="width:52px;height:52px;border-radius:50%;display:flex;align-items:center;
+      <div style="width:52px;height:52px;border-radius:50%;overflow:hidden;display:flex;align-items:center;
                   justify-content:center;font-size:1.5em;background:var(--deep,#2a2015);
-                  border:2px solid ${b.color||'#c9a84c'};box-shadow:0 1px 4px rgba(0,0,0,.35);">${b.icon||'\u{1F396}\u{FE0F}'}</div>
+                  border:2px solid ${b.color||'#c9a84c'};box-shadow:0 1px 4px rgba(0,0,0,.35);">${b.image ? `<img src="${__badgeEsc(b.image)}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.textContent='\u{1F396}\u{FE0F}'">` : (b.icon||'\u{1F396}\u{FE0F}')}</div>
       <div style="font-size:.62em;line-height:1.1;text-align:center;color:var(--dim,#8a7860);
                   max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${__badgeEsc(b.title||'')}</div>
     </div>`).join('');
