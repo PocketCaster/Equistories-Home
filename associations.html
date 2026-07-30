@@ -137,6 +137,9 @@ function currentRank(points, ranks){
 function rankBadgeHtml(rank){
   if(!rank) return '';
   const color = rank.color || '#c9a84c';
+  if(rank.image){
+    return `<span class="badge" style="background:${esc(color)};color:#1a130c;gap:5px;padding-left:4px;"><img src="${esc(rank.image)}" alt="" style="width:20px;height:20px;object-fit:cover;border-radius:4px;vertical-align:middle;" onerror="this.style.display='none'" />${esc(rank.name)}</span>`;
+  }
   return `<span class="badge" style="background:${esc(color)};color:#1a130c;">${rank.emoji?esc(rank.emoji)+' ':''}${esc(rank.name)}</span>`;
 }
 function initials(name){
@@ -592,12 +595,13 @@ function renderManagePanel(a, isOwner){
   function drawRanks(){
     const box = el.querySelector('#a_ranks_list');
     box.innerHTML = ranksState.map((r,i)=>`
-      <div class="rank-row">
+      <div class="rank-row" style="flex-wrap:wrap;">
         <input data-rf="name" data-i="${i}" value="${esc(r.name||'')}" placeholder="Rank name" />
         <input data-rf="threshold" data-i="${i}" type="number" value="${r.threshold||0}" placeholder="Points needed" style="max-width:120px;" />
         <input data-rf="emoji" data-i="${i}" value="${esc(r.emoji||'')}" placeholder="🏅" style="max-width:70px;" />
         <input data-rf="color" data-i="${i}" type="color" value="${r.color||'#c9a84c'}" style="max-width:50px;padding:2px;" />
         <button class="ghost danger" data-rdel="${i}" style="padding:4px 10px;">✕</button>
+        <input data-rf="image" data-i="${i}" value="${esc(r.image||'')}" placeholder="Badge image URL — 100×100 (optional, overrides emoji)" style="flex:1 1 100%;" />
       </div>`).join('');
     box.querySelectorAll('[data-rf]').forEach(inp=>inp.oninput=()=>{
       const i = +inp.dataset.i, f = inp.dataset.rf;
@@ -644,7 +648,7 @@ function renderManagePanel(a, isOwner){
     try{ await DB.put('associations', a.id, who.userId, next); a.announcement=next.announcement; statusEl.textContent="Saved."; renderOneAssociation(a.id); }
     catch(err){ statusEl.textContent = "Failed: "+(err.message||err); }
   };
-  el.querySelector('#am_add_rank').onclick = ()=>{ ranksState.push({name:'New Rank', threshold:0, emoji:'🏅', color:'#c9a84c'}); drawRanks(); };
+  el.querySelector('#am_add_rank').onclick = ()=>{ ranksState.push({name:'New Rank', threshold:0, emoji:'🏅', color:'#c9a84c', image:''}); drawRanks(); };
   el.querySelector('#am_save_ranks').onclick = async ()=>{
     const statusEl = el.querySelector('#am_status_ranks');
     statusEl.textContent = "Saving…";
