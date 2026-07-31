@@ -3445,8 +3445,7 @@ function renderRoster(){
             const customOpts=custom.length?`<optgroup label="— Custom/Created Breeds —">
               ${custom.map(b=>`<option value="${b.name.toLowerCase()}">${b.name}</option>`).join("")}
             </optgroup>`:"";
-            return `<optgroup label="— Common Breeds —">${commonOpts}</optgroup>${customOpts}
-              <option value="__other__">Other (type it in)…</option>`;
+            return `<optgroup label="— Common Breeds —">${commonOpts}</optgroup>${customOpts}`;
           })()}
         </select>
         <input id="nh_breed_other" placeholder="Type breed name" style="display:none;margin-top:4px;" />
