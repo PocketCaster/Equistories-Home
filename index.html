@@ -3850,6 +3850,9 @@ async function breedAdmin(body, DB, who, breed){
       <label>Preview image link</label><input id="ni_image" placeholder="https://…/preview.png" />
       <label>Design link (DeviantArt etc.)</label><input id="ni_design" placeholder="https://www.deviantart.com/…" />
       <label>Price (✦)</label><input id="ni_price" type="number" min="0" value="0" />
+      <details style="margin:8px 0;"><summary class="small" style="cursor:pointer;color:var(--accent);">🧬 Set genetics (so the horse arrives bred-ready)</summary>
+        <div style="margin-top:6px;">${copierHtml('ni', copierGenes)}</div>
+      </details>
       <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button id="ni_add">List import</button><span id="ni_msg" class="small"></span>
       </div>` : `
@@ -3951,6 +3954,7 @@ async function breedAdmin(body, DB, who, breed){
     const rec={ id, owner:who.userId, breedId:breed.id, name,
       image:$("ni_image").value.trim(), designUrl:$("ni_design").value.trim(),
       price:Math.max(0,Number($("ni_price").value)||0), kind:"premade",
+      genotype: copierGenotype(document, 'ni'),
       status:"available", listedAt:new Date().toISOString() };
     $("ni_msg").textContent="Listing…";
     try{ await DB.put('breedImports', id, who.userId, rec); renderBreeds(document.getElementById('view')); }

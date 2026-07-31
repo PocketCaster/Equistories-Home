@@ -1714,6 +1714,10 @@ function applyLevelsFromExp(h, silent){
 function checkLevelUp(h){ applyLevelsFromExp(h, false); }
 
 function recomputeHorse(h){
+  // NPC / group breeding animals have their level and stats set BY HAND (an NPC
+  // stud can be any level without training), so we skip the EXP-driven rebuild
+  // for them — otherwise this would wipe the override on every load.
+  if(h.npcOverride){ if(!h.stats||typeof h.stats!=='object') h.stats={}; return; }
   // A horse's starting point. Normally every stat begins at BASE_STAT_VALUE,
   // but a FOAL starts from the average of its parents — so that average is
   // stored on the horse and used here. Without this, stats are rebuilt from
@@ -3765,6 +3769,22 @@ function renderRoster(){
         <button class="danger" data-act="del" data-id="${h.id}" style="font-size:1em;padding:4px 10px;margin-top:0;">Remove</button>
         <button class="secondary" data-act="transfer-horse" data-id="${h.id}" style="font-size:1em;padding:4px 10px;margin-top:0;">Sell / Transfer</button>
       </div>
+      ${h.groupBreeding ? `<details data-npcedit="${h.id}" style="margin-top:6px;">
+        <summary class="small" style="cursor:pointer;color:var(--equi-accent);">⚙ NPC level &amp; stats (breeding override)</summary>
+        <div style="margin-top:8px;padding:10px;border:1px solid var(--equi-line);border-radius:8px;">
+          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+            <label class="small" style="display:flex;flex-direction:column;">Level (1&ndash;10)
+              <input type="number" min="1" max="10" data-npclevel="${h.id}" value="${h.level||1}" style="max-width:90px;" /></label>
+            <button class="secondary" data-npcfill="${h.id}" style="margin-top:0;">Auto-fill stats for level</button>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+            ${STATS.map(s=>`<label class="small" style="display:flex;flex-direction:column;">${STAT_LABELS[s]||s}
+              <input type="number" min="0" data-npcstat="${h.id}" data-stat="${s}" value="${(h.stats&&Number.isFinite(Number(h.stats[s])))?h.stats[s]:BASE_STAT_VALUE}" style="max-width:72px;" /></label>`).join('')}
+          </div>
+          <button class="secondary" data-npcsave="${h.id}" style="margin-top:10px;">Save NPC level &amp; stats</button>
+          <span data-npcmsg="${h.id}" class="small" style="margin-left:8px;"></span>
+        </div>
+      </details>` : ''}
       ${artLogHtml}
     `;
     wrap.appendChild(card);
@@ -3809,6 +3829,30 @@ function renderRoster(){
     h.groupBreeding=true;
     h.slotPrice=Math.max(0, Number(priceStr)||0);
     await saveHorse(h); render();
+  });
+  wrap.querySelectorAll('[data-npcfill]').forEach(b=>b.onclick=()=>{
+    const root=b.closest('[data-npcedit]'); if(!root) return;
+    const L=Math.max(1,Math.min(10, Math.round(Number(root.querySelector('[data-npclevel]').value)||1)));
+    let bonus=0; for(let i=2;i<=L;i++) bonus+=(LEVEL_TABLE[i]?.bonus||0);
+    root.querySelectorAll('[data-npcstat]').forEach(inp=>{ inp.value = BASE_STAT_VALUE + bonus; });
+  });
+  wrap.querySelectorAll('[data-npcsave]').forEach(b=>b.onclick=async()=>{
+    const h=state.horses.find(x=>x.id===b.dataset.npcsave); if(!h) return;
+    const root=b.closest('[data-npcedit]'); if(!root) return;
+    const L=Math.max(1,Math.min(10, Math.round(Number(root.querySelector('[data-npclevel]').value)||1)));
+    const stats={};
+    root.querySelectorAll('[data-npcstat]').forEach(inp=>{ stats[inp.dataset.stat]=Math.max(0, Math.round(Number(inp.value)||0)); });
+    STATS.forEach(s=>{ if(!Number.isFinite(Number(stats[s]))) stats[s]=BASE_STAT_VALUE; });
+    h.npcOverride=true;
+    h.level=L;
+    h.exp=(LEVEL_TABLE[L]?.exp)||0;
+    let slots=BASE_BREEDING_SLOTS; for(let i=2;i<=L;i++) slots+=(LEVEL_TABLE[i]?.slots||0);
+    h.breedingSlots=slots;
+    h.stats=stats;
+    h.baseStats=Object.assign({}, stats);   // survives any recompute
+    await saveHorse(h);
+    const msg=root.querySelector('[data-npcmsg]'); if(msg){ msg.textContent='Saved.'; }
+    render();
   });
   wrap.querySelectorAll('[data-act="equip-select"]').forEach(sel=>sel.onchange=()=>{
     const h=state.horses.find(x=>x.id===sel.dataset.id);
@@ -8632,12 +8676,22 @@ function firstOpenSlotIndex(h){
 // shop put in their inventory. Matches on the effect string, so a token only
 // works if the shop item's effect matches BREEDING_TOKENS[key].effect exactly.
 function availableBreedingTokens(){
-  const byEffect={};
-  Object.values(BREEDING_TOKENS).forEach(t=>byEffect[t.effect]=t);
+  const defs = Object.values(BREEDING_TOKENS);
+  const norm = s => String(s||'').trim().toLowerCase().replace(/[\s_\-]+/g,'');
   const out=[];
   (state.consumables||[]).forEach(c=>{
-    const def=byEffect[c.effect];
-    if(def) out.push({key:def.key, label:def.label, desc:def.desc, invId:c.invId, left:c.left});
+    const ce = norm(c.effect), cn = norm(c.name), ct = norm(c.effectTag);
+    // Match generously: an item counts as a breeding token if its effect, tag,
+    // or name lines up with the token's effect, key, or label — with or without
+    // the "breeding_" prefix / "token" suffix. Prevents an item that was
+    // authored as e.g. "twin" or "Twin Token" from silently not appearing.
+    const def = defs.find(t=>{
+      const te = norm(t.effect), tk = norm(t.key), tl = norm(t.label);
+      return ce===te || ce===tk || ce===('breeding'+tk) ||
+             ct===te || ct===tk ||
+             cn===tl || cn===te || cn===('breeding'+tk) || cn===(tk+'token');
+    });
+    if(def && !out.some(o=>o.invId===c.invId)) out.push({key:def.key, label:def.label, desc:def.desc, invId:c.invId, left:c.left});
   });
   return out;
 }
