@@ -306,6 +306,7 @@
 
 
 <script src="equi-constants.js"></script>
+<script src="equi-genes.js"></script>
 <script src="equi-bank.js"></script>
 
 <script>
@@ -764,7 +765,8 @@ async function renderBank(v){
   async function loadNotifs(){
     const token = await idToken();
     const r = await railwayCall('/getNotifications', { method:'GET', idToken: token });
-    const ns = (r && r.success) ? (r.data||[]) : [];
+    const nsAll = (r && r.success) ? (r.data||[]) : [];
+    const ns = nsAll.filter(n=>!isSocialNotif(n.type));   // social notifs live in the Messages tab now
     const unread = ns.filter(n=>!n.read).length;
     const badge = $("bkUnread");
     if(unread>0){ badge.textContent = unread>99?'99+':unread; badge.classList.remove('hide'); }
@@ -2668,6 +2670,13 @@ function renderResultsInbox(host){
 
 let __msgView = { mode:"inbox", to:"", replyTo:null };
 let __inboxFilter = "all"; // Messages inbox filter: 'all' | 'newsletters'
+// Which server notification types are SOCIAL (forum, mentions, replies, friend,
+// association) and belong in the Messages notification panel. Everything else —
+// shop sales, bot/Discord, and money — stays in the Bank bell.
+function isSocialNotif(t){
+  t = String(t||'').toLowerCase();
+  return /mention|reply|forum|thread|comment|status|friend|assoc|wall|reaction|tagged|liked|newpost|new_post/.test(t);
+}
 
 function msgId(){ return 'm_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
 
@@ -2758,14 +2767,20 @@ function renderMessages(v){
     const mode=__msgView.mode;
     const list = mode==="sent" ? __msgCache.sent : __msgCache.inbox;
 
-    // ---- Notification center (SOCIAL only — Bank/Work notifications stay in the Bank tab) ----
+    // ---- Notification center (SOCIAL only — forum/mentions/replies/friends; Bank keeps shop+bot+money) ----
     const notifWho = who ? who.userId : null;
-    let friendReqs = [];
+    let friendReqs = [], socialNotifs = [];
     if(notifWho && DB){
       try{ friendReqs = ((await DB.listByField('friendRequests','toUserId', notifWho))||[]).filter(f=>f.status==='pending'); }catch(e){}
     }
+    try{
+      const tk = await idToken();
+      const rn = await railwayCall('/getNotifications', { method:'GET', idToken: tk });
+      const feed = (rn && rn.success) ? (rn.data||[]) : [];
+      socialNotifs = feed.filter(n=>isSocialNotif(n.type) && !/friend_request/i.test(String(n.type||'')));
+    }catch(e){}
     const newsletterNotifs = (__msgCache.inbox||[]).filter(m=>m.newsletter && !m.read);
-    const notifTotal = friendReqs.length + newsletterNotifs.length;
+    const notifTotal = friendReqs.length + newsletterNotifs.length + socialNotifs.filter(n=>!n.read).length;
     const notifCard = `
       <div class="card">
         <b style="color:var(--accent);">Notifications${notifTotal?` (${notifTotal})`:''}</b>
@@ -2780,6 +2795,11 @@ function renderMessages(v){
             <div class="bk-notif unread" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
               <div style="flex:1;min-width:150px;"><b>📢 New newsletter</b><div>${esc(m.subject||'(no subject)')}</div></div>
               <button class="ghost" data-nf-news="1" style="padding:4px 11px;font-size:.85em;">Read</button>
+            </div>`).join('')}
+          ${socialNotifs.slice(0,40).map(n=>`
+            <div class="bk-notif ${n.read?'':'unread'}">
+              <div><b>${esc(String(n.type||'').replace(/_/g,' '))}</b></div>
+              <div>${esc(n.message||'')}</div>
             </div>`).join('')}
           ${notifTotal ? '' : '<div class="small muted">No new notifications.</div>'}
         </div>
@@ -3384,6 +3404,53 @@ function breedAbout(body, DB, who, breed, staff){
 }
 
 /* ---------------- imports store (buy premades, request customs) ---------------- */
+// A breed's genetics are "registered" once an admin has built them in the
+// Stable Manager — i.e. the breed appears WITH loci in config/global.customBreeds.
+// Until then, imports are locked (there'd be no genes to build the horse from).
+// Fail-open: a transient config read error must never lock out a real breed.
+async function breedGeneticsRegistered(DB, breedName){
+  try{
+    const g = await DB.get('config','global');
+    const custom = (g && g.customBreeds) || [];
+    const n = String(breedName||'').trim().toLowerCase();
+    return custom.some(b=>{
+      const nm = String((b && b.name) || '').trim().toLowerCase();
+      const loci = Array.isArray(b) ? b : (b && b.loci);
+      return nm === n && Array.isArray(loci) && loci.length > 0;
+    });
+  }catch(e){ return true; }
+}
+
+// ---- Import genetics COPIER (data-driven; no engine) ----
+// Resolves the genes a breed's copier should offer: its base loci + the loci
+// the breed was given (customBreeds[breed].loci), looked up in the shared
+// built-in snapshot (EQUI_BUILTIN_LOCI) and custom genes (config/global).
+function copierGenesFor(breedName, customBreeds, customGenes){
+  const builtins = window.EQUI_BUILTIN_LOCI || [];
+  const byKey = {};
+  builtins.forEach(l=>{ byKey[l.key]=l; });
+  (customGenes||[]).forEach(g=>{ if(g && g.key) byKey[g.key]=g; });
+  const br = (customBreeds||[]).find(b=>String(b.name||'').trim().toLowerCase()===String(breedName||'').trim().toLowerCase());
+  const keys = [];
+  builtins.filter(l=>l.base).forEach(l=>keys.push(l.key));
+  (br && Array.isArray(br.loci) ? br.loci : []).forEach(k=>{ if(!keys.includes(k)) keys.push(k); });
+  return keys.map(k=>byKey[k]).filter(g=>g && Array.isArray(g.options) && g.options.length);
+}
+function copierHtml(orderId, genes){
+  if(!genes.length) return '<div class="small muted">No genes found for this breed — confirm its genetics are registered.</div>';
+  return genes.map(g=>`
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;flex-wrap:wrap;">
+      <label class="small" style="min-width:130px;flex:0 0 auto;">${esc((g.label||g.key).split(' — ')[0].split(' (')[0])}</label>
+      <select data-copier="${esc(orderId)}" data-gene="${esc(g.key)}" style="flex:1;min-width:150px;">
+        ${g.options.map(o=>`<option value="${esc(o.code)}">${esc(o.desc||o.code)} · ${esc(o.code)}</option>`).join('')}
+      </select>
+    </div>`).join('');
+}
+function copierGenotype(container, orderId){
+  return [...container.querySelectorAll(`[data-copier="${(window.CSS&&CSS.escape)?CSS.escape(orderId):orderId}"]`)]
+    .map(s=>s.value).filter(Boolean).join(' ');
+}
+
 async function breedImportsView(body, DB, who, breed, staff){
   let imports=[]; try{ imports = await DB.listByOwner('breedImports', breed.owner); }catch(e){}
   // staff other than the founder may have listed some; also pull theirs
@@ -3394,12 +3461,17 @@ async function breedImportsView(body, DB, who, breed, staff){
   }
   imports = imports.filter(i=>i && i.breedId===breed.id);
   const available = imports.filter(i=>i.status==='available' || i.status==='pending');
+  const registered = await breedGeneticsRegistered(DB, breed.name);
 
   body.innerHTML = `
+    ${registered ? '' : `<div class="card" style="border:1px solid var(--accent);">
+      <b style="color:var(--accent);">⚠ Imports locked</b>
+      <p class="small" style="margin:6px 0 0;">This breed's genetics haven't been registered with the Stable Manager yet, so imports can't be ordered here. They'll open automatically once the founder registers the breed's genetics.</p>
+    </div>`}
     <div class="card">
       <h3>Imports for sale</h3>
       ${available.length ? `<div class="imp-grid">${available.map(i=>{
-        const claimable = i.status==='available' && who;
+        const claimable = i.status==='available' && who && registered;
         return `<div class="imp-card">
           <div class="img ${imgOk(i.image)?'':'noimg'}" ${imgOk(i.image)?`style="background-image:url('${esc(i.image)}')"`:''}>${imgOk(i.image)?'':'🐴'}</div>
           <div class="pad">
@@ -3412,7 +3484,7 @@ async function breedImportsView(body, DB, who, breed, staff){
         </div>`;
       }).join("")}</div>` : `<p class="small muted">No imports listed right now.</p>`}
     </div>
-    ${who ? `<div class="card">
+    ${(who && registered) ? `<div class="card">
       <h3>Order a custom import</h3>
       <p class="small">Commission a one-of-a-kind design. Staff review your request, create the design, and place the
         finished horse on your account.</p>
@@ -3587,6 +3659,7 @@ async function breedClaimOrder(body, DB, who, breed, order){
   const horse = {
     id:horseId, name:order.horseName||"New Import", breed:breed.name,
     age:3, stage:"adult", level:1, exp:0,
+    genotype: order.genotype || "",
     importLink: order.designUrl || "",
     ownerName: who.userId,
     fromBreedOrder: order.id,
@@ -3616,6 +3689,10 @@ async function breedAdmin(body, DB, who, breed){
   const pending = orders.filter(o=>o.status==='submitted');
   const th = Object.assign({}, BREED_THEME_DEFAULTS, breed.theme||{});
   const isFounder = breed.owner===who.userId;
+  const registered = await breedGeneticsRegistered(DB, breed.name);
+  let cfgCustomBreeds=[], cfgCustomGenes=[];
+  try{ const g = await DB.get('config','global'); cfgCustomBreeds=(g&&g.customBreeds)||[]; cfgCustomGenes=(g&&g.customGenes)||[]; }catch(e){}
+  const copierGenes = copierGenesFor(breed.name, cfgCustomBreeds, cfgCustomGenes);
 
   body.innerHTML = `
     <div class="card">
@@ -3626,6 +3703,9 @@ async function breedAdmin(body, DB, who, breed){
           <div class="small">by ${esc(o.owner)} · ${esc(String(o.submittedAt||'').slice(0,10))}</div>
           ${o.refs?`<div class="small" style="margin-top:4px;">Refs: ${esc(o.refs)}</div>`:''}
           ${o.designUrl?`<div class="small"><a href="${esc(o.designUrl)}" target="_blank" rel="noopener">Premade design →</a></div>`:''}
+          <details style="margin-top:8px;"><summary class="small" style="cursor:pointer;color:var(--accent);">🧬 Set genetics for this horse</summary>
+            <div style="margin-top:8px;">${copierHtml(o.id, copierGenes)}</div>
+          </details>
           <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             ${o.kind==='custom'?`<input placeholder="Design URL to attach" data-design="${esc(o.id)}" style="flex:1;min-width:180px;" />`:''}
             <input placeholder="Note to buyer (optional)" data-note="${esc(o.id)}" style="flex:1;min-width:160px;" />
@@ -3637,13 +3717,18 @@ async function breedAdmin(body, DB, who, breed){
 
     <div class="card">
       <h3>List an import</h3>
+      ${registered ? `
       <label>Name</label><input id="ni_name" placeholder="e.g. Black Spell" />
       <label>Preview image link</label><input id="ni_image" placeholder="https://…/preview.png" />
       <label>Design link (DeviantArt etc.)</label><input id="ni_design" placeholder="https://www.deviantart.com/…" />
       <label>Price (✦)</label><input id="ni_price" type="number" min="0" value="0" />
       <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button id="ni_add">List import</button><span id="ni_msg" class="small"></span>
-      </div>
+      </div>` : `
+      <div style="border:1px solid var(--accent);border-radius:8px;padding:12px;background:var(--deep);">
+        <b style="color:var(--accent);">⚠ Please register your genetics with the Stable Manager</b>
+        <p class="small" style="margin:6px 0 0;">Imports are locked until this breed's genetics are added to the database. Use the <b>“Request genetics for the Stable Manager”</b> form below to submit them — once an admin builds them, listing unlocks automatically.</p>
+      </div>`}
     </div>
 
     <div class="card">
@@ -3711,7 +3796,7 @@ async function breedAdmin(body, DB, who, breed){
     </div>` : ''}`;
 
   // order approve/decline
-  body.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>breedApproveOrder(body, DB, who, breed, orders.find(o=>o.id===b.dataset.approve), body.querySelector(`[data-design="${CSS.escape(b.dataset.approve)}"]`), body.querySelector(`[data-note="${CSS.escape(b.dataset.approve)}"]`)));
+  body.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>breedApproveOrder(body, DB, who, breed, orders.find(o=>o.id===b.dataset.approve), body.querySelector(`[data-design="${CSS.escape(b.dataset.approve)}"]`), body.querySelector(`[data-note="${CSS.escape(b.dataset.approve)}"]`), copierGenotype(body, b.dataset.approve)));
   body.querySelectorAll('[data-decline]').forEach(b=>b.onclick=async()=>{
     const o=orders.find(x=>x.id===b.dataset.decline); if(!o) return;
     const note = body.querySelector(`[data-note="${CSS.escape(o.id)}"]`);
@@ -3738,14 +3823,43 @@ async function breedAdmin(body, DB, who, breed){
 
   // listed imports management
   if($("ni_list") && imports.length){
-    $("ni_list").innerHTML = imports.map(i=>`<div class="reg-row">
+    $("ni_list").innerHTML = imports.map(i=>`<div class="reg-row" data-improw="${esc(i.id)}">
       <div class="thumb" ${imgOk(i.image)?`style="background-image:url('${esc(i.image)}')"`:''}></div>
       <div style="flex:1;"><b>${esc(i.name)}</b><div class="small">✦${Number(i.price)||0} · <span class="imp-status ${i.status}">${esc(i.status)}</span></div></div>
+      <button class="ghost" data-editimp="${esc(i.id)}" style="padding:5px 10px;">Edit</button>
       <button class="ghost" data-retire="${esc(i.id)}" style="color:var(--bad);padding:5px 10px;">Delete</button>
     </div>`).join("");
     $("ni_list").querySelectorAll('[data-retire]').forEach(b=>b.onclick=async()=>{
       if(!confirm('Delete this listing?')) return;
       await DB.remove('breedImports', b.dataset.retire); renderBreeds(document.getElementById('view'));
+    });
+    $("ni_list").querySelectorAll('[data-editimp]').forEach(b=>b.onclick=()=>{
+      const imp = imports.find(x=>x.id===b.dataset.editimp); if(!imp) return;
+      const row = $("ni_list").querySelector(`[data-improw="${CSS.escape(imp.id)}"]`);
+      row.innerHTML = `
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+          <input data-ef="name" value="${esc(imp.name||'')}" placeholder="Name" />
+          <input data-ef="image" value="${esc(imp.image||'')}" placeholder="Preview image link" />
+          <input data-ef="design" value="${esc(imp.designUrl||'')}" placeholder="Design link" />
+          <input data-ef="price" type="number" min="0" value="${Number(imp.price)||0}" placeholder="Price (✦)" style="max-width:140px;" />
+          <div style="display:flex;gap:8px;margin-top:2px;">
+            <button data-savimp="${esc(imp.id)}">Save changes</button>
+            <button class="ghost" data-cancimp="1">Cancel</button>
+            <span data-emsg class="small"></span>
+          </div>
+        </div>`;
+      const g=(f)=>row.querySelector(`[data-ef="${f}"]`).value.trim();
+      row.querySelector('[data-savimp]').onclick = async ()=>{
+        const updated = Object.assign({}, imp, {
+          name:g('name'), image:g('image'), designUrl:g('design'),
+          price:Math.max(0, Number(row.querySelector('[data-ef="price"]').value)||0)
+        });
+        if(!updated.name){ row.querySelector('[data-emsg]').textContent='Name it.'; return; }
+        row.querySelector('[data-emsg]').textContent='Saving…';
+        try{ await DB.put('breedImports', imp.id, imp.owner||breed.owner, updated); renderBreeds(document.getElementById('view')); }
+        catch(err){ row.querySelector('[data-emsg]').textContent='Failed: '+(err.message||err); }
+      };
+      row.querySelector('[data-cancimp]').onclick = ()=> renderBreeds(document.getElementById('view'));
     });
   }
 
@@ -3824,13 +3938,14 @@ async function breedAdmin(body, DB, who, breed){
 
 // Approve: mark the order approved so the BUYER can claim it (which pays + creates
 // the horse on their own account). Staff attach a design URL for customs here.
-async function breedApproveOrder(body, DB, who, breed, order, designEl, noteEl){
+async function breedApproveOrder(body, DB, who, breed, order, designEl, noteEl, genotype){
   if(!order) return;
   order.status="approved";
   order.reviewedBy=who.userId;
   order.reviewNote=(noteEl&&noteEl.value.trim())||"";
   order.decidedAt=new Date().toISOString();
   if(designEl && designEl.value.trim()) order.designUrl=designEl.value.trim();
+  if(genotype && genotype.trim()) order.genotype=genotype.trim();
   try{
     await DB.putWithField('breedOrders', order.id, order.owner, order, 'breedId', order.breedId);
   }catch(err){
