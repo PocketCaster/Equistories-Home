@@ -3436,19 +3436,39 @@ function copierGenesFor(breedName, customBreeds, customGenes){
   (br && Array.isArray(br.loci) ? br.loci : []).forEach(k=>{ if(!keys.includes(k)) keys.push(k); });
   return keys.map(k=>byKey[k]).filter(g=>g && Array.isArray(g.options) && g.options.length);
 }
-function copierHtml(orderId, genes){
-  if(!genes.length) return '<div class="small muted">No genes found for this breed — confirm its genetics are registered.</div>';
-  return genes.map(g=>`
+function copierTraitsFor(breedName, customBreeds){
+  const br = (customBreeds||[]).find(b=>String(b.name||'').trim().toLowerCase()===String(breedName||'').trim().toLowerCase());
+  const own = (br && Array.isArray(br.rareTraits)) ? br.rareTraits : [];
+  const globals = window.EQUI_GLOBAL_TRAITS || [];
+  const seen = new Set(own.map(t=>String(t.name||'').toLowerCase()));
+  return [...own, ...globals.filter(t=>t && !seen.has(String(t.name||'').toLowerCase()))].filter(t=>t && t.name);
+}
+function copierHtml(orderId, genes, traits, current){
+  const cur = current || {};
+  const curTraits = new Set((cur.rareTraits||[]).map(n=>String(n).toLowerCase()));
+  const geneHtml = (genes&&genes.length) ? genes.map(g=>`
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;flex-wrap:wrap;">
       <label class="small" style="min-width:130px;flex:0 0 auto;">${esc((g.label||g.key).split(' — ')[0].split(' (')[0])}</label>
       <select data-copier="${esc(orderId)}" data-gene="${esc(g.key)}" style="flex:1;min-width:150px;">
         ${g.options.map(o=>`<option value="${esc(o.code)}">${esc(o.desc||o.code)} · ${esc(o.code)}</option>`).join('')}
       </select>
-    </div>`).join('');
+    </div>`).join('') : '<div class="small muted">No genes found for this breed — confirm its genetics are registered.</div>';
+  const traitHtml = (traits&&traits.length) ? `
+    <div style="margin-top:10px;">
+      <b class="small">Rare markings &amp; traits</b>
+      <div class="small muted" style="margin:2px 0 6px;">Tick the ones this horse carries — they pass to foals at the listed chance.</div>
+      <div style="display:flex;flex-wrap:wrap;">
+        ${traits.map(t=>`<label class="small" style="display:inline-flex;align-items:center;gap:5px;margin:2px 12px 2px 0;"><input type="checkbox" data-copiertrait="${esc(orderId)}" value="${esc(t.name)}" ${curTraits.has(String(t.name).toLowerCase())?'checked':''} /> ${esc(t.name)} <span class="muted">(${Number(t.chance)||0}%${t.requiresLabel?', needs '+esc(t.requiresLabel):''})</span></label>`).join('')}
+      </div>
+    </div>` : '';
+  return geneHtml + traitHtml;
 }
 function copierGenotype(container, orderId){
   return [...container.querySelectorAll(`[data-copier="${(window.CSS&&CSS.escape)?CSS.escape(orderId):orderId}"]`)]
     .map(s=>s.value).filter(Boolean).join(' ');
+}
+function copierTraits(container, orderId){
+  return [...container.querySelectorAll(`[data-copiertrait="${(window.CSS&&CSS.escape)?CSS.escape(orderId):orderId}"]:checked`)].map(c=>c.value);
 }
 
 async function breedImportsView(body, DB, who, breed, staff){
@@ -3687,7 +3707,7 @@ async function breedOrderPremade(body, DB, who, breed, imports, importId){
   const orderId="order_"+Math.random().toString(36).slice(2,10);
   const order={ id:orderId, owner:who.userId, breedId:breed.id, importId:imp.id, kind:"premade",
     horseName:horseName.trim()||imp.name, price:Number(imp.price)||0, note:"",
-    designUrl:imp.designUrl||"", image:imp.image||"", genotype:imp.genotype||"",
+    designUrl:imp.designUrl||"", image:imp.image||"", genotype:imp.genotype||"", rareTraits:imp.rareTraits||[],
     status:"submitted", submittedAt:new Date().toISOString() };
   try{
     await DB.putWithField('breedOrders', orderId, who.userId, order, 'breedId', order.breedId);
@@ -3773,6 +3793,7 @@ async function breedClaimOrder(body, DB, who, breed, order){
     id:horseId, name:order.horseName||"New Import", breed:breed.name,
     age:3, stage:"adult", level:1, exp:0,
     genotype: order.genotype || "",
+    rareTraits: Array.isArray(order.rareTraits) ? order.rareTraits : [],
     importLink: order.designUrl || "",
     ownerName: who.userId,
     fromBreedOrder: order.id,
@@ -3807,6 +3828,7 @@ async function breedAdmin(body, DB, who, breed){
   let cfgCustomBreeds=[], cfgCustomGenes=[];
   try{ const g = await DB.get('config','global'); cfgCustomBreeds=(g&&g.customBreeds)||[]; cfgCustomGenes=(g&&g.customGenes)||[]; }catch(e){}
   const copierGenes = copierGenesFor(breed.name, cfgCustomBreeds, cfgCustomGenes);
+  const copierBreedTraits = copierTraitsFor(breed.name, cfgCustomBreeds);
 
   body.innerHTML = `
     <div class="card">
@@ -3818,7 +3840,7 @@ async function breedAdmin(body, DB, who, breed){
           ${o.refs?`<div class="small" style="margin-top:4px;">Refs: ${esc(o.refs)}</div>`:''}
           ${o.designUrl?`<div class="small"><a href="${esc(o.designUrl)}" target="_blank" rel="noopener">Premade design →</a></div>`:''}
           <details style="margin-top:8px;"><summary class="small" style="cursor:pointer;color:var(--accent);">🧬 Set genetics for this horse</summary>
-            <div style="margin-top:8px;">${copierHtml(o.id, copierGenes)}</div>
+            <div style="margin-top:8px;">${copierHtml(o.id, copierGenes, copierBreedTraits, o)}</div>
           </details>
           <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             ${o.kind==='custom'?`<input placeholder="Design URL to attach" data-design="${esc(o.id)}" style="flex:1;min-width:180px;" />`:''}
@@ -3851,7 +3873,7 @@ async function breedAdmin(body, DB, who, breed){
       <label>Design link (DeviantArt etc.)</label><input id="ni_design" placeholder="https://www.deviantart.com/…" />
       <label>Price (✦)</label><input id="ni_price" type="number" min="0" value="0" />
       <details style="margin:8px 0;"><summary class="small" style="cursor:pointer;color:var(--accent);">🧬 Set genetics (so the horse arrives bred-ready)</summary>
-        <div style="margin-top:6px;">${copierHtml('ni', copierGenes)}</div>
+        <div style="margin-top:6px;">${copierHtml('ni', copierGenes, copierBreedTraits)}</div>
       </details>
       <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button id="ni_add">List import</button><span id="ni_msg" class="small"></span>
@@ -3927,7 +3949,7 @@ async function breedAdmin(body, DB, who, breed){
     </div>` : ''}`;
 
   // order approve/decline
-  body.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>breedApproveOrder(body, DB, who, breed, orders.find(o=>o.id===b.dataset.approve), body.querySelector(`[data-design="${CSS.escape(b.dataset.approve)}"]`), body.querySelector(`[data-note="${CSS.escape(b.dataset.approve)}"]`), copierGenotype(body, b.dataset.approve)));
+  body.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>breedApproveOrder(body, DB, who, breed, orders.find(o=>o.id===b.dataset.approve), body.querySelector(`[data-design="${CSS.escape(b.dataset.approve)}"]`), body.querySelector(`[data-note="${CSS.escape(b.dataset.approve)}"]`), copierGenotype(body, b.dataset.approve), copierTraits(body, b.dataset.approve)));
   body.querySelectorAll('[data-grantslot]').forEach(b=>b.onclick=()=>breedGrantSlot(body, DB, who, breed, orders.find(o=>o.id===b.dataset.grantslot)));
   body.querySelectorAll('[data-declineslot]').forEach(b=>b.onclick=async()=>{
     const o=orders.find(x=>x.id===b.dataset.declineslot); if(!o) return;
@@ -3955,6 +3977,7 @@ async function breedAdmin(body, DB, who, breed){
       image:$("ni_image").value.trim(), designUrl:$("ni_design").value.trim(),
       price:Math.max(0,Number($("ni_price").value)||0), kind:"premade",
       genotype: copierGenotype(document, 'ni'),
+      rareTraits: copierTraits(document, 'ni'),
       status:"available", listedAt:new Date().toISOString() };
     $("ni_msg").textContent="Listing…";
     try{ await DB.put('breedImports', id, who.userId, rec); renderBreeds(document.getElementById('view')); }
@@ -3986,7 +4009,7 @@ async function breedAdmin(body, DB, who, breed){
           <details style="margin:2px 0;"><summary class="small" style="cursor:pointer;color:var(--accent);">🧬 Set / change genetics</summary>
             <div style="margin-top:6px;">
               <label class="small" style="display:block;margin-bottom:6px;"><input type="checkbox" data-genapply /> Apply the genetics selected below when I save</label>
-              ${copierHtml(imp.id, copierGenes)}
+              ${copierHtml(imp.id, copierGenes, copierBreedTraits, imp)}
             </div>
           </details>
           <div style="display:flex;gap:8px;margin-top:2px;">
@@ -4002,7 +4025,7 @@ async function breedAdmin(body, DB, who, breed){
           price:Math.max(0, Number(row.querySelector('[data-ef="price"]').value)||0)
         });
         const applyGen = row.querySelector('[data-genapply]');
-        if(applyGen && applyGen.checked){ updated.genotype = copierGenotype(row, imp.id); }
+        if(applyGen && applyGen.checked){ updated.genotype = copierGenotype(row, imp.id); updated.rareTraits = copierTraits(row, imp.id); }
         if(!updated.name){ row.querySelector('[data-emsg]').textContent='Name it.'; return; }
         row.querySelector('[data-emsg]').textContent='Saving…';
         try{ await DB.put('breedImports', imp.id, imp.owner||breed.owner, updated); renderBreeds(document.getElementById('view')); }
@@ -4087,7 +4110,7 @@ async function breedAdmin(body, DB, who, breed){
 
 // Approve: mark the order approved so the BUYER can claim it (which pays + creates
 // the horse on their own account). Staff attach a design URL for customs here.
-async function breedApproveOrder(body, DB, who, breed, order, designEl, noteEl, genotype){
+async function breedApproveOrder(body, DB, who, breed, order, designEl, noteEl, genotype, traits){
   if(!order) return;
   order.status="approved";
   order.reviewedBy=who.userId;
@@ -4095,6 +4118,7 @@ async function breedApproveOrder(body, DB, who, breed, order, designEl, noteEl, 
   order.decidedAt=new Date().toISOString();
   if(designEl && designEl.value.trim()) order.designUrl=designEl.value.trim();
   if(genotype && genotype.trim()) order.genotype=genotype.trim();
+  if(Array.isArray(traits)) order.rareTraits=traits;
   try{
     await DB.putWithField('breedOrders', order.id, order.owner, order, 'breedId', order.breedId);
   }catch(err){

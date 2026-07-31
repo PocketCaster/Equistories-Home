@@ -195,3 +195,14 @@ window.EQUI_BUILTIN_LOCI = [
   // Admin > Custom Genes to confirm the whole pipeline (breed checkbox,
   // gene grid, Net Worth pricing) still works end-to-end.
 ];
+
+// Global rare traits that apply to every breed (from stable.html
+// GLOBAL_TRAIT_DEFAULTS). The copier merges these with each breed's own
+// rareTraits (from config/global.customBreeds[breed].rareTraits) so staff can
+// tick which traits an import/NPC carries; the breeding engine passes them at
+// the listed chance.
+window.EQUI_GLOBAL_TRAITS = [
+  { type:"flat", name:"Birdcatcher Spots", chance:10 },
+  { type:"flat", name:"Dom White", chance:10 },
+  { type:"conditional", name:"Gulastra Plume", chance:30, requires:{locus:"sabino1", anyOf:["Sbsb"]}, requiresLabel:"Sabino (Sbsb)" }
+];
