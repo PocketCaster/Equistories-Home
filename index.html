@@ -3541,25 +3541,90 @@ async function breedImportsView(body, DB, who, breed, staff){
   }
 }
 
-// Buy (request) a breeding slot on a group stud/broodmare. Creates a breedOrder
-// of kind "breedingSlot" that lands in the breed's queue; staff grant it (which
-// creates the reservation on the animal) and arrange payment / apply a ticket.
+// Buy a breeding slot on a group stud/broodmare. Pays the breed's business
+// (a Breeding Ticket in the buyer's saddlebag waives the fee), then creates a
+// breedOrder of kind "breedingSlot" for staff to Grant (which reserves a slot).
 async function breedBuySlot(body, DB, who, breed, horse){
   if(!who || !horse) return;
   const g=String(horse.gender||'').toLowerCase();
   const role = /(stallion|colt|rig|stud)/.test(g)?'stud':/(mare|filly|broodmare|dam)/.test(g)?'broodmare':'breeding animal';
   const price=Number(horse.slotPrice)||0;
-  if(!confirm(`Request a breeding slot on ${horse.name} (${role}) for \u2726${price}?\n\nStaff grant the slot, then you breed with it in your Stable Manager. Payment is arranged with the breed (a Breeding Ticket can waive the fee).`)) return;
+
+  // A Breeding Ticket waives the fee.
+  let inv=null, ticket=null;
+  try{ inv = await DB.get('inventory', who.userId); }catch(e){}
+  if(inv && Array.isArray(inv.items)) ticket = inv.items.find(x=>x && (x.effect==='breeding_ticket' || x.key==='ticket'));
+  let useTicket=false;
+  if(ticket && price>0){
+    useTicket = confirm(`You have a Breeding Ticket — use it to waive the \u2726${price} fee for ${horse.name}?\n\nOK = use the ticket (free).  Cancel = pay \u2726${price}.`);
+  } else {
+    if(!confirm(`Buy a breeding slot on ${horse.name} (${role}) for \u2726${price}?\n\n${price>0?`\u2726${price} will be paid to ${breed.name}.`:'No charge.'}\nStaff then grant the slot and you breed with it in your Stable Manager.`)) return;
+  }
+
   if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
+
+  // Pay the breed business unless a ticket waives it.
+  if(!useTicket && price>0){
+    if(!breed.businessName){ alert("This breed has no business linked — ask staff to fix it before buying."); return; }
+    const token = await (async()=>{ try{ await window.EquiAuth.ready; return await window.EquiAuth.token(); }catch(e){ return null; } })();
+    if(!token){ alert("Session expired — sign out and back in."); return; }
+    const pay = await railwayCall('/payBusiness', { idToken: token, body:{ businessName:breed.businessName, amount:price, note:`${breed.name} breeding slot: ${horse.name}` } });
+    if(!pay || !pay.success){ alert((pay&&pay.error)||"Payment failed — nothing was bought."); return; }
+  }
+
+  // Spend the ticket (same decrement rule as the Stable Manager's spendConsumable).
+  if(useTicket && ticket && inv){
+    try{
+      if(Number(ticket.usesLeft)>0){ ticket.usesLeft=Number(ticket.usesLeft)-1; if(ticket.usesLeft<=0) inv.items=inv.items.filter(x=>x!==ticket); }
+      else { ticket.qty=(Number(ticket.qty)||1)-1; if(ticket.qty<=0) inv.items=inv.items.filter(x=>x!==ticket); }
+      await DB.put('inventory', who.userId, who.userId, inv);
+    }catch(e){}
+  }
+
   const id="order_"+Math.random().toString(36).slice(2,10);
   const rec={ id, owner:who.userId, breedId:breed.id, kind:"breedingSlot",
-    studId:horse.id, studName:horse.name, role, price,
-    status:"submitted", submittedAt:new Date().toISOString() };
+    studId:horse.id, studName:horse.name, role, price: useTicket?0:price,
+    ticketUsed: !!useTicket, status:"paid", submittedAt:new Date().toISOString() };
   try{
     await DB.putWithField('breedOrders', id, who.userId, rec, 'breedId', rec.breedId);
     notifyBreedStaff('/notifyImportRequest', breed, rec);
-    alert(`Slot request sent for ${horse.name}. Staff will grant it and arrange payment.`);
-  }catch(err){ alert("Failed to send request: "+(err.message||err)); }
+    alert(`Slot on ${horse.name} bought${useTicket?' with a Breeding Ticket':''}! Staff will grant it, then you breed with it in your Stable Manager.`);
+  }catch(err){ alert("Failed to buy slot: "+(err.message||err)); }
+}
+
+// Staff grants a bought breeding slot: reserve an open slot on the stud/broodmare
+// for the buyer, in the EXACT format the Stable Manager reads —
+// doc id res_{horseId}_{slot}, flat reservedFor = memberKey(buyer)
+// (trim, strip leading @, lowercase). The buyer then sees the animal in their
+// Breeding tab and breeds with it.
+async function breedGrantSlot(body, DB, who, breed, order){
+  if(!order) return;
+  let stud=null; try{ stud = await DB.get('horses', order.studId); }catch(e){}
+  if(!stud){ alert("Couldn't load that stud/broodmare — it may have been removed."); return; }
+  const totalSlots = Number(stud.breedingSlots)||0;
+  if(totalSlots<=0){ alert(`${order.studName} has no breeding slots.`); return; }
+  const usedRec = new Set((stud.breedingRecords||[]).map(r=>r.slotIndex));
+  let myRes=[]; try{ myRes = (await DB.listByOwner('breedingReservations', who.userId)).filter(r=>r && r.horseId===order.studId && r.status!=='used'); }catch(e){}
+  const usedRes = new Set(myRes.map(r=>r.slotIndex));
+  let slotIndex=-1;
+  for(let i=0;i<totalSlots;i++){ if(!usedRec.has(i) && !usedRes.has(i)){ slotIndex=i; break; } }
+  if(slotIndex<0){ alert(`${order.studName} has no open breeding slots right now.`); return; }
+  if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
+  const reservedForKey = String(order.owner||'').trim().replace(/^@+/,'').toLowerCase();
+  const resId = `res_${order.studId}_${slotIndex}`;
+  const resRec = {
+    id: resId, horseId: order.studId, horseName: stud.name||order.studName, breed: stud.breed||breed.name,
+    gender: stud.gender||'', slotIndex,
+    ownerName: who.userId, reservedFor: order.owner, reservedForKey,
+    status:"open", date: new Date().toISOString().slice(0,10)
+  };
+  try{
+    await DB.putWithField('breedingReservations', resId, who.userId, resRec, 'reservedFor', reservedForKey);
+    order.status='granted'; order.grantedSlot=slotIndex; order.grantedAt=new Date().toISOString();
+    await DB.putWithField('breedOrders', order.id, order.owner, order, 'breedId', order.breedId);
+    alert(`Slot ${slotIndex+1} on ${order.studName} granted to ${order.owner}.\nThey can now breed with it in their Stable Manager's Breeding tab.`);
+    renderBreeds(document.getElementById('view'));
+  }catch(err){ alert("Grant failed: "+(err.message||err)); }
 }
 
 // Alert the breed's owner and staff about an import event (a new request, or a
@@ -3622,7 +3687,7 @@ async function breedOrderPremade(body, DB, who, breed, imports, importId){
   const orderId="order_"+Math.random().toString(36).slice(2,10);
   const order={ id:orderId, owner:who.userId, breedId:breed.id, importId:imp.id, kind:"premade",
     horseName:horseName.trim()||imp.name, price:Number(imp.price)||0, note:"",
-    designUrl:imp.designUrl||"", image:imp.image||"",
+    designUrl:imp.designUrl||"", image:imp.image||"", genotype:imp.genotype||"",
     status:"submitted", submittedAt:new Date().toISOString() };
   try{
     await DB.putWithField('breedOrders', orderId, who.userId, order, 'breedId', order.breedId);
@@ -3735,6 +3800,7 @@ async function breedAdmin(body, DB, who, breed){
   // we read the whole collection (small) and filter to this breed.
   let orders=[]; try{ orders = (await DB.listAll('breedOrders')).filter(o=>o.breedId===breed.id); }catch(e){}
   const pending = orders.filter(o=>o.status==='submitted');
+  const slotReqs = orders.filter(o=>o.kind==='breedingSlot' && o.status==='paid');
   const th = Object.assign({}, BREED_THEME_DEFAULTS, breed.theme||{});
   const isFounder = breed.owner===who.userId;
   const registered = await breedGeneticsRegistered(DB, breed.name);
@@ -3762,6 +3828,20 @@ async function breedAdmin(body, DB, who, breed){
           </div>
         </div>`).join("") : `<span class="small muted">No pending orders.</span>`}
     </div>
+
+    ${slotReqs.length ? `<div class="card">
+      <h3>🐎 Breeding slot requests <span class="bk-badge">${slotReqs.length}</span></h3>
+      <p class="small muted" style="margin-top:0;">Granting reserves a slot on the animal for the buyer — they then breed with it in their Stable Manager.</p>
+      ${slotReqs.map(o=>`
+        <div style="border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:8px;background:var(--deep);">
+          <b>${esc(o.studName)}</b> <span class="tag">${esc(o.role||'breeding')}</span> <span class="tag">${o.ticketUsed?'🎟 Ticket':'✦'+(Number(o.price)||0)+' paid'}</span>
+          <div class="small">for ${esc(o.owner)} · ${esc(String(o.submittedAt||'').slice(0,10))}</div>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button data-grantslot="${esc(o.id)}">Grant slot</button>
+            <button class="ghost" data-declineslot="${esc(o.id)}" style="color:var(--bad);">Decline</button>
+          </div>
+        </div>`).join('')}
+    </div>` : ''}
 
     <div class="card">
       <h3>List an import</h3>
@@ -3845,6 +3925,14 @@ async function breedAdmin(body, DB, who, breed){
 
   // order approve/decline
   body.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>breedApproveOrder(body, DB, who, breed, orders.find(o=>o.id===b.dataset.approve), body.querySelector(`[data-design="${CSS.escape(b.dataset.approve)}"]`), body.querySelector(`[data-note="${CSS.escape(b.dataset.approve)}"]`), copierGenotype(body, b.dataset.approve)));
+  body.querySelectorAll('[data-grantslot]').forEach(b=>b.onclick=()=>breedGrantSlot(body, DB, who, breed, orders.find(o=>o.id===b.dataset.grantslot)));
+  body.querySelectorAll('[data-declineslot]').forEach(b=>b.onclick=async()=>{
+    const o=orders.find(x=>x.id===b.dataset.declineslot); if(!o) return;
+    if(!confirm(`Decline the slot request for ${o.studName}? Remember to refund ${o.owner} if they paid.`)) return;
+    o.status='declined';
+    try{ await DB.putWithField('breedOrders', o.id, o.owner, o, 'breedId', o.breedId); renderBreeds(document.getElementById('view')); }
+    catch(err){ alert('Failed: '+(err.message||err)); }
+  });
   body.querySelectorAll('[data-decline]').forEach(b=>b.onclick=async()=>{
     const o=orders.find(x=>x.id===b.dataset.decline); if(!o) return;
     const note = body.querySelector(`[data-note="${CSS.escape(o.id)}"]`);
@@ -3890,6 +3978,13 @@ async function breedAdmin(body, DB, who, breed){
           <input data-ef="image" value="${esc(imp.image||'')}" placeholder="Preview image link" />
           <input data-ef="design" value="${esc(imp.designUrl||'')}" placeholder="Design link" />
           <input data-ef="price" type="number" min="0" value="${Number(imp.price)||0}" placeholder="Price (✦)" style="max-width:140px;" />
+          <div class="small">Genetics: ${imp.genotype?`<code>${esc(imp.genotype)}</code>`:'<i>none set — this import would arrive without genes</i>'}</div>
+          <details style="margin:2px 0;"><summary class="small" style="cursor:pointer;color:var(--accent);">🧬 Set / change genetics</summary>
+            <div style="margin-top:6px;">
+              <label class="small" style="display:block;margin-bottom:6px;"><input type="checkbox" data-genapply /> Apply the genetics selected below when I save</label>
+              ${copierHtml(imp.id, copierGenes)}
+            </div>
+          </details>
           <div style="display:flex;gap:8px;margin-top:2px;">
             <button data-savimp="${esc(imp.id)}">Save changes</button>
             <button class="ghost" data-cancimp="1">Cancel</button>
@@ -3902,6 +3997,8 @@ async function breedAdmin(body, DB, who, breed){
           name:g('name'), image:g('image'), designUrl:g('design'),
           price:Math.max(0, Number(row.querySelector('[data-ef="price"]').value)||0)
         });
+        const applyGen = row.querySelector('[data-genapply]');
+        if(applyGen && applyGen.checked){ updated.genotype = copierGenotype(row, imp.id); }
         if(!updated.name){ row.querySelector('[data-emsg]').textContent='Name it.'; return; }
         row.querySelector('[data-emsg]').textContent='Saving…';
         try{ await DB.put('breedImports', imp.id, imp.owner||breed.owner, updated); renderBreeds(document.getElementById('view')); }
