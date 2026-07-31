@@ -985,6 +985,28 @@ const SHOP_ATTIRE_CATS = ["Jacket","Shirt","Breeches","Boots","Helmet","Gloves",
 // state.consumables; spending happens at use time via spendConsumable().
 // invDoc: pass the already-fetched inventory doc to skip a redundant read
 // (mergeShopInventory needs the exact same doc — see loadFromSheets).
+// Items transferred from the OLD Google-script inventory often arrive WITHOUT an
+// `effect` field, so they showed in the saddlebag list but never registered as
+// usable breeding tokens (the breeding tab said "you don't own any"). Recover
+// them by reading the intent from the item NAME. Only breeding-token names
+// match here — anything else still needs a real authored effect.
+function inferBreedingEffect(name){
+  const n = String(name||'').toLowerCase();
+  if(/reroll/.test(n)) return {effect:'breeding_reroll'};
+  if(/\btwin/.test(n)) return {effect:'breeding_twin'};
+  if(/gender/.test(n)) return {effect:'breeding_gender'};
+  if(/colou?r\s*(guarantee|token)/.test(n)) return {effect:'breeding_colour'};
+  if(/prepotency/.test(n)) return {effect:'breeding_prepotency'};
+  if(/breeding\s*ticket|(^|\s)ticket(\s|$)/.test(n)) return {effect:'breeding_ticket'};
+  if(/\bhealth\b/.test(n)) return {effect:'breeding_health'};
+  // Trait tokens — the generic "Trait Token" plus specific-trait ones (Indigo
+  // Eyes, Dominant White, Brindle/Somatic, Chimera, Silken, etc.). The specific
+  // trait is kept as a tag so it can be used to guarantee that trait.
+  const tm = n.match(/indigo eyes|unrelated ble?u|dominant white|dom white|brindle|somatic|chimera|silken|birdcatcher|gulastra|peacock|bloodmark|mismarked|lacing|glossy|circe/);
+  if(tm) return {effect:'breeding_trait', tag: tm[0]};
+  if(/trait/.test(n)) return {effect:'breeding_trait'};
+  return null;
+}
 async function loadConsumables(userId, invDoc){
   state.consumables = [];
   try{
@@ -993,14 +1015,17 @@ async function loadConsumables(userId, invDoc){
     const inv = invDoc !== undefined ? invDoc : await window.EquiDB.get('inventory', userId);
     const items = (inv && inv.items) || [];
     for(const e of items){
-      if(!e || !e.effect) continue;                 // only items with an authored effect
+      if(!e) continue;
+      let eff = e.effect, tag = e.effectTag||null;
+      if(!eff){ const inf = inferBreedingEffect(e.name); if(inf){ eff = inf.effect; if(inf.tag && !tag) tag = inf.tag; } }
+      if(!eff) continue;                 // still nothing usable — skip
       const left = (Number(e.usesLeft)>0) ? Number(e.usesLeft)
                   : (e.singleUse ? (Number(e.qty)||1) : (Number(e.qty)||0));
       if(left<=0) continue;
       state.consumables.push({
-        invId: e.id, name: e.name||'Consumable', effect: e.effect,
+        invId: e.id, name: e.name||'Consumable', effect: eff,
         effectValue: Number(e.effectValue)||0, effectStat: e.effectStat||null,
-        effectTag: e.effectTag||null, left, shopName: e.shopName||'a shop'
+        effectTag: tag, left, shopName: e.shopName||'a shop'
       });
     }
   }catch(err){ console.warn('[Stable] consumable load skipped:', err && err.message || err); }
