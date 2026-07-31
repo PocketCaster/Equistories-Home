@@ -3462,6 +3462,12 @@ async function breedImportsView(body, DB, who, breed, staff){
   imports = imports.filter(i=>i && i.breedId===breed.id);
   const available = imports.filter(i=>i.status==='available' || i.status==='pending');
   const registered = await breedGeneticsRegistered(DB, breed.name);
+  // Group breeding animals (studs/broodmares) this breed's staff offer
+  const _staffIds = [...new Set([breed.owner, ...(Array.isArray(breed.staff)?breed.staff:[])].filter(Boolean))];
+  let breedingStock=[];
+  for(const uid of _staffIds){
+    try{ const hs = await DB.listByOwner('horses', uid); (hs||[]).forEach(h=>{ if(h && h.groupBreeding && String(h.breed||'').trim().toLowerCase()===String(breed.name).trim().toLowerCase()) breedingStock.push(h); }); }catch(e){}
+  }
 
   body.innerHTML = `
     ${registered ? '' : `<div class="card" style="border:1px solid var(--accent);">
@@ -3484,6 +3490,23 @@ async function breedImportsView(body, DB, who, breed, staff){
         </div>`;
       }).join("")}</div>` : `<p class="small muted">No imports listed right now.</p>`}
     </div>
+    ${breedingStock.length ? `<div class="card">
+      <h3>🐎 Breeding Services</h3>
+      <p class="small muted" style="margin-top:0;">Buy a breeding slot on one of this breed's group studs &amp; broodmares. Staff grant the slot, then you breed with it in your Stable Manager.</p>
+      <div class="imp-grid">${breedingStock.map(h=>{
+        const g=String(h.gender||'').toLowerCase();
+        const role = /(stallion|colt|rig|stud)/.test(g)?'Stud':/(mare|filly|broodmare|dam)/.test(g)?'Broodmare':'Breeding';
+        return `<div class="imp-card">
+          <div class="img ${imgOk(h.image)?'':'noimg'}" ${imgOk(h.image)?`style="background-image:url('${esc(h.image)}')"`:''}>${imgOk(h.image)?'':(role==='Broodmare'?'🐴':'🐎')}</div>
+          <div class="pad">
+            <div class="nm">${esc(h.name)}</div>
+            <span class="imp-status available">${role}</span>
+            <span class="sf-price" style="color:var(--sf-accent);font-family:var(--equi-display);font-weight:700;font-size:1.5rem;">✦ ${Number(h.slotPrice)||0}</span>
+            <button class="sf-buy" style="background:var(--sf-accent);color:#1a130c;" data-buyslot="${esc(h.id)}" ${(who&&registered)?'':'disabled'}>${who?'Buy breeding slot':'Sign in to buy'}</button>
+          </div>
+        </div>`;
+      }).join('')}</div>
+    </div>` : ''}
     ${(who && registered) ? `<div class="card">
       <h3>Order a custom import</h3>
       <p class="small">Commission a one-of-a-kind design. Staff review your request, create the design, and place the
@@ -3497,6 +3520,10 @@ async function breedImportsView(body, DB, who, breed, staff){
     </div>` : ''}`;
 
   body.querySelectorAll('[data-order]').forEach(b=>b.onclick=()=>breedOrderPremade(body, DB, who, breed, imports, b.dataset.order));
+  body.querySelectorAll('[data-buyslot]').forEach(b=>b.onclick=()=>{
+    const h=breedingStock.find(x=>x.id===b.dataset.buyslot);
+    if(h) breedBuySlot(body, DB, who, breed, h);
+  });
 
   if(who && $("co_go")){
     $("co_go").onclick = async ()=>{
@@ -3512,6 +3539,27 @@ async function breedImportsView(body, DB, who, breed, staff){
       catch(err){ $("co_msg").textContent="Failed: "+(err.message||err); }
     };
   }
+}
+
+// Buy (request) a breeding slot on a group stud/broodmare. Creates a breedOrder
+// of kind "breedingSlot" that lands in the breed's queue; staff grant it (which
+// creates the reservation on the animal) and arrange payment / apply a ticket.
+async function breedBuySlot(body, DB, who, breed, horse){
+  if(!who || !horse) return;
+  const g=String(horse.gender||'').toLowerCase();
+  const role = /(stallion|colt|rig|stud)/.test(g)?'stud':/(mare|filly|broodmare|dam)/.test(g)?'broodmare':'breeding animal';
+  const price=Number(horse.slotPrice)||0;
+  if(!confirm(`Request a breeding slot on ${horse.name} (${role}) for \u2726${price}?\n\nStaff grant the slot, then you breed with it in your Stable Manager. Payment is arranged with the breed (a Breeding Ticket can waive the fee).`)) return;
+  if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
+  const id="order_"+Math.random().toString(36).slice(2,10);
+  const rec={ id, owner:who.userId, breedId:breed.id, kind:"breedingSlot",
+    studId:horse.id, studName:horse.name, role, price,
+    status:"submitted", submittedAt:new Date().toISOString() };
+  try{
+    await DB.putWithField('breedOrders', id, who.userId, rec, 'breedId', rec.breedId);
+    notifyBreedStaff('/notifyImportRequest', breed, rec);
+    alert(`Slot request sent for ${horse.name}. Staff will grant it and arrange payment.`);
+  }catch(err){ alert("Failed to send request: "+(err.message||err)); }
 }
 
 // Alert the breed's owner and staff about an import event (a new request, or a

@@ -3761,6 +3761,7 @@ function renderRoster(){
 
         <button class="secondary" data-act="edit-geno" data-id="${h.id}" style="font-size:1em;padding:4px 10px;margin-top:0;">Set Genetics</button>
         <button class="secondary" data-act="edit-marks" data-id="${h.id}" style="font-size:1em;padding:4px 10px;margin-top:0;">Markings</button>
+        <button class="secondary" data-act="group-breeding" data-id="${h.id}" style="font-size:1em;padding:4px 10px;margin-top:0;">${h.groupBreeding?'✓ Group breeding ✦'+(Number(h.slotPrice)||0):'Offer for group breeding'}</button>
         <button class="danger" data-act="del" data-id="${h.id}" style="font-size:1em;padding:4px 10px;margin-top:0;">Remove</button>
         <button class="secondary" data-act="transfer-horse" data-id="${h.id}" style="font-size:1em;padding:4px 10px;margin-top:0;">Sell / Transfer</button>
       </div>
@@ -3789,6 +3790,25 @@ function renderRoster(){
   wrap.querySelectorAll('[data-act="transfer-horse"]').forEach(b=>b.onclick=()=>{
     const h=state.horses.find(x=>x.id===b.dataset.id);
     if(h) transferHorseToMember(h);
+  });
+  wrap.querySelectorAll('[data-act="group-breeding"]').forEach(b=>b.onclick=async()=>{
+    const h=state.horses.find(x=>x.id===b.dataset.id);
+    if(!h) return;
+    if(h.groupBreeding){
+      if(confirm(`Stop offering ${h.name} for group breeding? Any unclaimed slot listings for it will disappear from the breed page.`)){
+        h.groupBreeding=false;
+        await saveHorse(h); render();
+      }
+      return;
+    }
+    const g=String(h.gender||'').toLowerCase();
+    const role = /(stallion|colt|rig|stud)/.test(g) ? 'stud' : /(mare|filly|broodmare|dam)/.test(g) ? 'broodmare' : 'breeding animal';
+    if(/gelding/.test(g)){ alert(`${h.name} is a gelding and can't be offered for breeding.`); return; }
+    const priceStr = prompt(`Offer ${h.name} as a group ${role} for the ${h.breed||'(no breed)'} breed.\n\nMembers will buy breeding slots on it from the breed page. Set the price (\u2726) per slot:`, String(Number(h.slotPrice)||0));
+    if(priceStr===null) return;
+    h.groupBreeding=true;
+    h.slotPrice=Math.max(0, Number(priceStr)||0);
+    await saveHorse(h); render();
   });
   wrap.querySelectorAll('[data-act="equip-select"]').forEach(sel=>sel.onchange=()=>{
     const h=state.horses.find(x=>x.id===sel.dataset.id);
