@@ -3865,6 +3865,28 @@ async function breedAdmin(body, DB, who, breed){
         </div>`).join('')}
     </div>` : ''}
 
+    ${isFounder ? `<div class="card">
+      <h3>🐎 Create group horse <span class="small muted">(NPC stud / broodmare)</span></h3>
+      <p class="small muted" style="margin-top:0;">A breed-owned NPC for group breeding — set its sex, level, stats, genes &amp; traits here. It becomes this breed's stock; put it up for slots with a price below.</p>
+      ${registered ? `
+      <label>Name</label><input id="npc_name" placeholder="e.g. Ancient Oracle" />
+      <label>Portrait image link (optional)</label><input id="npc_image" placeholder="https://…" />
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:6px;">
+        <label class="small" style="display:flex;flex-direction:column;">Sex<select id="npc_gender"><option value="Stallion">Stallion (stud)</option><option value="Mare">Mare (broodmare)</option></select></label>
+        <label class="small" style="display:flex;flex-direction:column;">Slot price (✦)<input id="npc_price" type="number" min="0" value="0" style="max-width:120px;" /></label>
+        <label class="small" style="display:flex;flex-direction:column;">Level (1–10)<input id="npc_level" type="number" min="1" max="10" value="10" style="max-width:90px;" /></label>
+        <button class="ghost" id="npc_fill" style="margin-top:0;">Auto-fill stats for level</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+        ${STATS.map(s=>`<label class="small" style="display:flex;flex-direction:column;">${STAT_LABELS[s]||s}<input type="number" min="0" data-npcstat data-stat="${s}" value="10" style="max-width:72px;" /></label>`).join('')}
+      </div>
+      <details style="margin:10px 0;" open><summary class="small" style="cursor:pointer;color:var(--accent);">🧬 Genes &amp; traits</summary>
+        <div style="margin-top:6px;">${copierHtml('npc', copierGenes, copierBreedTraits)}</div>
+      </details>
+      <button id="npc_create">Create group horse</button><span id="npc_msg" class="small" style="margin-left:8px;"></span>
+      ` : `<div class="small muted">Register this breed's genetics (below) before you can create NPC horses.</div>`}
+    </div>` : ''}
+
     <div class="card">
       <h3>List an import</h3>
       ${registered ? `
@@ -3982,6 +4004,40 @@ async function breedAdmin(body, DB, who, breed){
     $("ni_msg").textContent="Listing…";
     try{ await DB.put('breedImports', id, who.userId, rec); renderBreeds(document.getElementById('view')); }
     catch(err){ $("ni_msg").textContent="Failed: "+(err.message||err); }
+  };
+
+  // Level table mirrors stable.html's LEVEL_TABLE (for NPC breeding slots + stat auto-fill).
+  const NPC_LEVELS={1:{exp:0,bonus:0,slots:0},2:{exp:50,bonus:2,slots:1},3:{exp:100,bonus:2,slots:1},4:{exp:150,bonus:3,slots:1},5:{exp:200,bonus:3,slots:1},6:{exp:250,bonus:3,slots:1},7:{exp:300,bonus:4,slots:1},8:{exp:500,bonus:4,slots:1},9:{exp:750,bonus:4,slots:1},10:{exp:1000,bonus:5,slots:2}};
+  if($("npc_fill")) $("npc_fill").onclick = ()=>{
+    const L=Math.max(1,Math.min(10,Math.round(Number($("npc_level").value)||1)));
+    let bonus=0; for(let i=2;i<=L;i++) bonus+=NPC_LEVELS[i].bonus;
+    document.querySelectorAll('[data-npcstat]').forEach(inp=>{ inp.value=10+bonus; });
+  };
+  if($("npc_create")) $("npc_create").onclick = async ()=>{
+    const name=($("npc_name").value||'').trim();
+    if(!name){ $("npc_msg").textContent="Name it."; return; }
+    const L=Math.max(1,Math.min(10,Math.round(Number($("npc_level").value)||1)));
+    let slots=2; for(let i=2;i<=L;i++) slots+=NPC_LEVELS[i].slots;
+    const stats={};
+    document.querySelectorAll('[data-npcstat]').forEach(inp=>{ stats[inp.dataset.stat]=Math.max(0,Math.round(Number(inp.value)||0)); });
+    STATS.forEach(s=>{ if(!Number.isFinite(Number(stats[s]))) stats[s]=10; });
+    const id="h_"+Math.random().toString(36).slice(2,10);
+    const horse={
+      id, name, breed:breed.name, gender:$("npc_gender").value, image:($("npc_image").value||'').trim(),
+      age:3, stage:"adult",
+      genotype:copierGenotype(document,'npc'), rareTraits:copierTraits(document,'npc'),
+      groupBreeding:true, slotPrice:Math.max(0,Number($("npc_price").value)||0),
+      npcOverride:true, level:L, exp:NPC_LEVELS[L].exp, breedingSlots:slots,
+      stats, baseStats:Object.assign({},stats),
+      ownerName:who.userId, createdAt:new Date().toISOString()
+    };
+    $("npc_msg").textContent="Creating…";
+    try{
+      if(window.EquiAuth && window.EquiAuth.uid!==who.userId){ await upgradeToOwnerSession(); }
+      await DB.put('horses', id, who.userId, horse);
+      $("npc_msg").textContent="Created ✓";
+      renderBreeds(document.getElementById('view'));
+    }catch(err){ $("npc_msg").textContent="Failed: "+(err.message||err); }
   };
 
   // listed imports management
