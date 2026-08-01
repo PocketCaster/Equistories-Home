@@ -3521,6 +3521,7 @@ async function breedImportsView(body, DB, who, breed, staff){
           <div class="pad">
             <div class="nm">${esc(h.name)}</div>
             <span class="imp-status available">${role}</span>
+            ${h.designUrl?`<a class="small" href="${esc(h.designUrl)}" target="_blank" rel="noopener">View design →</a>`:''}
             <span class="sf-price" style="color:var(--sf-accent);font-family:var(--equi-display);font-weight:700;font-size:1.5rem;">✦ ${Number(h.slotPrice)||0}</span>
             <button class="sf-buy" style="background:var(--sf-accent);color:#1a130c;" data-buyslot="${esc(h.id)}" ${(who&&registered)?'':'disabled'}>${who?'Buy breeding slot':'Sign in to buy'}</button>
           </div>
@@ -3878,6 +3879,7 @@ async function breedAdmin(body, DB, who, breed){
       ${registered ? `
       <label>Name</label><input id="npc_name" placeholder="e.g. Ancient Oracle" />
       <label>Portrait image link (optional)</label><input id="npc_image" placeholder="https://…" />
+      <label>Design link — DeviantArt etc. (optional)</label><input id="npc_design" placeholder="https://www.deviantart.com/…" />
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:6px;">
         <label class="small" style="display:flex;flex-direction:column;">Sex<select id="npc_gender"><option value="Stallion">Stallion (stud)</option><option value="Mare">Mare (broodmare)</option></select></label>
         <label class="small" style="display:flex;flex-direction:column;">Slot price (✦)<input id="npc_price" type="number" min="0" value="0" style="max-width:120px;" /></label>
@@ -3902,7 +3904,7 @@ async function breedAdmin(body, DB, who, breed){
         const role=/(stallion|colt|rig|stud)/.test(g)?'Stud':/(mare|filly|broodmare|dam)/.test(g)?'Broodmare':'Breeding';
         return `<div class="reg-row" data-gsrow="${esc(h.id)}">
           <div class="thumb" ${imgOk(h.image)?`style="background-image:url('${esc(h.image)}')"`:''}></div>
-          <div style="flex:1;"><b>${esc(h.name)}</b> <span class="tag">${role}</span><div class="small">Lvl ${h.level||1} · ✦${Number(h.slotPrice)||0}/slot${h.genotype?' · genes set':' · no genes'}</div></div>
+          <div style="flex:1;"><b>${esc(h.name)}</b> <span class="tag">${role}</span><div class="small">Lvl ${h.level||1} · ✦${Number(h.slotPrice)||0}/slot${h.genotype?' · genes set':' · no genes'}${h.designUrl?` · <a href="${esc(h.designUrl)}" target="_blank" rel="noopener">design ↗</a>`:''}</div></div>
           <button class="ghost" data-gsedit="${esc(h.id)}" style="padding:5px 10px;">Edit</button>
           <button class="ghost" data-gsunflag="${esc(h.id)}" style="padding:5px 10px;">→ My roster</button>
           <button class="ghost" data-gsdel="${esc(h.id)}" style="color:var(--bad);padding:5px 10px;">Remove</button>
@@ -4047,6 +4049,7 @@ async function breedAdmin(body, DB, who, breed){
     const id="h_"+Math.random().toString(36).slice(2,10);
     const horse={
       id, name, breed:breed.name, gender:$("npc_gender").value, image:($("npc_image").value||'').trim(),
+      designUrl:($("npc_design").value||'').trim(),
       age:3, stage:"adult",
       genotype:copierGenotype(document,'npc'), rareTraits:copierTraits(document,'npc'),
       groupBreeding:true, slotPrice:Math.max(0,Number($("npc_price").value)||0),
@@ -4080,6 +4083,7 @@ async function breedAdmin(body, DB, who, breed){
     const row=body.querySelector(`[data-gsrow="${CSS.escape(h.id)}"]`); if(!row) return;
     row.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;gap:6px;">
       <b>${esc(h.name)}</b>
+      <label class="small" style="display:block;">Design link<input data-gsf="design" value="${esc(h.designUrl||'')}" placeholder="https://www.deviantart.com/…" style="width:100%;" /></label>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
         <label class="small" style="display:flex;flex-direction:column;">Slot price (✦)<input data-gsf="price" type="number" min="0" value="${Number(h.slotPrice)||0}" style="max-width:120px;" /></label>
         <label class="small" style="display:flex;flex-direction:column;">Level (1–10)<input data-gsf="level" type="number" min="1" max="10" value="${h.level||1}" style="max-width:90px;" /></label>
@@ -4107,6 +4111,7 @@ async function breedAdmin(body, DB, who, breed){
       STATS.forEach(s=>{ if(!Number.isFinite(Number(stats[s]))) stats[s]=10; });
       const upd=Object.assign({}, h); delete upd.__owner; delete upd.__id;
       upd.slotPrice=Math.max(0,Number(row.querySelector('[data-gsf="price"]').value)||0);
+      upd.designUrl=(row.querySelector('[data-gsf="design"]').value||'').trim();
       upd.npcOverride=true; upd.level=L; upd.exp=NPC_LEVELS[L].exp; upd.breedingSlots=slots; upd.stats=stats; upd.baseStats=Object.assign({},stats);
       const ap=row.querySelector('[data-gsgenapply]');
       if(ap && ap.checked){ upd.genotype=copierGenotype(row, h.id); upd.rareTraits=copierTraits(row, h.id); }
