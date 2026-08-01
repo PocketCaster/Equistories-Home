@@ -3319,8 +3319,8 @@ async function renderBreedFound(v, DB, who){
         and run its registry. Imports are paid into a <b>bank business</b>, so create one first
         (Bank → Businesses) and enter its exact name here.</p>
       <label>Breed name</label><input id="bf_name" placeholder="e.g. Irish Lightblood" />
-      <label>Bank business name (exactly as registered — receives import payments)</label>
-      <input id="bf_biz" placeholder="the business imports are paid into" />
+      <label>Business ID (the BIZ-… code — receives import payments)</label>
+      <input id="bf_biz" placeholder="BIZ-…" />
       <label>Short blurb (shown in the directory)</label>
       <input id="bf_blurb" placeholder="A line about your breed" />
       <label>Banner image link (optional)</label><input id="bf_banner" placeholder="https://…/banner.png" />
@@ -3333,11 +3333,12 @@ async function renderBreedFound(v, DB, who){
   $("bf_go").onclick = async ()=>{
     const name=$("bf_name").value.trim(), biz=$("bf_biz").value.trim();
     if(!name){ $("bf_msg").textContent="Name your breed."; return; }
-    if(!biz){ $("bf_msg").textContent="Enter your bank business name so imports can be paid."; return; }
+    if(!biz){ $("bf_msg").textContent="Enter your Business ID (the BIZ-… code) so imports can be paid."; return; }
     $("bf_msg").textContent="Founding…";
     if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
+    let bizName=''; { const rr=await resolveBusinessId(biz); if(rr.ok && rr.exists) bizName=rr.name; }
     const id = "breed_"+Math.random().toString(36).slice(2,10);
-    const rec = { id, owner:who.userId, name, staff:[], businessName:biz,
+    const rec = { id, owner:who.userId, name, staff:[], businessId:biz, businessName:bizName,
       banner:$("bf_banner").value.trim(), blurb:$("bf_blurb").value.trim(),
       about:"", importInstructions:"", theme:Object.assign({},BREED_THEME_DEFAULTS),
       createdAt:new Date().toISOString() };
@@ -3586,10 +3587,10 @@ async function breedBuySlot(body, DB, who, breed, horse){
 
   // Pay the breed business unless a ticket waives it.
   if(!useTicket && price>0){
-    if(!breed.businessName){ alert("This breed has no business linked — ask staff to fix it before buying."); return; }
+    if(!breed.businessId && !breed.businessName){ alert("This breed has no business linked — ask staff to fix it before buying."); return; }
     const token = await (async()=>{ try{ await window.EquiAuth.ready; return await window.EquiAuth.token(); }catch(e){ return null; } })();
     if(!token){ alert("Session expired — sign out and back in."); return; }
-    const pay = await railwayCall('/payBusiness', { idToken: token, body:{ businessName:breed.businessName, amount:price, note:`${breed.name} breeding slot: ${horse.name}` } });
+    const pay = await railwayCall('/payBusiness', { idToken: token, body:{ businessId:breed.businessId||undefined, businessName:breed.businessName||undefined, amount:price, note:`${breed.name} breeding slot: ${horse.name}` } });
     if(!pay || !pay.success){ alert((pay&&pay.error)||"Payment failed — nothing was bought."); return; }
   }
 
@@ -3668,32 +3669,31 @@ const notifyBreedImportClaimed = (breed, order)=> notifyBreedStaff('/notifyImpor
 // Check that a business name resolves to a real registered business — exact
 // match, the same lookup payBusiness uses. Returns {ok, exists, canonical};
 // canonical is the stored spelling so callers can flag a case/space mismatch.
-async function verifyBusinessName(name){
-  const n=(name||'').trim();
-  if(!n) return { ok:true, empty:true };
+async function resolveBusinessId(id){
+  const bid=(id||'').trim();
+  if(!bid) return { ok:true, empty:true };
   try{
-    const token = await (async()=>{ try{ await window.EquiAuth.ready; return await window.EquiAuth.token(); }catch(e){ return null; } })();
-    if(!token) return { ok:false };
-    const r = await railwayCall('/verifyBusiness', { idToken: token, body:{ businessName:n } });
-    if(!r || !r.success) return { ok:false };
-    return { ok:true, exists:!!r.exists, canonical:r.businessName||null };
+    const r = await railwayCall('/getBusinessBalance?businessId='+encodeURIComponent(bid), { method:'GET' });
+    if(!r) return { ok:false };
+    if(!r.success) return { ok:true, exists:false };
+    return { ok:true, exists:true, name:r.businessName||'', ownerId:r.ownerId||'' };
   }catch(e){ return { ok:false }; }
 }
 
-// Wire a "Verify" button + status span next to a business-name input.
-// inputId → the text field; btnId/statusId → the button and status <span>.
+// Wire a "Verify" button next to a Business ID input. On success it resolves
+// the ID to the business name and stashes it on the input (dataset.bizname) so
+// the save handler can store both the ID and the resolved name for display.
 function wireBusinessVerify(inputId, btnId, statusId){
   const btn=$(btnId), inp=$(inputId), out=$(statusId);
   if(!btn || !inp || !out) return;
   btn.onclick = async ()=>{
-    const typed = inp.value.trim();
-    if(!typed){ out.textContent="Enter a business name first."; out.style.color="var(--dim)"; return; }
+    const bid = inp.value.trim();
+    if(!bid){ out.textContent=""; inp.dataset.bizname=""; return; }
     out.textContent="Checking…"; out.style.color="var(--dim)";
-    const r = await verifyBusinessName(typed);
+    const r = await resolveBusinessId(bid);
     if(!r.ok){ out.textContent="Couldn't reach the bank to check — try again."; out.style.color="var(--bad)"; return; }
-    if(!r.exists){ out.textContent="✗ No business found with that exact name. Check spelling, capitals and spaces against the Bank."; out.style.color="var(--bad)"; return; }
-    if(r.canonical && r.canonical!==typed){ out.textContent=`✗ Close, but the registered name is “${r.canonical}”. Match it exactly (imports pay by exact name).`; out.style.color="var(--bad)"; return; }
-    out.textContent="✓ Verified — this name resolves to a registered business."; out.style.color="var(--good)";
+    if(!r.exists){ out.textContent="✗ No business found with that ID. Copy the BIZ-… code exactly from the Bank."; out.style.color="var(--bad)"; inp.dataset.bizname=""; return; }
+    out.textContent=`✓ ${r.name}`; out.style.color="var(--good)"; inp.dataset.bizname=r.name;
   };
 }
 
@@ -3780,11 +3780,11 @@ async function breedClaimOrder(body, DB, who, breed, order){
 
   // 1) pay the breed business (buyer's token authorizes it)
   if(price>0){
-    if(!breed.businessName){ alert("This breed has no business linked — ask staff to fix it before claiming."); return; }
+    if(!breed.businessId && !breed.businessName){ alert("This breed has no business linked — ask staff to fix it before claiming."); return; }
     const token = await (async()=>{ try{ await window.EquiAuth.ready; return await window.EquiAuth.token(); }catch(e){ return null; } })();
     if(!token){ alert("Session expired — sign out and back in."); return; }
     const pay = await railwayCall('/payBusiness', { idToken: token,
-      body:{ businessName:breed.businessName, amount:price, note:`${breed.name} import: ${order.horseName}` } });
+      body:{ businessId:breed.businessId||undefined, businessName:breed.businessName||undefined, amount:price, note:`${breed.name} import: ${order.horseName}` } });
     if(!pay || !pay.success){ alert((pay&&pay.error)||"Payment failed — nothing was created."); return; }
   }
 
@@ -3961,13 +3961,13 @@ async function breedAdmin(body, DB, who, breed){
       <textarea id="ba_inst" rows="3">${esc(breed.importInstructions||'')}</textarea>
       <label>Banner image link</label><input id="ba_banner" value="${esc(breed.banner||'')}" />
       <label>Blurb</label><input id="ba_blurb" value="${esc(breed.blurb||'')}" />
-      <label>Business name (imports paid here)</label>
-      <input id="ba_biz" value="${esc(breed.businessName||'')}" />
+      <label>Business ID (imports &amp; breeding slots paid here)</label>
+      <input id="ba_biz" value="${esc(breed.businessId||'')}" placeholder="BIZ-…" />
       <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap;">
         <button type="button" id="ba_biz_verify" class="ghost" style="padding:4px 12px;">Verify business</button>
-        <span id="ba_biz_status" class="small"></span>
+        <span id="ba_biz_status" class="small">${breed.businessName?`✓ ${esc(breed.businessName)}`:''}</span>
       </div>
-      <p class="small muted" style="margin:4px 0 0;">Imports are paid by exact business name — verify it matches the Bank so buyers don't hit “no business found”.</p>
+      <p class="small muted" style="margin:4px 0 0;">Paste the <b>Business ID</b> (the <code>BIZ-…</code> code from when you made the business account in the Bank). Using the ID means buyers always pay the right account — no name typos. Click Verify to confirm.</p>
       <label>Colors</label>
       <div class="swatch-row">
         <div class="swatch"><span class="small">Accent</span><input type="color" id="ba_accent" value="${esc(th.accent)}"></div>
@@ -4209,14 +4209,18 @@ async function breedAdmin(body, DB, who, breed){
   attachRichToolbar($("ba_inst"));
   wireBusinessVerify("ba_biz","ba_biz_verify","ba_biz_status");
   if($("ba_save")) $("ba_save").onclick = async ()=>{
-    const patch=Object.assign({},breed,{
-      about:$("ba_about").value.trim(), importInstructions:$("ba_inst").value.trim(),
-      banner:$("ba_banner").value.trim(), blurb:$("ba_blurb").value.trim(), businessName:$("ba_biz").value.trim(),
-      theme:{accent:$("ba_accent").value,panel:$("ba_panel").value,head:$("ba_head").value},
-      updatedAt:new Date().toISOString() });
     $("ba_msg").textContent="Saving…";
     // only the founder owns the breed doc; staff edits need the founder, so guard:
     if(breed.owner!==who.userId){ $("ba_msg").textContent="Only the founder can edit the breed page."; return; }
+    const bizId = $("ba_biz").value.trim();
+    let bizName = ($("ba_biz").dataset.bizname||'').trim();
+    if(bizId && !bizName){ const rr = await resolveBusinessId(bizId); if(rr.ok && rr.exists) bizName = rr.name; }
+    const patch=Object.assign({},breed,{
+      about:$("ba_about").value.trim(), importInstructions:$("ba_inst").value.trim(),
+      banner:$("ba_banner").value.trim(), blurb:$("ba_blurb").value.trim(),
+      businessId: bizId, businessName: bizName || (bizId ? breed.businessName||'' : ''),
+      theme:{accent:$("ba_accent").value,panel:$("ba_panel").value,head:$("ba_head").value},
+      updatedAt:new Date().toISOString() });
     try{ await DB.putBreed(breed.id, who.userId, patch); Object.assign(breed,patch); $("ba_msg").textContent="Saved."; }
     catch(err){ $("ba_msg").textContent="Failed: "+(err.message||err); }
   };
@@ -4561,7 +4565,7 @@ async function buyFromShop(v, DB, who, shop, items, itemId){
   const item = items.find(i=>i.id===itemId);
   const msg = v.querySelector(`[data-msg="${CSS.escape(itemId)}"]`);
   if(!item || !msg) return;
-  if(!shop.businessName){ msg.innerHTML = `<span style="color:var(--bad)">This shop has no business linked — it can't take payment.</span>`; return; }
+  if(!shop.businessId && !shop.businessName){ msg.innerHTML = `<span style="color:var(--bad)">This shop has no business linked — it can't take payment.</span>`; return; }
   const btn = v.querySelector(`[data-buy="${CSS.escape(itemId)}"]`);
   btn.disabled = true; msg.textContent = "Paying…";
 
@@ -4588,7 +4592,7 @@ async function buyFromShop(v, DB, who, shop, items, itemId){
   // Charge (skip the bank entirely if a ticket makes it free).
   if(charge > 0){
     const pay = await railwayCall('/payBusiness', { idToken: token,
-      body:{ businessName:shop.businessName, amount:charge,
+      body:{ businessId:shop.businessId||undefined, businessName:shop.businessName||undefined, amount:charge,
       note:`Shop: ${shop.name} — ${item.name}${discount?` (ticket −✦${discount})`:''}` } });
     if(!pay || !pay.success){ msg.innerHTML = `<span style="color:var(--bad)">${esc((pay&&pay.error)||'Payment failed.')}</span>`; btn.disabled=false; return; }
   }
@@ -4677,12 +4681,13 @@ async function renderShopManage(v, DB, who){
       <input id="mg_banner" placeholder="https://…/banner.png" value="${esc(shop.banner||'')}" />
       <label>Shop blurb</label>
       <textarea id="mg_blurb" rows="2" placeholder="A line about your shop…">${esc(shop.blurb||'')}</textarea>
-      <label>Business name (from the Bank — exactly as registered)</label>
-      <input id="mg_biz" placeholder="e.g. Maeve's Tack Corner" value="${esc(shop.businessName||'')}" />
+      <label>Business ID (the BIZ-… code — receives shop payments)</label>
+      <input id="mg_biz" placeholder="BIZ-…" value="${esc(shop.businessId||'')}" />
       <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap;">
         <button type="button" id="mg_biz_verify" class="ghost" style="padding:4px 12px;">Verify business</button>
-        <span id="mg_biz_status" class="small"></span>
+        <span id="mg_biz_status" class="small">${shop.businessName?`✓ ${esc(shop.businessName)}`:''}</span>
       </div>
+      <p class="small muted" style="margin:4px 0 0;">Paste your <b>Business ID</b> (the <code>BIZ-…</code> code from the Bank) so buyers always pay the right account — no name typos. Click Verify to confirm.</p>
       <label>Colors</label>
       <div class="swatch-row">
         <div class="swatch"><span class="small">Accent</span><input type="color" id="mg_c_accent" value="${esc(th.accent)}"></div>
@@ -4888,10 +4893,13 @@ async function renderShopManage(v, DB, who){
   wireBusinessVerify("mg_biz","mg_biz_verify","mg_biz_status");
 
   $("mg_save").onclick = async ()=>{
+    const bizId = $("mg_biz").value.trim();
+    let bizName = ($("mg_biz").dataset.bizname||'').trim();
+    if(bizId && !bizName){ const rr = await resolveBusinessId(bizId); if(rr.ok && rr.exists) bizName = rr.name; }
     const patch = Object.assign({}, shop, {
       banner: $("mg_banner").value.trim(),
       blurb:  $("mg_blurb").value.trim(),
-      businessName: $("mg_biz").value.trim(),
+      businessId: bizId, businessName: bizName || (bizId ? shop.businessName||'' : ''),
       theme: { accent:$("mg_c_accent").value, panel:$("mg_c_panel").value, head:$("mg_c_head").value },
       updatedAt: new Date().toISOString()
     });
@@ -5461,8 +5469,8 @@ async function renderShopCreate(v, DB, who){
         and enter its exact name here.</p>
       <label>Shop name</label>
       <input id="cr_name" placeholder="e.g. Maeve's Tack Corner" />
-      <label>Bank business name (exactly as registered)</label>
-      <input id="cr_biz" placeholder="the business that receives payments" />
+      <label>Business ID (the BIZ-… code — receives payments)</label>
+      <input id="cr_biz" placeholder="BIZ-…" />
       <label>Banner image link (optional)</label>
       <input id="cr_banner" placeholder="https://…/banner.png" />
       <label>Blurb (optional)</label>
@@ -5479,12 +5487,13 @@ async function renderShopCreate(v, DB, who){
     const name=$("cr_name").value.trim();
     const biz=$("cr_biz").value.trim();
     if(!name){ $("cr_msg").textContent="Name your shop."; return; }
-    if(!biz){ $("cr_msg").textContent="Enter your bank business name so you can take payment."; return; }
+    if(!biz){ $("cr_msg").textContent="Enter your Business ID (the BIZ-… code) so you can take payment."; return; }
     $("cr_msg").textContent="Opening…";
     // ensure the owner session so Firestore accepts the write
     if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
+    let bizName=''; { const rr=await resolveBusinessId(biz); if(rr.ok && rr.exists) bizName=rr.name; }
     const id = "shop_"+Math.random().toString(36).slice(2,10);
-    const rec = { id, owner:who.userId, name, businessName:biz,
+    const rec = { id, owner:who.userId, name, businessId:biz, businessName:bizName,
       banner:$("cr_banner").value.trim(), blurb:$("cr_blurb").value.trim(),
       theme: Object.assign({}, SHOP_THEME_DEFAULTS), createdAt:new Date().toISOString() };
     try{ await DB.put('shops', id, who.userId, rec); __shopView={mode:"manage",shopId:id}; renderShops(v); }
