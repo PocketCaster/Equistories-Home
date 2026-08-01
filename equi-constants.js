@@ -131,14 +131,14 @@ const EQUI_IMAGE_FRAMES = {
   "scalloped-circle": { src: FRAME_IMAGE_BASE+"frame-scalloped-circle.png", shape:"circle", inset:{top:3.61, left:3.61, right:3.72, bottom:3.72} },
   "scribble-circle":  { src: FRAME_IMAGE_BASE+"frame-scribble-circle.png",  shape:"circle", inset:{top:9.32, left:12.46,right:10.1, bottom:12.06} },
   "scissor-circle":   { src: FRAME_IMAGE_BASE+"frame-scissor-circle.png",   shape:"circle", inset:{top:2.22, left:2.35, right:2.6,  bottom:2.59} },
-  "rose-corners":     { src: FRAME_IMAGE_BASE+"frame-rose-corners.png",     shape:"square", inset:{top:1,    left:1,    right:1,    bottom:1} },
+  "rose-corners":     { src: FRAME_IMAGE_BASE+"frame-rose-corners.png",     shape:"square", inset:{top:18.31, left:1,    right:1,    bottom:18.31} },
   "gold-key":         { src: FRAME_IMAGE_BASE+"frame-gold-key.png",         shape:"square", inset:{top:0.83, left:0.82, right:0.82, bottom:0.83} },
   "bracket-plaque":   { src: FRAME_IMAGE_BASE+"frame-bracket-plaque.png",   shape:"square", inset:{top:10.44,left:10.52,right:10.89,bottom:11.12} },
   // Ornate Gold: the photo is clipped to a polygon traced from the actual
   // arch/scrollwork silhouette instead of a plain rounded rectangle.
   "ornate-gold": { src: FRAME_IMAGE_BASE+"frame-ornate-gold.png", shape:"clip",
-    clipPath: "polygon(48.38% 1.21%, 34.28% 2.86%, 28.21% 4.51%, 23.75% 6.16%, 22.47% 7.82%, 22.43% 9.47%, 15.86% 11.13%, 14.04% 12.78%, 9.4% 14.44%, 8.35% 16.09%, 8.43% 17.74%, 7.43% 19.39%, 4.25% 21.05%, 5.77% 22.71%, 6.76% 24.36%, 4.33% 26.01%, 4.33% 27.66%, 4.33% 29.31%, 4.33% 30.98%, 4.33% 32.63%, 4.33% 34.28%, 4.33% 35.93%, 4.33% 37.58%, 4.33% 39.23%, 4.33% 40.9%, 4.33% 42.55%, 4.33% 44.2%, 4.33% 45.85%, 4.33% 47.5%, 4.33% 49.16%, 4.33% 50.82%, 4.33% 52.47%, 4.33% 54.12%, 4.33% 55.77%, 4.33% 57.43%, 4.33% 59.08%, 4.33% 60.74%, 4.33% 62.39%, 4.33% 64.04%, 4.33% 65.7%, 4.33% 67.35%, 4.33% 69.0%, 4.33% 70.66%, 4.33% 72.31%, 4.33% 73.97%, 6.74% 75.62%, 5.8% 77.27%, 4.23% 78.92%, 7.43% 80.58%, 8.41% 82.24%, 8.35% 83.89%, 9.48% 85.54%, 14.02% 87.19%, 15.86% 88.84%, 22.43% 90.51%, 22.49% 92.16%, 23.71% 93.81%, 28.17% 95.46%, 34.23% 97.11%, 48.29% 98.78%, 51.7% 98.78%, 65.75% 97.11%, 71.81% 95.46%, 76.25% 93.81%, 77.49% 92.16%, 77.55% 90.51%, 84.12% 88.84%, 85.96% 87.19%, 90.5% 85.54%, 91.63% 83.89%, 91.55% 82.24%, 92.55% 80.58%, 95.75% 78.92%, 94.16% 77.27%, 93.24% 75.62%, 95.65% 73.97%, 95.65% 72.31%, 95.65% 70.66%, 95.65% 69.0%, 95.65% 67.35%, 95.65% 65.7%, 95.65% 64.04%, 95.65% 62.39%, 95.63% 60.74%, 95.63% 59.08%, 95.63% 57.43%, 95.63% 55.77%, 95.63% 54.12%, 95.63% 52.47%, 95.63% 50.82%, 95.63% 49.16%, 95.63% 47.5%, 95.63% 45.85%, 95.63% 44.2%, 95.63% 42.55%, 95.63% 40.9%, 95.63% 39.23%, 95.65% 37.58%, 95.65% 35.93%, 95.65% 34.28%, 95.65% 32.63%, 95.65% 30.98%, 95.65% 29.31%, 95.65% 27.66%, 95.65% 26.01%, 93.22% 24.36%, 94.22% 22.71%, 95.73% 21.05%, 92.53% 19.39%, 91.55% 17.74%, 91.63% 16.09%, 90.56% 14.44%, 85.92% 12.78%, 84.1% 11.13%, 77.53% 9.47%, 77.51% 7.82%, 76.23% 6.16%, 71.77% 4.51%, 65.7% 2.86%, 51.58% 1.21%)",
-    inset:{top:0,left:0,right:0,bottom:0} },
+    clipPath: "polygon(48.93% 1.21%, 39.66% 2.86%, 35.67% 4.51%, 32.73% 6.16%, 31.89% 7.82%, 31.87% 9.47%, 27.54% 11.13%, 26.35% 12.78%, 23.29% 14.44%, 22.60% 16.09%, 22.66% 17.74%, 22.00% 19.39%, 19.91% 21.05%, 20.91% 22.71%, 21.56% 24.36%, 19.96% 26.01%, 19.96% 27.66%, 19.96% 29.31%, 19.96% 30.98%, 19.96% 32.63%, 19.96% 34.28%, 19.96% 35.93%, 19.96% 37.58%, 19.96% 39.23%, 19.96% 40.90%, 19.96% 42.55%, 19.96% 44.20%, 19.96% 45.85%, 19.96% 47.50%, 19.96% 49.16%, 19.96% 50.82%, 19.96% 52.47%, 19.96% 54.12%, 19.96% 55.77%, 19.96% 57.43%, 19.96% 59.08%, 19.96% 60.74%, 19.96% 62.39%, 19.96% 64.04%, 19.96% 65.70%, 19.96% 67.35%, 19.96% 69.00%, 19.96% 70.66%, 19.96% 72.31%, 19.96% 73.97%, 21.54% 75.62%, 20.93% 77.27%, 19.89% 78.92%, 22.00% 80.58%, 22.64% 82.24%, 22.60% 83.89%, 23.35% 85.54%, 26.33% 87.19%, 27.54% 88.84%, 31.87% 90.51%, 31.90% 92.16%, 32.71% 93.81%, 35.64% 95.46%, 39.63% 97.11%, 48.88% 98.78%, 51.12% 98.78%, 60.36% 97.11%, 64.35% 95.46%, 67.27% 93.81%, 68.08% 92.16%, 68.12% 90.51%, 72.44% 88.84%, 73.65% 87.19%, 76.64% 85.54%, 77.38% 83.89%, 77.33% 82.24%, 77.99% 80.58%, 80.09% 78.92%, 79.05% 77.27%, 78.44% 75.62%, 80.03% 73.97%, 80.03% 72.31%, 80.03% 70.66%, 80.03% 69.00%, 80.03% 67.35%, 80.03% 65.70%, 80.03% 64.04%, 80.01% 62.39%, 80.01% 60.74%, 80.01% 59.08%, 80.01% 57.43%, 80.01% 55.77%, 80.01% 54.12%, 80.01% 52.47%, 80.01% 50.82%, 80.01% 49.16%, 80.01% 47.50%, 80.01% 45.85%, 80.01% 44.20%, 80.01% 42.55%, 80.01% 40.90%, 80.01% 39.23%, 80.03% 37.58%, 80.03% 35.93%, 80.03% 34.28%, 80.03% 32.63%, 80.03% 30.98%, 80.03% 29.31%, 80.03% 27.66%, 80.03% 26.01%, 78.43% 24.36%, 79.09% 22.71%, 80.08% 21.05%, 77.98% 19.39%, 77.33% 17.74%, 77.38% 16.09%, 76.68% 14.44%, 73.63% 12.78%, 72.43% 11.13%, 68.11% 9.47%, 68.10% 7.82%, 67.25% 6.16%, 64.32% 4.51%, 60.33% 2.86%, 51.04% 1.21%)",
+    inset:{top:0,left:17.11,right:17.11,bottom:0} },
   // Corner Brackets: the 4 marks sit almost exactly equidistant from
   // center, ~7.6° off the axis-aligned corners — so it's one plain square,
   // rotated, not a corner-clipped octagon.
@@ -207,14 +207,14 @@ function __esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp
     box-sizing:border-box;
   }
   .equi-frame-standalone--floral img,
-  .equi-frame-standalone--floral > div{ width:100%; height:100%; border-radius:50%; display:block; }
+  .equi-frame-standalone--floral > div{ width:100%; height:100%; border-radius:50%; display:block; object-fit:cover; }
   .equi-frame-standalone--starburst{
     display:inline-block; position:relative; border-radius:50%; overflow:visible;
     border:3px dashed #c9a84c; box-shadow:0 0 0 2px var(--panel,#1a130c);
     box-sizing:border-box;
   }
   .equi-frame-standalone--starburst img,
-  .equi-frame-standalone--starburst > div{ width:100%; height:100%; border-radius:50%; display:block; }
+  .equi-frame-standalone--starburst > div{ width:100%; height:100%; border-radius:50%; display:block; object-fit:cover; }
   .equi-frame-standalone--starburst::before{
     content:"✦"; position:absolute; top:-10px; right:-4px; font-size:1.1em; color:#e8c766;
   }
