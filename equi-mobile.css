@@ -135,19 +135,19 @@
 }
 
 /* ==========================================================================
-   7) PROFILE TAB STRIP — scroll instead of clipping the last tab
+   7) PROFILE TAB STRIP — wrap so every tab stays fully visible
 
    The member-profile tabs (About / Horses / Riders / Status updates) sit in a
-   no-wrap flex row with no overflow handling, so on a phone "Status updates"
-   runs off the edge and gets cut by the page's overflow-x:hidden. Making the
-   strip scroll sideways keeps every tab reachable.
+   no-wrap flex row, so on a phone "Status updates" runs off the edge and gets
+   cut off. Rather than hide it behind a sideways scroll, let the strip WRAP:
+   tabs that don't fit drop to a second line, so all four read in full — the
+   same as desktop, just stacked. A touch less padding keeps the rows tidy.
    (Wrapper carries class="pf-tabstrip" — added where the strip is built.)
    ========================================================================== */
-.pf-tabstrip{
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+@media (max-width: 640px){
+  .pf-tabstrip{ flex-wrap: wrap; row-gap: 2px; }
+  .pf-tabstrip > [data-ptab]{ padding: 8px 12px !important; }   /* beats the inline padding */
 }
-.pf-tabstrip::-webkit-scrollbar{ height: 0; }   /* keep it clean; still swipeable */
 
 /* ==========================================================================
    8) TAP TARGETS — keep controls comfortable to hit with a thumb
