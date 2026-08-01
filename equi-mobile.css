@@ -1,0 +1,168 @@
+/* ==========================================================================
+   EquiStories — shared mobile refinements   (load LAST, after every other
+   stylesheet, so these overrides win the cascade)
+
+   WHY THIS FILE EXISTS
+   --------------------
+   The site is already largely responsive: the header collapses, the forum
+   board reflows, show-result rows restack, and most grids use
+   auto-fit/auto-fill so they wrap on their own. This file only closes the
+   remaining gaps that show up on a phone — it does NOT re-theme anything.
+
+   Everything here is inside a max-width media query, so desktop is untouched.
+   Selectors are scoped and, where they must beat an inline style="" attribute,
+   use !important deliberately (noted at each spot). To back this out: delete
+   the one <link> line from each page. Nothing else references this file.
+
+   Breakpoint: 640px — matches the forum's existing .pb-post breakpoint, so the
+   whole site changes over at one consistent width.
+   ========================================================================== */
+
+/* ==========================================================================
+   1) FIXED MULTI-COLUMN GRIDS → single column on phones
+
+   A handful of grids hard-code their column count inline
+   (grid-template-columns:1fr 1fr, 2fr 1fr, 1fr 1fr 1fr, 2fr 1fr 1fr). Those
+   don't overflow, but on a narrow screen they squeeze into cramped side-by-side
+   columns instead of stacking. The auto-fit/auto-fill grids already wrap, so we
+   leave them alone — these substring selectors only match the hard-coded ones
+   (an auto-fill value starts with "repeat(", so it never matches "1fr 1fr").
+
+   Inline styles outrank a stylesheet, so !important is required here.
+   ========================================================================== */
+@media (max-width: 640px){
+  [style*="grid-template-columns:1fr 1fr"],
+  [style*="grid-template-columns: 1fr 1fr"],
+  [style*="grid-template-columns:2fr 1fr"],
+  [style*="grid-template-columns: 2fr 1fr"]{
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ==========================================================================
+   2) PEDIGREE / BLOODLINE CHART — scroll as one block instead of clipping
+
+   Each bloodline row is a monospace line with a long dash-leader and
+   white-space:pre, so it's wider than a phone screen. Today each row carries
+   its own overflow-x:auto, which on mobile means the right-hand names get cut
+   off by the page's overflow-x:hidden safety net and can't be reached.
+
+   Fix: make the whole chart ONE horizontal scroll area, and stop the
+   individual rows from scrolling on their own. Now the tree is fully readable —
+   you swipe the block sideways rather than losing half of it. A small type
+   reduction on phones means less swiping is needed.
+   (Wrapper carries class="equi-pedigree" — added in renderPedigreeChart.)
+   ========================================================================== */
+.equi-pedigree{
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;   /* momentum scroll on iOS */
+}
+.equi-pedigree > div{
+  overflow-x: visible !important;      /* was auto per-row; let the block scroll */
+}
+@media (max-width: 640px){
+  .equi-pedigree{ font-size: .8em !important; }   /* beats the inline .95em */
+}
+
+/* ==========================================================================
+   3) SAFETY: anything genuinely too wide should stay reachable
+
+   The page-level overflow-x:hidden (in equi-shell.css) stops sideways page
+   scroll, which is good — but it also silently CLIPS any lone element that's
+   too wide. These rules make the usual offenders reachable instead of cut off:
+   preformatted/monospace blocks scroll, and stray wide media is capped.
+   ========================================================================== */
+@media (max-width: 640px){
+  #app pre,
+  .wrap pre{
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Images and iframes never push the layout wider than the screen. */
+  #app img, .wrap img,
+  #app iframe, .wrap iframe{ max-width: 100%; height: auto; }
+}
+
+/* ==========================================================================
+   4) BREATHING ROOM — tighten the biggest fixed paddings on small screens
+
+   Modal dialog boxes (the accent-bordered overlays) and cards carry generous
+   desktop padding; on a phone that eats most of the usable width. Trim it a
+   little and make sure tall modals can scroll rather than run off-screen.
+   The modal boxes are identifiable by their 2px accent border.
+   ========================================================================== */
+@media (max-width: 640px){
+  #app .card, .wrap .card{ padding: 14px; }
+
+  [style*="border:2px solid var(--equi-accent)"]{
+    padding: 16px !important;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+}
+
+/* ==========================================================================
+   6) SQUEEZED FLEX ROWS → stack on phones  (the "one letter per line" bug)
+
+   Several rows put a photo/icon, a text column, and one or more buttons
+   side by side. On a phone the fixed pieces (a 260px photo, two buttons) eat
+   the width, the text column collapses to ~40px, and because the whole site
+   sets overflow-wrap:break-word (for long URLs), the leftover text shatters
+   one letter per line. Fix: let these rows stack/wrap so the text column gets
+   real width back.
+
+   -- Roster horse cards AND rider cards (both use .horse-card, and both open
+      with a photo|info flex row as their first child). Stack that row so the
+      photo sits on top and the name/breed/details get the full width below.
+      align-items must become stretch (it's flex-start inline) so the info
+      column fills the width instead of collapsing to its text.               */
+@media (max-width: 640px){
+  #app .horse-card > div:first-child{
+    flex-direction: column;
+    align-items: stretch !important;   /* overrides the inline align-items:flex-start */
+  }
+  #app .horse-card .horse-photo,
+  #app .horse-card .horse-photo-placeholder{ margin: 0 auto; }   /* centre the photo when stacked */
+}
+
+/* -- Hub "My Saddlebag" item rows (.bk-tx): icon | name | note | Gift | Delete.
+      Let the row wrap, and make the name/body take the whole first line next to
+      the icon, so the note and the two buttons flow onto a second line instead
+      of crushing the name. (46px = 34px icon + 12px gap.)                     */
+@media (max-width: 640px){
+  .bk-tx{ flex-wrap: wrap; row-gap: 8px; }
+  .bk-tx-body{ flex: 1 1 calc(100% - 46px); }
+}
+
+/* ==========================================================================
+   7) PROFILE TAB STRIP — scroll instead of clipping the last tab
+
+   The member-profile tabs (About / Horses / Riders / Status updates) sit in a
+   no-wrap flex row with no overflow handling, so on a phone "Status updates"
+   runs off the edge and gets cut by the page's overflow-x:hidden. Making the
+   strip scroll sideways keeps every tab reachable.
+   (Wrapper carries class="pf-tabstrip" — added where the strip is built.)
+   ========================================================================== */
+.pf-tabstrip{
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.pf-tabstrip::-webkit-scrollbar{ height: 0; }   /* keep it clean; still swipeable */
+
+/* ==========================================================================
+   8) TAP TARGETS — keep controls comfortable to hit with a thumb
+
+   Small inline-sized buttons and the breeding "slots" can get fiddly on a
+   phone. Nudge the minimum height without changing how anything looks on
+   desktop. Font-size 16px on inputs also stops iOS Safari from zooming in when
+   a field is focused.
+   ========================================================================== */
+@media (max-width: 640px){
+  #app button:not(.tab),
+  .wrap button{ min-height: 40px; }
+
+  #app input, #app select, #app textarea,
+  .wrap input, .wrap select, .wrap textarea{ font-size: 16px; }
+
+  #app .slot, .slot{ width: 30px; height: 30px; }   /* breeding slots */
+}

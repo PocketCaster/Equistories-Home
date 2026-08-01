@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="equi-shell.css" />
   <link rel="stylesheet" href="equi-components.css" />
   <link rel="stylesheet" href="equi-tracker.css" />
+  <link rel="stylesheet" href="equi-mobile.css" />
 </head>
 <body>
 <!-- ============================================================
@@ -4440,7 +4441,7 @@ function renderPedigreeChart(h){
     +`<span style="color:${strong?'var(--equi-accent)':'var(--equi-dim)'};font-weight:${strong?'bold':'normal'};">${lead?' ':''}${label}: </span>`
     +`${nm(key)}</div>`;
 
-  return `<div style="font-family:var(--equi-mono);font-size:.95em;background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:8px;padding:14px;line-height:1.7;">
+  return `<div class="equi-pedigree" style="font-family:var(--equi-mono);font-size:.95em;background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:8px;padding:14px;line-height:1.7;">
     <div style="font-family:var(--equi-serif);color:var(--equi-accent);margin-bottom:8px;font-weight:bold;">Bloodline:</div>
     ${line(L3,'SSS','sss')}
     ${line(L2,'SS','ss')}

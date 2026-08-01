@@ -273,6 +273,7 @@
 </style>
   <link rel="stylesheet" href="equi-shell.css" />
   <link rel="stylesheet" href="equi-components.css" />
+  <link rel="stylesheet" href="equi-mobile.css" />
   <style>
   /* Loaded AFTER equi-shell.css so it always wins: --accent2 was mis-wired to
      moss green in the shell; force it back to the intended orchid site-wide. */
@@ -1198,7 +1199,7 @@ async function renderMemberProfile(v, uid){
       </div>
     </div>
 
-    <div style="display:flex;gap:2px;margin-top:12px;border-bottom:1px solid var(--line);">
+    <div class="pf-tabstrip" style="display:flex;gap:2px;margin-top:12px;border-bottom:1px solid var(--line);">
       ${["About","Horses","Riders","Status updates"].map(tb=>`
         <div data-ptab="${tb}" style="padding:9px 16px;font-size:.94em;cursor:pointer;white-space:nowrap;
           color:${__profileTab===tb?'var(--accent,#e8c766)':'var(--dim,#8a7860)'};
