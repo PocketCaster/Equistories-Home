@@ -3573,7 +3573,7 @@ async function breedBuySlot(body, DB, who, breed, horse){
   // A Breeding Ticket waives the fee.
   let inv=null, ticket=null;
   try{ inv = await DB.get('inventory', who.userId); }catch(e){}
-  if(inv && Array.isArray(inv.items)) ticket = inv.items.find(x=>x && (x.effect==='breeding_ticket' || x.key==='ticket'));
+  if(inv && Array.isArray(inv.items)) ticket = inv.items.find(x=>x && (x.effect==='breeding_ticket' || x.key==='ticket' || /breeding\s*ticket|(^|\s)ticket(\s|$)/i.test(x.name||'')));
   let useTicket=false;
   if(ticket && price>0){
     useTicket = confirm(`You have a Breeding Ticket — use it to waive the \u2726${price} fee for ${horse.name}?\n\nOK = use the ticket (free).  Cancel = pay \u2726${price}.`);
@@ -3829,6 +3829,13 @@ async function breedAdmin(body, DB, who, breed){
   try{ const g = await DB.get('config','global'); cfgCustomBreeds=(g&&g.customBreeds)||[]; cfgCustomGenes=(g&&g.customGenes)||[]; }catch(e){}
   const copierGenes = copierGenesFor(breed.name, cfgCustomBreeds, cfgCustomGenes);
   const copierBreedTraits = copierTraitsFor(breed.name, cfgCustomBreeds);
+  let groupHorses=[];
+  {
+    const _gStaff=[...new Set([breed.owner, ...(Array.isArray(breed.staff)?breed.staff:[])].filter(Boolean))];
+    for(const uid of _gStaff){
+      try{ const hs=await DB.listByOwner('horses', uid); (hs||[]).forEach(h=>{ if(h && h.groupBreeding && String(h.breed||'').trim().toLowerCase()===String(breed.name).trim().toLowerCase()) groupHorses.push(h); }); }catch(e){}
+    }
+  }
 
   body.innerHTML = `
     <div class="card">
@@ -3885,6 +3892,22 @@ async function breedAdmin(body, DB, who, breed){
       </details>
       <button id="npc_create">Create group horse</button><span id="npc_msg" class="small" style="margin-left:8px;"></span>
       ` : `<div class="small muted">Register this breed's genetics (below) before you can create NPC horses.</div>`}
+    </div>` : ''}
+
+    ${isFounder && groupHorses.length ? `<div class="card">
+      <h3>🐎 Group Breeding Stock <span class="small muted">(${groupHorses.length})</span></h3>
+      <p class="small muted" style="margin-top:0;">Your breed's NPC studs &amp; broodmares — edit genes, traits, level, stats &amp; slot price, remove them, or send one to your personal roster. Managed here, kept off your roster.</p>
+      <div id="gstock_list">${groupHorses.map(h=>{
+        const g=String(h.gender||'').toLowerCase();
+        const role=/(stallion|colt|rig|stud)/.test(g)?'Stud':/(mare|filly|broodmare|dam)/.test(g)?'Broodmare':'Breeding';
+        return `<div class="reg-row" data-gsrow="${esc(h.id)}">
+          <div class="thumb" ${imgOk(h.image)?`style="background-image:url('${esc(h.image)}')"`:''}></div>
+          <div style="flex:1;"><b>${esc(h.name)}</b> <span class="tag">${role}</span><div class="small">Lvl ${h.level||1} · ✦${Number(h.slotPrice)||0}/slot${h.genotype?' · genes set':' · no genes'}</div></div>
+          <button class="ghost" data-gsedit="${esc(h.id)}" style="padding:5px 10px;">Edit</button>
+          <button class="ghost" data-gsunflag="${esc(h.id)}" style="padding:5px 10px;">→ My roster</button>
+          <button class="ghost" data-gsdel="${esc(h.id)}" style="color:var(--bad);padding:5px 10px;">Remove</button>
+        </div>`;
+      }).join('')}</div>
     </div>` : ''}
 
     <div class="card">
@@ -4039,6 +4062,59 @@ async function breedAdmin(body, DB, who, breed){
       renderBreeds(document.getElementById('view'));
     }catch(err){ $("npc_msg").textContent="Failed: "+(err.message||err); }
   };
+
+  // Group Breeding Stock management
+  body.querySelectorAll('[data-gsdel]').forEach(b=>b.onclick=async()=>{
+    const h=groupHorses.find(x=>x.id===b.dataset.gsdel); if(!h) return;
+    if(!confirm(`Remove ${h.name} permanently? Any open breeding slots on it are lost.`)) return;
+    try{ if(window.EquiAuth && window.EquiAuth.uid!==(h.__owner||who.userId)){ await upgradeToOwnerSession(); } await DB.remove('horses', h.id); renderBreeds(document.getElementById('view')); }catch(err){ alert('Failed: '+(err.message||err)); }
+  });
+  body.querySelectorAll('[data-gsunflag]').forEach(b=>b.onclick=async()=>{
+    const h=groupHorses.find(x=>x.id===b.dataset.gsunflag); if(!h) return;
+    if(!confirm(`Send ${h.name} to your personal roster? It stops being group breeding stock.`)) return;
+    const upd=Object.assign({}, h); delete upd.__owner; delete upd.__id; upd.groupBreeding=false;
+    try{ if(window.EquiAuth && window.EquiAuth.uid!==(h.__owner||who.userId)){ await upgradeToOwnerSession(); } await DB.put('horses', h.id, h.__owner||who.userId, upd); renderBreeds(document.getElementById('view')); }catch(err){ alert('Failed: '+(err.message||err)); }
+  });
+  body.querySelectorAll('[data-gsedit]').forEach(b=>b.onclick=()=>{
+    const h=groupHorses.find(x=>x.id===b.dataset.gsedit); if(!h) return;
+    const row=body.querySelector(`[data-gsrow="${CSS.escape(h.id)}"]`); if(!row) return;
+    row.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+      <b>${esc(h.name)}</b>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <label class="small" style="display:flex;flex-direction:column;">Slot price (✦)<input data-gsf="price" type="number" min="0" value="${Number(h.slotPrice)||0}" style="max-width:120px;" /></label>
+        <label class="small" style="display:flex;flex-direction:column;">Level (1–10)<input data-gsf="level" type="number" min="1" max="10" value="${h.level||1}" style="max-width:90px;" /></label>
+        <button class="ghost" data-gsfill>Auto-fill stats</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        ${STATS.map(s=>`<label class="small" style="display:flex;flex-direction:column;">${STAT_LABELS[s]||s}<input type="number" min="0" data-gsstat data-stat="${s}" value="${(h.stats&&Number.isFinite(Number(h.stats[s])))?h.stats[s]:10}" style="max-width:70px;" /></label>`).join('')}
+      </div>
+      <div class="small">Genetics: ${h.genotype?`<code>${esc(h.genotype)}</code>`:'<i>none</i>'} · Traits: ${(h.rareTraits&&h.rareTraits.length)?esc(h.rareTraits.join(', ')):'none'}</div>
+      <details><summary class="small" style="cursor:pointer;color:var(--accent);">🧬 Change genes &amp; traits</summary>
+        <div style="margin-top:6px;"><label class="small" style="display:block;margin-bottom:6px;"><input type="checkbox" data-gsgenapply /> Apply the genes &amp; traits below on save</label>${copierHtml(h.id, copierGenes, copierBreedTraits, h)}</div>
+      </details>
+      <div style="display:flex;gap:8px;"><button data-gssave="${esc(h.id)}">Save</button><button class="ghost" data-gscancel>Cancel</button><span data-gsmsg class="small"></span></div>
+    </div>`;
+    row.querySelector('[data-gsfill]').onclick=()=>{
+      const L=Math.max(1,Math.min(10,Math.round(Number(row.querySelector('[data-gsf="level"]').value)||1)));
+      let bonus=0; for(let i=2;i<=L;i++) bonus+=NPC_LEVELS[i].bonus;
+      row.querySelectorAll('[data-gsstat]').forEach(inp=>{ inp.value=10+bonus; });
+    };
+    row.querySelector('[data-gscancel]').onclick=()=>renderBreeds(document.getElementById('view'));
+    row.querySelector('[data-gssave]').onclick=async()=>{
+      const L=Math.max(1,Math.min(10,Math.round(Number(row.querySelector('[data-gsf="level"]').value)||1)));
+      let slots=2; for(let i=2;i<=L;i++) slots+=NPC_LEVELS[i].slots;
+      const stats={}; row.querySelectorAll('[data-gsstat]').forEach(inp=>{ stats[inp.dataset.stat]=Math.max(0,Math.round(Number(inp.value)||0)); });
+      STATS.forEach(s=>{ if(!Number.isFinite(Number(stats[s]))) stats[s]=10; });
+      const upd=Object.assign({}, h); delete upd.__owner; delete upd.__id;
+      upd.slotPrice=Math.max(0,Number(row.querySelector('[data-gsf="price"]').value)||0);
+      upd.npcOverride=true; upd.level=L; upd.exp=NPC_LEVELS[L].exp; upd.breedingSlots=slots; upd.stats=stats; upd.baseStats=Object.assign({},stats);
+      const ap=row.querySelector('[data-gsgenapply]');
+      if(ap && ap.checked){ upd.genotype=copierGenotype(row, h.id); upd.rareTraits=copierTraits(row, h.id); }
+      row.querySelector('[data-gsmsg]').textContent='Saving…';
+      try{ if(window.EquiAuth && window.EquiAuth.uid!==(h.__owner||who.userId)){ await upgradeToOwnerSession(); } await DB.put('horses', h.id, h.__owner||who.userId, upd); renderBreeds(document.getElementById('view')); }
+      catch(err){ row.querySelector('[data-gsmsg]').textContent='Failed: '+(err.message||err); }
+    };
+  });
 
   // listed imports management
   if($("ni_list") && imports.length){

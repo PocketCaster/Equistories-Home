@@ -2712,7 +2712,8 @@ function renderPlayerProfilePage(app, data){
   const linksHtml=(Array.isArray(prof.links)?prof.links:[]).filter(l=>l.url).map(l=>
     `<a href="${l.url}" target="_blank" rel="noopener" class="tag" style="margin:2px;">${(l.label||l.url).replace(/</g,'&lt;')} ↗</a>`).join(" ");
 
-  const horseCards = horses.length ? horses.map(h=>`
+  const shownHorses = (horses||[]).filter(h=>!h.groupBreeding);   // group/NPC breeding stock isn't part of a member's shown horses
+  const horseCards = shownHorses.length ? shownHorses.map(h=>`
     <div class="tag" data-act="pp-open-horse" data-id="${h.id}" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;margin:4px;padding:6px 10px;">
       ${h.image?`<img src="${h.image}" style="width:34px;height:34px;object-fit:cover;border-radius:5px;" />`:''}
       <span><b>${(h.name||'Horse').replace(/</g,'&lt;')}</b> · ${h.breed||''} · Lvl ${h.level||1}</span>
@@ -2749,7 +2750,7 @@ function renderPlayerProfilePage(app, data){
         </div>
       </div>
       <div class="pcard">
-        <h3>Horses (${horses.length})</h3>
+        <h3>Horses (${shownHorses.length})</h3>
         <div>${horseCards}</div>
       </div>
       <div class="pcard">
@@ -3452,6 +3453,7 @@ function showTrainingEditModal(horse, entryId){
 
 function renderRoster(){
   const wrap = el('div');
+  const groupWrap = el('div');   // breed-owned group/NPC horses — kept OFF the personal roster
 
   const form = el('div','card',`
     <details id="nh_details" class="collapse">
@@ -3681,6 +3683,7 @@ function renderRoster(){
   };
 
   state.horses.forEach(h=>{
+    if(h.groupBreeding) return;   // group/NPC stock is managed in the Breed Admin panel, not the personal roster
     const open = expandedLogs.has(h.id);
     const pct = h.level>=10?100:Math.min(100,((h.exp-LEVEL_TABLE[h.level].exp)/(LEVEL_TABLE[h.level+1].exp-LEVEL_TABLE[h.level].exp))*100);
     const photoHtml = h.profileImage
@@ -3812,10 +3815,18 @@ function renderRoster(){
       </details>` : ''}
       ${artLogHtml}
     `;
-    wrap.appendChild(card);
+    (h.groupBreeding ? groupWrap : wrap).appendChild(card);
   });
 
   if(!state.horses.length) wrap.appendChild(el('div','small','<div style="padding:12px;color:var(--equi-faint);">No horses yet — add one above!</div>'));
+
+  if(groupWrap.children.length){
+    const gsec = el('div','card');
+    gsec.style.marginTop='16px';
+    gsec.innerHTML = `<h3 style="margin-top:0;">🐎 Group Breeding Stock <span class="small" style="color:var(--equi-faint);font-weight:normal;">— breed-owned NPCs, not part of your personal roster</span></h3>`;
+    gsec.appendChild(groupWrap);
+    wrap.appendChild(gsec);
+  }
 
   wrap.querySelectorAll('[data-act="toggle-log"]').forEach(b=>b.onclick=()=>{
     if(expandedLogs.has(b.dataset.id)) expandedLogs.delete(b.dataset.id);
@@ -8716,7 +8727,7 @@ function availableBreedingTokens(){
              ct===te || ct===tk ||
              cn===tl || cn===te || cn===('breeding'+tk) || cn===(tk+'token');
     });
-    if(def && !out.some(o=>o.invId===c.invId)) out.push({key:def.key, label:def.label, desc:def.desc, invId:c.invId, left:c.left});
+    if(def && def.key!=='ticket' && def.effect!=='breeding_ticket' && !out.some(o=>o.invId===c.invId)) out.push({key:def.key, label:def.label, desc:def.desc, invId:c.invId, left:c.left});
   });
   return out;
 }
