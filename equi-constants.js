@@ -131,12 +131,12 @@ const EQUI_IMAGE_FRAMES = {
   "scalloped-circle": { src: FRAME_IMAGE_BASE+"frame-scalloped-circle.png", shape:"clip", inset:{top:0,left:0,right:0,bottom:0}, clipPath:"circle(48.55% at 50% 50%)" },
   "scribble-circle": { src: FRAME_IMAGE_BASE+"frame-scribble-circle.png", shape:"clip", inset:{top:0,left:0,right:0,bottom:0}, clipPath:"circle(45% at 50% 50%)" },
   "scissor-circle": { src: FRAME_IMAGE_BASE+"frame-scissor-circle.png", shape:"clip", inset:{top:0,left:0,right:0,bottom:0}, clipPath:"circle(49.15% at 50% 50%)" },
-  "rose-corners":     { src: FRAME_IMAGE_BASE+"frame-rose-corners.png",     shape:"square", inset:{top:1,    left:1,    right:1,    bottom:1} },
+  "rose-corners":     { src: FRAME_IMAGE_BASE+"frame-rose-corners.png",     shape:"square", ar:1.549, inset:{top:1,    left:1,    right:1,    bottom:1} },
   "gold-key": { src: FRAME_IMAGE_BASE+"frame-gold-key.png", shape:"clip", inset:{top:0,left:0,right:0,bottom:0}, clipPath:"polygon(5.67% 0.90%, 5.67% 4.49%, 12.56% 2.36%, 12.67% 5.28%, 9.89% 5.62%, 9.67% 10.79%, 4.33% 13.15%, 2.22% 10.00%, 4.78% 9.89%, 4.89% 5.84%, 0.89% 5.62%, 0.89% 94.38%, 4.89% 94.16%, 4.78% 90.11%, 2.22% 89.89%, 3.33% 86.85%, 9.67% 89.10%, 9.89% 94.38%, 12.67% 94.72%, 12.56% 97.64%, 5.89% 95.28%, 6.89% 99.10%, 94.22% 99.10%, 94.11% 95.28%, 88.22% 97.64%, 87.22% 95.51%, 90.00% 94.38%, 90.11% 89.33%, 97.78% 87.08%, 97.89% 89.78%, 95.22% 90.00%, 95.22% 94.38%, 99.11% 94.38%, 99.11% 5.51%, 95.22% 5.51%, 95.22% 9.89%, 97.89% 10.22%, 95.56% 13.15%, 90.11% 10.67%, 90.00% 5.62%, 87.22% 4.49%, 89.11% 2.25%, 94.22% 4.49%, 94.22% 0.90%)" },
   "bracket-plaque": { src: FRAME_IMAGE_BASE+"frame-bracket-plaque.png", shape:"clip", inset:{top:0,left:0,right:0,bottom:0}, clipPath:"polygon(83.20% 8.67%, 54.87% 7.56%, 49.94% 3.00%, 45.02% 7.56%, 18.03% 7.89%, 14.89% 10.78%, 14.11% 14.44%, 8.73% 16.89%, 7.61% 45.00%, 3.02% 50.00%, 7.61% 54.89%, 7.95% 81.67%, 10.53% 84.56%, 14.22% 85.56%, 16.46% 91.11%, 44.90% 92.33%, 49.94% 96.89%, 54.87% 92.33%, 81.86% 92.00%, 84.77% 89.44%, 85.67% 85.33%, 91.15% 82.78%, 92.27% 54.56%, 96.86% 49.78%, 93.39% 47.33%, 92.16% 44.33%, 92.05% 18.56%, 89.92% 15.56%, 85.67% 14.22%)" },
   // Ornate Gold: the photo is clipped to a polygon traced from the actual
   // arch/scrollwork silhouette instead of a plain rounded rectangle.
-  "ornate-gold": { src: FRAME_IMAGE_BASE+"frame-ornate-gold.png", shape:"clip", inset:{top:0,left:0,right:0,bottom:0}, clipPath:"polygon(46.45% 1.22%, 33.28% 3.00%, 18.24% 7.56%, 12.84% 13.33%, 5.74% 13.11%, 8.45% 17.89%, 2.20% 23.22%, 4.39% 25.89%, 4.39% 74.00%, 2.20% 76.67%, 8.45% 82.00%, 5.74% 86.78%, 13.85% 87.00%, 18.24% 92.33%, 36.49% 97.56%, 53.21% 98.67%, 70.27% 95.89%, 82.26% 92.00%, 86.49% 86.78%, 93.92% 86.67%, 91.39% 82.00%, 97.64% 76.67%, 95.44% 74.11%, 95.44% 25.89%, 97.64% 23.22%, 91.39% 17.89%, 93.92% 13.22%, 85.98% 12.89%, 81.59% 7.56%, 62.67% 2.22%)" },
+  "ornate-gold": { src: FRAME_IMAGE_BASE+"frame-ornate-gold.png", shape:"clip", ar:0.658, inset:{top:0,left:0,right:0,bottom:0}, clipPath:"polygon(46.45% 1.22%, 33.28% 3.00%, 18.24% 7.56%, 12.84% 13.33%, 5.74% 13.11%, 8.45% 17.89%, 2.20% 23.22%, 4.39% 25.89%, 4.39% 74.00%, 2.20% 76.67%, 8.45% 82.00%, 5.74% 86.78%, 13.85% 87.00%, 18.24% 92.33%, 36.49% 97.56%, 53.21% 98.67%, 70.27% 95.89%, 82.26% 92.00%, 86.49% 86.78%, 93.92% 86.67%, 91.39% 82.00%, 97.64% 76.67%, 95.44% 74.11%, 95.44% 25.89%, 97.64% 23.22%, 91.39% 17.89%, 93.92% 13.22%, 85.98% 12.89%, 81.59% 7.56%, 62.67% 2.22%)" },
   // Corner Brackets: the 4 marks sit almost exactly equidistant from
   // center, ~7.6° off the axis-aligned corners — so it's one plain square,
   // rotated, not a corner-clipped octagon.
@@ -166,6 +166,13 @@ function framedImg(url, frame, size, caption){
   const imgFrame = EQUI_IMAGE_FRAMES[frame];
   if(imgFrame){
     const cap = caption ? ` data-caption="${__esc(caption)}"` : '';
+    // Frames whose PNG isn't square carry an `ar` (width/height). Size the
+    // container to that ratio — fitting inside the requested `size` box — so
+    // the frame art renders at its true proportions instead of being stretched
+    // to a square. Square frames (no `ar`) are unchanged.
+    const ar = imgFrame.ar || 1;
+    const fw = ar >= 1 ? dim : `calc(${dim} * ${ar})`;
+    const fh = ar >= 1 ? `calc(${dim} / ${ar})` : dim;
     let avatarStyle;
     if(imgFrame.shape === 'rotated-square'){
       const off = (100 - imgFrame.size) / 2;
@@ -179,7 +186,7 @@ function framedImg(url, frame, size, caption){
     const inner = url
       ? `<img src="${__esc(url)}" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'" style="width:100%;height:100%;object-fit:cover;display:block;" />`
       : `<div style="width:100%;height:100%;background:var(--deep);display:flex;align-items:center;justify-content:center;font-size:${px*0.35}px;">&#128100;</div>`;
-    return `<div class="equi-frame-img" style="position:relative;width:${dim};height:${dim};"${cap}>
+    return `<div class="equi-frame-img" style="position:relative;width:${fw};height:${fh};"${cap}>
       <div class="equi-frame-img__avatar" style="position:absolute;overflow:hidden;box-sizing:border-box;${avatarStyle}">${inner}</div>
       <img class="equi-frame-img__art" src="${__esc(imgFrame.src)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;" />
     </div>`;
