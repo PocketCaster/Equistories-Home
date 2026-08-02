@@ -236,16 +236,16 @@
 
   /* Thread page — sidebar-style post card, classic forum layout */
   .pb-post{
-    display:grid; grid-template-columns:240px 1fr;
+    display:grid; grid-template-columns:160px 1fr;
     border:1px solid var(--line); border-radius:10px; overflow:hidden; margin-bottom:16px;
     background:var(--panel2);
   }
   .pb-post__side{
-    background:var(--panel); padding:18px 8px; text-align:center;
+    background:var(--panel); padding:18px 14px; text-align:center;
     border-right:1px solid var(--line); display:flex; flex-direction:column; align-items:center;
   }
   .pb-post__side .equi-frame, .pb-post__side .equi-frame-img, .pb-post__side .equi-frame-standalone{ margin:0 auto; }
-  .pb-post__name{ margin-top:10px; font-weight:700; font-family:var(--equi-display,var(--equi-serif)); overflow-wrap:break-word; word-break:normal; hyphens:auto; font-size:clamp(12px,0.7vw,13.5px); line-height:1.25; max-width:100%; }
+  .pb-post__name{ margin-top:10px; font-weight:700; font-family:var(--equi-display,var(--equi-serif)); word-break:break-word; }
   .pb-post__badges{ margin-top:4px; }
   .pb-post__body{ padding:18px 22px; min-width:0; }
   .pb-post__meta{
@@ -273,7 +273,6 @@
 </style>
   <link rel="stylesheet" href="equi-shell.css" />
   <link rel="stylesheet" href="equi-components.css" />
-  <link rel="stylesheet" href="equi-mobile.css?v=3" />
   <style>
   /* Loaded AFTER equi-shell.css so it always wins: --accent2 was mis-wired to
      moss green in the shell; force it back to the intended orchid site-wide. */
@@ -306,8 +305,7 @@
 <script src="equi-nav.js" data-app="hub"></script>
 
 
-<script src="equi-constants.js?v=3"></script>
-<script src="equi-genes.js"></script>
+<script src="equi-constants.js"></script>
 <script src="equi-bank.js"></script>
 
 <script>
@@ -766,8 +764,7 @@ async function renderBank(v){
   async function loadNotifs(){
     const token = await idToken();
     const r = await railwayCall('/getNotifications', { method:'GET', idToken: token });
-    const nsAll = (r && r.success) ? (r.data||[]) : [];
-    const ns = nsAll.filter(n=>!isSocialNotif(n.type));   // social notifs live in the Messages tab now
+    const ns = (r && r.success) ? (r.data||[]) : [];
     const unread = ns.filter(n=>!n.read).length;
     const badge = $("bkUnread");
     if(unread>0){ badge.textContent = unread>99?'99+':unread; badge.classList.remove('hide'); }
@@ -1146,7 +1143,7 @@ async function renderMemberProfile(v, uid){
     if(!myFriendStatus) return `<button class="ghost" data-friend-add="${__esc(uid)}">+ Add Friend</button>`;
     if(myFriendStatus.status==='accepted') return `<button class="ghost" data-friend-remove="${__esc(uid)}">&#10003; Friends</button>`;
     if(myFriendStatus.status==='pending' && myFriendStatus.fromUserId===who.userId) return `<button class="ghost" data-friend-cancel="${__esc(uid)}">Request Sent (cancel)</button>`;
-    if(myFriendStatus.status==='pending' && myFriendStatus.toUserId===who.userId) return `<span class="small muted">Sent you a friend request — respond in your <b>Messages</b> notifications.</span>`;
+    if(myFriendStatus.status==='pending' && myFriendStatus.toUserId===who.userId) return `<button class="btn" data-friend-accept="${__esc(uid)}">Accept Friend Request</button> <button class="ghost" data-friend-decline="${__esc(uid)}">Decline</button>`;
     return '';
   })();
 
@@ -1174,7 +1171,7 @@ async function renderMemberProfile(v, uid){
     </div>`;
 
   const headerHtml = p.banner
-    ? `<div style="position:relative;border-radius:12px 12px 0 0;overflow:hidden;margin:-16px -16px 0;min-height:400px;">
+    ? `<div style="position:relative;border-radius:12px 12px 0 0;overflow:hidden;margin:-16px -16px 0;min-height:320px;">
         <img src="${__esc(p.banner)}" referrerpolicy="no-referrer" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;" />
         <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(15,10,6,0) 35%, rgba(15,10,6,.75) 100%);z-index:1;"></div>
         <div style="position:absolute;left:0;right:0;bottom:0;z-index:2;padding:16px;">${headerInnerHtml}</div>
@@ -1199,7 +1196,7 @@ async function renderMemberProfile(v, uid){
       </div>
     </div>
 
-    <div class="pf-tabstrip" style="display:flex;gap:2px;margin-top:12px;border-bottom:1px solid var(--line);">
+    <div style="display:flex;gap:2px;margin-top:12px;border-bottom:1px solid var(--line);">
       ${["About","Horses","Riders","Status updates"].map(tb=>`
         <div data-ptab="${tb}" style="padding:9px 16px;font-size:.94em;cursor:pointer;white-space:nowrap;
           color:${__profileTab===tb?'var(--accent,#e8c766)':'var(--dim,#8a7860)'};
@@ -1229,7 +1226,6 @@ async function renderMemberProfile(v, uid){
     fAdd.disabled = true;
     const otherUid = fAdd.dataset.friendAdd;
     try{
-      if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
       await DB.putWithField('friendRequests', friendPairId(who.userId, otherUid), who.userId,
         { fromUserId: who.userId, toUserId: otherUid, status:'pending', createdAt:new Date().toISOString() },
         'toUserId', otherUid);
@@ -1240,7 +1236,7 @@ async function renderMemberProfile(v, uid){
   const fCancel = v.querySelector('[data-friend-cancel]');
   if(fCancel) fCancel.onclick = async ()=>{
     fCancel.disabled = true;
-    try{ if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); } await DB.remove('friendRequests', friendPairId(who.userId, fCancel.dataset.friendCancel)); renderMemberProfile(v, uid); }
+    try{ await DB.remove('friendRequests', friendPairId(who.userId, fCancel.dataset.friendCancel)); renderMemberProfile(v, uid); }
     catch(e){ fCancel.disabled = false; }
   };
   const fAccept = v.querySelector('[data-friend-accept]');
@@ -1248,32 +1244,50 @@ async function renderMemberProfile(v, uid){
     fAccept.disabled = true;
     const otherUid = fAccept.dataset.friendAccept;
     try{
-      if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
       await DB.putWithField('friendRequests', friendPairId(who.userId, otherUid), myFriendStatus.fromUserId || otherUid,
         { fromUserId: myFriendStatus.fromUserId, toUserId: myFriendStatus.toUserId, status:'accepted', createdAt: myFriendStatus.createdAt, respondedAt:new Date().toISOString() },
         'toUserId', myFriendStatus.toUserId);
       notifyFriend(otherUid, 'accepted');
       renderMemberProfile(v, uid);
-    }catch(e){ alert('Accept failed — '+(e&&(e.code||e.message)||e)); fAccept.disabled = false; }
+    }catch(e){ fAccept.disabled = false; }
   };
   const fDecline = v.querySelector('[data-friend-decline]');
   if(fDecline) fDecline.onclick = async ()=>{
     fDecline.disabled = true;
-    try{ if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); } await DB.remove('friendRequests', friendPairId(who.userId, fDecline.dataset.friendDecline)); renderMemberProfile(v, uid); }
-    catch(e){ alert('Decline failed — '+(e&&(e.code||e.message)||e)); fDecline.disabled = false; }
+    try{ await DB.remove('friendRequests', friendPairId(who.userId, fDecline.dataset.friendDecline)); renderMemberProfile(v, uid); }
+    catch(e){ fDecline.disabled = false; }
   };
   const fRemove = v.querySelector('[data-friend-remove]');
   if(fRemove) fRemove.onclick = async ()=>{
     if(!confirm("Remove this friend?")) return;
     fRemove.disabled = true;
-    try{ if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); } await DB.remove('friendRequests', friendPairId(who.userId, fRemove.dataset.friendRemove)); renderMemberProfile(v, uid); }
+    try{ await DB.remove('friendRequests', friendPairId(who.userId, fRemove.dataset.friendRemove)); renderMemberProfile(v, uid); }
     catch(e){ fRemove.disabled = false; }
   };
-  // Friend-request Accept/Decline and friend links are wired inside
-  // renderProfileTabBody() now — those buttons live in the About tab body,
-  // which renders AFTER this point, so wiring them here caught nothing
-  // (the real cause of "Accept does nothing, no error").
-
+  v.querySelectorAll('[data-freq-accept]').forEach(b=>b.onclick=async()=>{
+    b.disabled = true;
+    const otherUid = b.dataset.freqAccept;
+    const req = incomingRequests.find(r=>r.fromUserId===otherUid);
+    if(!req) return;
+    try{
+      await DB.putWithField('friendRequests', friendPairId(uid, otherUid), otherUid,
+        { fromUserId: otherUid, toUserId: uid, status:'accepted', createdAt: req.createdAt, respondedAt:new Date().toISOString() },
+        'toUserId', uid);
+      notifyFriend(otherUid, 'accepted');
+      renderMemberProfile(v, uid);
+    }catch(e){ b.disabled = false; }
+  });
+  v.querySelectorAll('[data-freq-decline]').forEach(b=>b.onclick=async()=>{
+    b.disabled = true;
+    try{ await DB.remove('friendRequests', friendPairId(uid, b.dataset.freqDecline)); renderMemberProfile(v, uid); }
+    catch(e){ b.disabled = false; }
+  });
+  v.querySelectorAll('[data-friendlink]').forEach(a=>a.onclick=(ev)=>{
+    ev.preventDefault();
+    __memberView.uid = a.dataset.friendlink;
+    history.pushState({player:a.dataset.friendlink}, '', memberHref(a.dataset.friendlink));
+    render();
+  });
 
   function paintTabBar(){
     v.querySelectorAll('[data-ptab]').forEach(el=>{
@@ -1310,9 +1324,7 @@ async function renderMemberProfile(v, uid){
         </a>`;
       };
 
-      const badgeCaseHtml = await badgeCaseCardHtml(DB, uid, isSelf);
       body.innerHTML = `
-        ${badgeCaseHtml}
         <div class="card">
           <div class="profile-links" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">${discord} ${links}</div>
           ${featuredHorse||featuredRider ? `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-bottom:14px;">
@@ -1335,7 +1347,15 @@ async function renderMemberProfile(v, uid){
           </div>` : ''}
         </div>` : ''}
         ${isSelf && incomingRequests.length ? `<div class="card">
-          <div class="small">You have <b>${incomingRequests.length}</b> pending friend request${incomingRequests.length===1?'':'s'} — accept or decline them in your <b>Messages</b> notifications.</div>
+          <h3 style="margin-top:0;">Friend Requests (${incomingRequests.length})</h3>
+          ${incomingRequests.map(r=>`
+            <div class="linkbox" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+              <b>${__esc(r.fromUserId)}</b>
+              <span style="display:flex;gap:6px;">
+                <button class="btn" data-freq-accept="${__esc(r.fromUserId)}" style="padding:5px 12px;">Accept</button>
+                <button class="ghost" data-freq-decline="${__esc(r.fromUserId)}" style="padding:5px 12px;">Decline</button>
+              </span>
+            </div>`).join('')}
         </div>` : ''}
         <div class="card">
           <h3 style="margin-top:0;">Friends (${profileFriendIds.length})</h3>
@@ -1347,12 +1367,6 @@ async function renderMemberProfile(v, uid){
         ev.preventDefault();
         __breedView = { mode:"page", breedId:el.dataset.breedlink, tab:"about" };
         tab = "Breeds";
-        render();
-      });
-      body.querySelectorAll('[data-friendlink]').forEach(a=>a.onclick=(ev)=>{
-        ev.preventDefault();
-        __memberView.uid = a.dataset.friendlink;
-        history.pushState({player:a.dataset.friendlink}, '', memberHref(a.dataset.friendlink));
         render();
       });
     }
@@ -2670,14 +2684,6 @@ function renderResultsInbox(host){
 }
 
 let __msgView = { mode:"inbox", to:"", replyTo:null };
-let __inboxFilter = "all"; // Messages inbox filter: 'all' | 'newsletters'
-// Which server notification types are SOCIAL (forum, mentions, replies, friend,
-// association) and belong in the Messages notification panel. Everything else —
-// shop sales, bot/Discord, and money — stays in the Bank bell.
-function isSocialNotif(t){
-  t = String(t||'').toLowerCase();
-  return /mention|reply|forum|thread|comment|status|friend|assoc|wall|reaction|tagged|liked|newpost|new_post/.test(t);
-}
 
 function msgId(){ return 'm_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
 
@@ -2768,60 +2774,19 @@ function renderMessages(v){
     const mode=__msgView.mode;
     const list = mode==="sent" ? __msgCache.sent : __msgCache.inbox;
 
-    // ---- Notification center (SOCIAL only — forum/mentions/replies/friends; Bank keeps shop+bot+money) ----
-    const notifWho = who ? who.userId : null;
-    let friendReqs = [], socialNotifs = [];
-    if(notifWho && DB){
-      try{ friendReqs = ((await DB.listByField('friendRequests','toUserId', notifWho))||[]).filter(f=>f.status==='pending'); }catch(e){}
-    }
-    try{
-      const tk = await idToken();
-      const rn = await railwayCall('/getNotifications', { method:'GET', idToken: tk });
-      const feed = (rn && rn.success) ? (rn.data||[]) : [];
-      socialNotifs = feed.filter(n=>isSocialNotif(n.type) && !/friend_request/i.test(String(n.type||'')));
-    }catch(e){}
-    const newsletterNotifs = (__msgCache.inbox||[]).filter(m=>m.newsletter && !m.read);
-    const notifTotal = friendReqs.length + newsletterNotifs.length + socialNotifs.filter(n=>!n.read).length;
-    const notifCard = `
-      <div class="card">
-        <b style="color:var(--accent);">Notifications${notifTotal?` (${notifTotal})`:''}</b>
-        <div style="margin-top:10px;">
-          ${friendReqs.map(r=>`
-            <div class="bk-notif unread" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <div style="flex:1;min-width:150px;"><b>Friend request</b><div><b>${esc(r.fromUserId)}</b> wants to be your friend.</div></div>
-              <button class="btn" data-nf-acc="${esc(r.fromUserId)}" style="padding:4px 11px;font-size:.85em;">Accept</button>
-              <button class="ghost" data-nf-dec="${esc(r.fromUserId)}" style="padding:4px 11px;font-size:.85em;">Decline</button>
-            </div>`).join('')}
-          ${newsletterNotifs.map(m=>`
-            <div class="bk-notif unread" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <div style="flex:1;min-width:150px;"><b>📢 New newsletter</b><div>${esc(m.subject||'(no subject)')}</div></div>
-              <button class="ghost" data-nf-news="1" style="padding:4px 11px;font-size:.85em;">Read</button>
-            </div>`).join('')}
-          ${socialNotifs.slice(0,40).map(n=>`
-            <div class="bk-notif ${n.read?'':'unread'}">
-              <div><b>${esc(String(n.type||'').replace(/_/g,' '))}</b></div>
-              <div>${esc(n.message||'')}</div>
-            </div>`).join('')}
-          ${notifTotal ? '' : '<div class="small muted">No new notifications.</div>'}
-        </div>
-      </div>`;
-
-    const viewList = (mode==='inbox' && __inboxFilter==='newsletters') ? list.filter(m=>m.newsletter) : list;
-    const rows = viewList.length ? viewList.map((m,i)=>`
-      <div class="card" style="margin-bottom:8px;${m.newsletter?'border-left:3px solid #d29a3e;background:rgba(210,154,62,.06);':((!m.read&&mode==='inbox')?'border-left:3px solid var(--accent,#c9a84c);':'')}">
+    const rows = list.length ? list.map((m,i)=>`
+      <div class="card" style="margin-bottom:8px;${(!m.read&&mode==='inbox')?'border-left:3px solid var(--accent,#c9a84c);':''}">
         <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">
-          ${m.newsletter?'<span style="font-size:.72em;background:#d29a3e;color:#241403;font-weight:bold;padding:2px 8px;border-radius:999px;">📢 Newsletter</span>':''}
           <b>${esc(m.subject||'(no subject)')}</b>
           <span class="small muted">${mode==='sent'?'to '+esc(m.to):'from '+esc(m.from)} · ${esc(String(m.sentAt||'').slice(0,10))}</span>
           <span style="flex:1"></span>
-          ${(mode==='inbox' && !m.newsletter)?`<button class="ghost" data-mreply="${i}" style="padding:2px 9px;font-size:.85em;">Reply</button>`:''}
+          ${mode==='inbox'?`<button class="ghost" data-mreply="${i}" style="padding:2px 9px;font-size:.85em;">Reply</button>`:''}
           <button class="ghost" data-mdel="${i}" style="padding:2px 9px;font-size:.85em;">Delete</button>
         </div>
         <div style="margin-top:6px;">${richFormat(m.body, {chat:true})}</div>
-      </div>`).join("") : `<div class="card"><div class="small muted">${mode==='sent'?'Nothing sent yet.':(__inboxFilter==='newsletters'?'No newsletters.':'No messages.')}</div></div>`;
+      </div>`).join("") : `<div class="card"><div class="small muted">${mode==='sent'?'Nothing sent yet.':'No messages.'}</div></div>`;
 
     v.innerHTML=`
-      ${notifCard}
       <div class="card">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <b style="color:var(--accent);">Show results</b>
@@ -2839,10 +2804,6 @@ function renderMessages(v){
           <span style="flex:1"></span>
           <button class="ghost" data-mtab="compose" style="${mode==='compose'?'font-weight:bold;':''}">Write a message</button>
         </div>
-        ${mode==='inbox' ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
-          <button class="ghost" data-ifilter="all" style="padding:3px 11px;font-size:.85em;${__inboxFilter==='all'?'background:var(--accent,#c9a84c);color:#241403;font-weight:bold;border-radius:6px;':''}">All</button>
-          <button class="ghost" data-ifilter="newsletters" style="padding:3px 11px;font-size:.85em;${__inboxFilter==='newsletters'?'background:var(--accent,#c9a84c);color:#241403;font-weight:bold;border-radius:6px;':''}">📢 Newsletters</button>
-        </div>` : ''}
         ${__msgCache.error?`<div class="small" style="color:var(--equi-rust);margin-top:8px;">${__msgCache.error}</div>`:''}
       </div>
 
@@ -2881,22 +2842,6 @@ function renderMessages(v){
       if(rr) rr.onclick=()=>{ __resultsCache.loadedAt=0; loadHubResults(true).then(()=>renderResultsInbox(resHost)); };
     }
 
-    // ---- Notification center handlers (friend requests only; Bank stays in Bank) ----
-    v.querySelectorAll('[data-nf-acc]').forEach(b=>b.onclick=async()=>{
-      b.disabled=true;
-      const other=b.dataset.nfAcc;
-      try{
-        await DB.putWithField('friendRequests', friendPairId(who.userId, other), other,
-          { fromUserId: other, toUserId: who.userId, status:'accepted', respondedAt:new Date().toISOString() }, 'toUserId', who.userId);
-        try{ const tk=await idToken(); await railwayCall('/notifyFriend',{ idToken:tk, body:{ toUserId:other, kind:'accepted' } }); }catch(e){}
-        renderMessages(v);
-      }catch(e){ alert('Accept failed — '+(e&&(e.code||e.message)||e)); b.disabled=false; }
-    });
-    v.querySelectorAll('[data-nf-dec]').forEach(b=>b.onclick=async()=>{
-      b.disabled=true;
-      try{ await DB.remove('friendRequests', friendPairId(who.userId, b.dataset.nfDec)); renderMessages(v); }
-      catch(e){ alert('Decline failed — '+(e&&(e.code||e.message)||e)); b.disabled=false; }
-    });
     v.querySelectorAll('[data-mtab]').forEach(b=>b.onclick=()=>{
       const newMode=b.dataset.mtab;
       if(newMode==='compose'){ __msgView={mode:'compose',to:'',replyTo:null,replySubject:'',replyBody:''}; }
@@ -2904,7 +2849,7 @@ function renderMessages(v){
       renderMessages(v);
     });
     v.querySelectorAll('[data-mreply]').forEach(b=>b.onclick=()=>{
-      const m=viewList[Number(b.dataset.mreply)];
+      const m=list[Number(b.dataset.mreply)];
       const subj=String(m.subject||'').trim();
       const quoted=String(m.body||'').split('\n').map(l=>'> '+l).join('\n');
       __msgView.mode="compose";
@@ -2913,10 +2858,8 @@ function renderMessages(v){
       __msgView.replyBody = `\n\n**Original message from ${m.from||'?'}**${subj?` — "${subj}"`:''}\n${quoted}`;
       renderMessages(v);
     });
-    v.querySelectorAll('[data-nf-news]').forEach(b=>b.onclick=()=>{ __inboxFilter='newsletters'; __msgView.mode='inbox'; renderMessages(v); });
-    v.querySelectorAll('[data-ifilter]').forEach(b=>b.onclick=()=>{ __inboxFilter=b.dataset.ifilter; renderMessages(v); });
     v.querySelectorAll('[data-mdel]').forEach(b=>b.onclick=async()=>{
-      const m=viewList[Number(b.dataset.mdel)];
+      const m=list[Number(b.dataset.mdel)];
       if(!confirm('Delete this message?')) return;
       b.disabled=true; await deleteMessage(m); renderMessages(v);
     });
@@ -3196,15 +3139,6 @@ function render(){
       if(window.EquiNav && window.EquiNav.setBadge) window.EquiNav.setBadge('hub', msgUnread()+resultsWaiting());
     });
   }
-  // Live notifications: quietly re-check mail every 60s so a newsletter or new
-  // message lights up the Messages badge for members who are already online,
-  // without them having to reload.
-  if(!window.__equiMsgPoll){
-    window.__equiMsgPoll = setInterval(()=>{
-      if(!me()) return;
-      loadMessages(true).then(()=>renderNav()).catch(()=>{});
-    }, 60000);
-  }
   const v=$("view");
   v.innerHTML = `<div class="card"><div class="small">Loading…</div></div>`;
   if(tab==="Home") renderHome(v);
@@ -3320,8 +3254,8 @@ async function renderBreedFound(v, DB, who){
         and run its registry. Imports are paid into a <b>bank business</b>, so create one first
         (Bank → Businesses) and enter its exact name here.</p>
       <label>Breed name</label><input id="bf_name" placeholder="e.g. Irish Lightblood" />
-      <label>Business ID (the BIZ-… code — receives import payments)</label>
-      <input id="bf_biz" placeholder="BIZ-…" />
+      <label>Bank business name (exactly as registered — receives import payments)</label>
+      <input id="bf_biz" placeholder="the business imports are paid into" />
       <label>Short blurb (shown in the directory)</label>
       <input id="bf_blurb" placeholder="A line about your breed" />
       <label>Banner image link (optional)</label><input id="bf_banner" placeholder="https://…/banner.png" />
@@ -3334,12 +3268,11 @@ async function renderBreedFound(v, DB, who){
   $("bf_go").onclick = async ()=>{
     const name=$("bf_name").value.trim(), biz=$("bf_biz").value.trim();
     if(!name){ $("bf_msg").textContent="Name your breed."; return; }
-    if(!biz){ $("bf_msg").textContent="Enter your Business ID (the BIZ-… code) so imports can be paid."; return; }
+    if(!biz){ $("bf_msg").textContent="Enter your bank business name so imports can be paid."; return; }
     $("bf_msg").textContent="Founding…";
     if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
-    let bizName=''; { const rr=await resolveBusinessId(biz); if(rr.ok && rr.exists) bizName=rr.name; }
     const id = "breed_"+Math.random().toString(36).slice(2,10);
-    const rec = { id, owner:who.userId, name, staff:[], businessId:biz, businessName:bizName,
+    const rec = { id, owner:who.userId, name, staff:[], businessName:biz,
       banner:$("bf_banner").value.trim(), blurb:$("bf_blurb").value.trim(),
       about:"", importInstructions:"", theme:Object.assign({},BREED_THEME_DEFAULTS),
       createdAt:new Date().toISOString() };
@@ -3406,73 +3339,6 @@ function breedAbout(body, DB, who, breed, staff){
 }
 
 /* ---------------- imports store (buy premades, request customs) ---------------- */
-// A breed's genetics are "registered" once an admin has built them in the
-// Stable Manager — i.e. the breed appears WITH loci in config/global.customBreeds.
-// Until then, imports are locked (there'd be no genes to build the horse from).
-// Fail-open: a transient config read error must never lock out a real breed.
-async function breedGeneticsRegistered(DB, breedName){
-  try{
-    const g = await DB.get('config','global');
-    const custom = (g && g.customBreeds) || [];
-    const n = String(breedName||'').trim().toLowerCase();
-    return custom.some(b=>{
-      const nm = String((b && b.name) || '').trim().toLowerCase();
-      const loci = Array.isArray(b) ? b : (b && b.loci);
-      return nm === n && Array.isArray(loci) && loci.length > 0;
-    });
-  }catch(e){ return true; }
-}
-
-// ---- Import genetics COPIER (data-driven; no engine) ----
-// Resolves the genes a breed's copier should offer: its base loci + the loci
-// the breed was given (customBreeds[breed].loci), looked up in the shared
-// built-in snapshot (EQUI_BUILTIN_LOCI) and custom genes (config/global).
-function copierGenesFor(breedName, customBreeds, customGenes){
-  const builtins = window.EQUI_BUILTIN_LOCI || [];
-  const byKey = {};
-  builtins.forEach(l=>{ byKey[l.key]=l; });
-  (customGenes||[]).forEach(g=>{ if(g && g.key) byKey[g.key]=g; });
-  const br = (customBreeds||[]).find(b=>String(b.name||'').trim().toLowerCase()===String(breedName||'').trim().toLowerCase());
-  const keys = [];
-  builtins.filter(l=>l.base).forEach(l=>keys.push(l.key));
-  (br && Array.isArray(br.loci) ? br.loci : []).forEach(k=>{ if(!keys.includes(k)) keys.push(k); });
-  return keys.map(k=>byKey[k]).filter(g=>g && Array.isArray(g.options) && g.options.length);
-}
-function copierTraitsFor(breedName, customBreeds){
-  const br = (customBreeds||[]).find(b=>String(b.name||'').trim().toLowerCase()===String(breedName||'').trim().toLowerCase());
-  const own = (br && Array.isArray(br.rareTraits)) ? br.rareTraits : [];
-  const globals = window.EQUI_GLOBAL_TRAITS || [];
-  const seen = new Set(own.map(t=>String(t.name||'').toLowerCase()));
-  return [...own, ...globals.filter(t=>t && !seen.has(String(t.name||'').toLowerCase()))].filter(t=>t && t.name);
-}
-function copierHtml(orderId, genes, traits, current){
-  const cur = current || {};
-  const curTraits = new Set((cur.rareTraits||[]).map(n=>String(n).toLowerCase()));
-  const geneHtml = (genes&&genes.length) ? genes.map(g=>`
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;flex-wrap:wrap;">
-      <label class="small" style="min-width:130px;flex:0 0 auto;">${esc((g.label||g.key).split(' — ')[0].split(' (')[0])}</label>
-      <select data-copier="${esc(orderId)}" data-gene="${esc(g.key)}" style="flex:1;min-width:150px;">
-        ${g.options.map(o=>`<option value="${esc(o.code)}">${esc(o.desc||o.code)} · ${esc(o.code)}</option>`).join('')}
-      </select>
-    </div>`).join('') : '<div class="small muted">No genes found for this breed — confirm its genetics are registered.</div>';
-  const traitHtml = (traits&&traits.length) ? `
-    <div style="margin-top:10px;">
-      <b class="small">Rare markings &amp; traits</b>
-      <div class="small muted" style="margin:2px 0 6px;">Tick the ones this horse carries — they pass to foals at the listed chance.</div>
-      <div style="display:flex;flex-wrap:wrap;">
-        ${traits.map(t=>`<label class="small" style="display:inline-flex;align-items:center;gap:5px;margin:2px 12px 2px 0;"><input type="checkbox" data-copiertrait="${esc(orderId)}" value="${esc(t.name)}" ${curTraits.has(String(t.name).toLowerCase())?'checked':''} /> ${esc(t.name)} <span class="muted">(${Number(t.chance)||0}%${t.requiresLabel?', needs '+esc(t.requiresLabel):''})</span></label>`).join('')}
-      </div>
-    </div>` : '';
-  return geneHtml + traitHtml;
-}
-function copierGenotype(container, orderId){
-  return [...container.querySelectorAll(`[data-copier="${(window.CSS&&CSS.escape)?CSS.escape(orderId):orderId}"]`)]
-    .map(s=>s.value).filter(Boolean).join(' ');
-}
-function copierTraits(container, orderId){
-  return [...container.querySelectorAll(`[data-copiertrait="${(window.CSS&&CSS.escape)?CSS.escape(orderId):orderId}"]:checked`)].map(c=>c.value);
-}
-
 async function breedImportsView(body, DB, who, breed, staff){
   let imports=[]; try{ imports = await DB.listByOwner('breedImports', breed.owner); }catch(e){}
   // staff other than the founder may have listed some; also pull theirs
@@ -3483,23 +3349,12 @@ async function breedImportsView(body, DB, who, breed, staff){
   }
   imports = imports.filter(i=>i && i.breedId===breed.id);
   const available = imports.filter(i=>i.status==='available' || i.status==='pending');
-  const registered = await breedGeneticsRegistered(DB, breed.name);
-  // Group breeding animals (studs/broodmares) this breed's staff offer
-  const _staffIds = [...new Set([breed.owner, ...(Array.isArray(breed.staff)?breed.staff:[])].filter(Boolean))];
-  let breedingStock=[];
-  for(const uid of _staffIds){
-    try{ const hs = await DB.listByOwner('horses', uid); (hs||[]).forEach(h=>{ if(h && h.groupBreeding && String(h.breed||'').trim().toLowerCase()===String(breed.name).trim().toLowerCase()) breedingStock.push(h); }); }catch(e){}
-  }
 
   body.innerHTML = `
-    ${registered ? '' : `<div class="card" style="border:1px solid var(--accent);">
-      <b style="color:var(--accent);">⚠ Imports locked</b>
-      <p class="small" style="margin:6px 0 0;">This breed's genetics haven't been registered with the Stable Manager yet, so imports can't be ordered here. They'll open automatically once the founder registers the breed's genetics.</p>
-    </div>`}
     <div class="card">
       <h3>Imports for sale</h3>
       ${available.length ? `<div class="imp-grid">${available.map(i=>{
-        const claimable = i.status==='available' && who && registered;
+        const claimable = i.status==='available' && who;
         return `<div class="imp-card">
           <div class="img ${imgOk(i.image)?'':'noimg'}" ${imgOk(i.image)?`style="background-image:url('${esc(i.image)}')"`:''}>${imgOk(i.image)?'':'🐴'}</div>
           <div class="pad">
@@ -3512,25 +3367,7 @@ async function breedImportsView(body, DB, who, breed, staff){
         </div>`;
       }).join("")}</div>` : `<p class="small muted">No imports listed right now.</p>`}
     </div>
-    ${breedingStock.length ? `<div class="card">
-      <h3>🐎 Breeding Services</h3>
-      <p class="small muted" style="margin-top:0;">Buy a breeding slot on one of this breed's group studs &amp; broodmares. Staff grant the slot, then you breed with it in your Stable Manager.</p>
-      <div class="imp-grid">${breedingStock.map(h=>{
-        const g=String(h.gender||'').toLowerCase();
-        const role = /(stallion|colt|rig|stud)/.test(g)?'Stud':/(mare|filly|broodmare|dam)/.test(g)?'Broodmare':'Breeding';
-        return `<div class="imp-card">
-          <div class="img ${imgOk(h.image)?'':'noimg'}" ${imgOk(h.image)?`style="background-image:url('${esc(h.image)}')"`:''}>${imgOk(h.image)?'':(role==='Broodmare'?'🐴':'🐎')}</div>
-          <div class="pad">
-            <div class="nm">${esc(h.name)}</div>
-            <span class="imp-status available">${role}</span>
-            ${h.designUrl?`<a class="small" href="${esc(h.designUrl)}" target="_blank" rel="noopener">View design →</a>`:''}
-            <span class="sf-price" style="color:var(--sf-accent);font-family:var(--equi-display);font-weight:700;font-size:1.5rem;">✦ ${Number(h.slotPrice)||0}</span>
-            <button class="sf-buy" style="background:var(--sf-accent);color:#1a130c;" data-buyslot="${esc(h.id)}" ${(who&&registered)?'':'disabled'}>${who?'Buy breeding slot':'Sign in to buy'}</button>
-          </div>
-        </div>`;
-      }).join('')}</div>
-    </div>` : ''}
-    ${(who && registered) ? `<div class="card">
+    ${who ? `<div class="card">
       <h3>Order a custom import</h3>
       <p class="small">Commission a one-of-a-kind design. Staff review your request, create the design, and place the
         finished horse on your account.</p>
@@ -3543,10 +3380,6 @@ async function breedImportsView(body, DB, who, breed, staff){
     </div>` : ''}`;
 
   body.querySelectorAll('[data-order]').forEach(b=>b.onclick=()=>breedOrderPremade(body, DB, who, breed, imports, b.dataset.order));
-  body.querySelectorAll('[data-buyslot]').forEach(b=>b.onclick=()=>{
-    const h=breedingStock.find(x=>x.id===b.dataset.buyslot);
-    if(h) breedBuySlot(body, DB, who, breed, h);
-  });
 
   if(who && $("co_go")){
     $("co_go").onclick = async ()=>{
@@ -3562,92 +3395,6 @@ async function breedImportsView(body, DB, who, breed, staff){
       catch(err){ $("co_msg").textContent="Failed: "+(err.message||err); }
     };
   }
-}
-
-// Buy a breeding slot on a group stud/broodmare. Pays the breed's business
-// (a Breeding Ticket in the buyer's saddlebag waives the fee), then creates a
-// breedOrder of kind "breedingSlot" for staff to Grant (which reserves a slot).
-async function breedBuySlot(body, DB, who, breed, horse){
-  if(!who || !horse) return;
-  const g=String(horse.gender||'').toLowerCase();
-  const role = /(stallion|colt|rig|stud)/.test(g)?'stud':/(mare|filly|broodmare|dam)/.test(g)?'broodmare':'breeding animal';
-  const price=Number(horse.slotPrice)||0;
-
-  // A Breeding Ticket waives the fee.
-  let inv=null, ticket=null;
-  try{ inv = await DB.get('inventory', who.userId); }catch(e){}
-  if(inv && Array.isArray(inv.items)) ticket = inv.items.find(x=>x && (x.effect==='breeding_ticket' || x.key==='ticket' || /breeding\s*ticket|(^|\s)ticket(\s|$)/i.test(x.name||'')));
-  let useTicket=false;
-  if(ticket && price>0){
-    useTicket = confirm(`You have a Breeding Ticket — use it to waive the \u2726${price} fee for ${horse.name}?\n\nOK = use the ticket (free).  Cancel = pay \u2726${price}.`);
-  } else {
-    if(!confirm(`Buy a breeding slot on ${horse.name} (${role}) for \u2726${price}?\n\n${price>0?`\u2726${price} will be paid to ${breed.name}.`:'No charge.'}\nStaff then grant the slot and you breed with it in your Stable Manager.`)) return;
-  }
-
-  if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
-
-  // Pay the breed business unless a ticket waives it.
-  if(!useTicket && price>0){
-    if(!breed.businessId && !breed.businessName){ alert("This breed has no business linked — ask staff to fix it before buying."); return; }
-    const token = await (async()=>{ try{ await window.EquiAuth.ready; return await window.EquiAuth.token(); }catch(e){ return null; } })();
-    if(!token){ alert("Session expired — sign out and back in."); return; }
-    const pay = await railwayCall('/payBusiness', { idToken: token, body:{ businessId:breed.businessId||undefined, businessName:breed.businessName||undefined, amount:price, note:`${breed.name} breeding slot: ${horse.name}` } });
-    if(!pay || !pay.success){ alert((pay&&pay.error)||"Payment failed — nothing was bought."); return; }
-  }
-
-  // Spend the ticket (same decrement rule as the Stable Manager's spendConsumable).
-  if(useTicket && ticket && inv){
-    try{
-      if(Number(ticket.usesLeft)>0){ ticket.usesLeft=Number(ticket.usesLeft)-1; if(ticket.usesLeft<=0) inv.items=inv.items.filter(x=>x!==ticket); }
-      else { ticket.qty=(Number(ticket.qty)||1)-1; if(ticket.qty<=0) inv.items=inv.items.filter(x=>x!==ticket); }
-      await DB.put('inventory', who.userId, who.userId, inv);
-    }catch(e){}
-  }
-
-  const id="order_"+Math.random().toString(36).slice(2,10);
-  const rec={ id, owner:who.userId, breedId:breed.id, kind:"breedingSlot",
-    studId:horse.id, studName:horse.name, role, price: useTicket?0:price,
-    ticketUsed: !!useTicket, status:"paid", submittedAt:new Date().toISOString() };
-  try{
-    await DB.putWithField('breedOrders', id, who.userId, rec, 'breedId', rec.breedId);
-    notifyBreedStaff('/notifyImportRequest', breed, rec);
-    alert(`Slot on ${horse.name} bought${useTicket?' with a Breeding Ticket':''}! Staff will grant it, then you breed with it in your Stable Manager.`);
-  }catch(err){ alert("Failed to buy slot: "+(err.message||err)); }
-}
-
-// Staff grants a bought breeding slot: reserve an open slot on the stud/broodmare
-// for the buyer, in the EXACT format the Stable Manager reads —
-// doc id res_{horseId}_{slot}, flat reservedFor = memberKey(buyer)
-// (trim, strip leading @, lowercase). The buyer then sees the animal in their
-// Breeding tab and breeds with it.
-async function breedGrantSlot(body, DB, who, breed, order){
-  if(!order) return;
-  let stud=null; try{ stud = await DB.get('horses', order.studId); }catch(e){}
-  if(!stud){ alert("Couldn't load that stud/broodmare — it may have been removed."); return; }
-  const totalSlots = Number(stud.breedingSlots)||0;
-  if(totalSlots<=0){ alert(`${order.studName} has no breeding slots.`); return; }
-  const usedRec = new Set((stud.breedingRecords||[]).map(r=>r.slotIndex));
-  let myRes=[]; try{ myRes = (await DB.listByOwner('breedingReservations', who.userId)).filter(r=>r && r.horseId===order.studId && r.status!=='used'); }catch(e){}
-  const usedRes = new Set(myRes.map(r=>r.slotIndex));
-  let slotIndex=-1;
-  for(let i=0;i<totalSlots;i++){ if(!usedRec.has(i) && !usedRes.has(i)){ slotIndex=i; break; } }
-  if(slotIndex<0){ alert(`${order.studName} has no open breeding slots right now.`); return; }
-  if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
-  const reservedForKey = String(order.owner||'').trim().replace(/^@+/,'').toLowerCase();
-  const resId = `res_${order.studId}_${slotIndex}`;
-  const resRec = {
-    id: resId, horseId: order.studId, horseName: stud.name||order.studName, breed: stud.breed||breed.name,
-    gender: stud.gender||'', slotIndex,
-    ownerName: who.userId, reservedFor: order.owner, reservedForKey,
-    status:"open", date: new Date().toISOString().slice(0,10)
-  };
-  try{
-    await DB.putWithField('breedingReservations', resId, who.userId, resRec, 'reservedFor', reservedForKey);
-    order.status='granted'; order.grantedSlot=slotIndex; order.grantedAt=new Date().toISOString();
-    await DB.putWithField('breedOrders', order.id, order.owner, order, 'breedId', order.breedId);
-    alert(`Slot ${slotIndex+1} on ${order.studName} granted to ${order.owner}.\nThey can now breed with it in their Stable Manager's Breeding tab.`);
-    renderBreeds(document.getElementById('view'));
-  }catch(err){ alert("Grant failed: "+(err.message||err)); }
 }
 
 // Alert the breed's owner and staff about an import event (a new request, or a
@@ -3670,31 +3417,32 @@ const notifyBreedImportClaimed = (breed, order)=> notifyBreedStaff('/notifyImpor
 // Check that a business name resolves to a real registered business — exact
 // match, the same lookup payBusiness uses. Returns {ok, exists, canonical};
 // canonical is the stored spelling so callers can flag a case/space mismatch.
-async function resolveBusinessId(id){
-  const bid=(id||'').trim();
-  if(!bid) return { ok:true, empty:true };
+async function verifyBusinessName(name){
+  const n=(name||'').trim();
+  if(!n) return { ok:true, empty:true };
   try{
-    const r = await railwayCall('/getBusinessBalance?businessId='+encodeURIComponent(bid), { method:'GET' });
-    if(!r) return { ok:false };
-    if(!r.success) return { ok:true, exists:false };
-    return { ok:true, exists:true, name:r.businessName||'', ownerId:r.ownerId||'' };
+    const token = await (async()=>{ try{ await window.EquiAuth.ready; return await window.EquiAuth.token(); }catch(e){ return null; } })();
+    if(!token) return { ok:false };
+    const r = await railwayCall('/verifyBusiness', { idToken: token, body:{ businessName:n } });
+    if(!r || !r.success) return { ok:false };
+    return { ok:true, exists:!!r.exists, canonical:r.businessName||null };
   }catch(e){ return { ok:false }; }
 }
 
-// Wire a "Verify" button next to a Business ID input. On success it resolves
-// the ID to the business name and stashes it on the input (dataset.bizname) so
-// the save handler can store both the ID and the resolved name for display.
+// Wire a "Verify" button + status span next to a business-name input.
+// inputId → the text field; btnId/statusId → the button and status <span>.
 function wireBusinessVerify(inputId, btnId, statusId){
   const btn=$(btnId), inp=$(inputId), out=$(statusId);
   if(!btn || !inp || !out) return;
   btn.onclick = async ()=>{
-    const bid = inp.value.trim();
-    if(!bid){ out.textContent=""; inp.dataset.bizname=""; return; }
+    const typed = inp.value.trim();
+    if(!typed){ out.textContent="Enter a business name first."; out.style.color="var(--dim)"; return; }
     out.textContent="Checking…"; out.style.color="var(--dim)";
-    const r = await resolveBusinessId(bid);
+    const r = await verifyBusinessName(typed);
     if(!r.ok){ out.textContent="Couldn't reach the bank to check — try again."; out.style.color="var(--bad)"; return; }
-    if(!r.exists){ out.textContent="✗ No business found with that ID. Copy the BIZ-… code exactly from the Bank."; out.style.color="var(--bad)"; inp.dataset.bizname=""; return; }
-    out.textContent=`✓ ${r.name}`; out.style.color="var(--good)"; inp.dataset.bizname=r.name;
+    if(!r.exists){ out.textContent="✗ No business found with that exact name. Check spelling, capitals and spaces against the Bank."; out.style.color="var(--bad)"; return; }
+    if(r.canonical && r.canonical!==typed){ out.textContent=`✗ Close, but the registered name is “${r.canonical}”. Match it exactly (imports pay by exact name).`; out.style.color="var(--bad)"; return; }
+    out.textContent="✓ Verified — this name resolves to a registered business."; out.style.color="var(--good)";
   };
 }
 
@@ -3709,7 +3457,7 @@ async function breedOrderPremade(body, DB, who, breed, imports, importId){
   const orderId="order_"+Math.random().toString(36).slice(2,10);
   const order={ id:orderId, owner:who.userId, breedId:breed.id, importId:imp.id, kind:"premade",
     horseName:horseName.trim()||imp.name, price:Number(imp.price)||0, note:"",
-    designUrl:imp.designUrl||"", image:imp.image||"", genotype:imp.genotype||"", rareTraits:imp.rareTraits||[],
+    designUrl:imp.designUrl||"", image:imp.image||"",
     status:"submitted", submittedAt:new Date().toISOString() };
   try{
     await DB.putWithField('breedOrders', orderId, who.userId, order, 'breedId', order.breedId);
@@ -3781,11 +3529,11 @@ async function breedClaimOrder(body, DB, who, breed, order){
 
   // 1) pay the breed business (buyer's token authorizes it)
   if(price>0){
-    if(!breed.businessId && !breed.businessName){ alert("This breed has no business linked — ask staff to fix it before claiming."); return; }
+    if(!breed.businessName){ alert("This breed has no business linked — ask staff to fix it before claiming."); return; }
     const token = await (async()=>{ try{ await window.EquiAuth.ready; return await window.EquiAuth.token(); }catch(e){ return null; } })();
     if(!token){ alert("Session expired — sign out and back in."); return; }
     const pay = await railwayCall('/payBusiness', { idToken: token,
-      body:{ businessId:breed.businessId||undefined, businessName:breed.businessName||undefined, amount:price, note:`${breed.name} import: ${order.horseName}` } });
+      body:{ businessName:breed.businessName, amount:price, note:`${breed.name} import: ${order.horseName}` } });
     if(!pay || !pay.success){ alert((pay&&pay.error)||"Payment failed — nothing was created."); return; }
   }
 
@@ -3794,8 +3542,6 @@ async function breedClaimOrder(body, DB, who, breed, order){
   const horse = {
     id:horseId, name:order.horseName||"New Import", breed:breed.name,
     age:3, stage:"adult", level:1, exp:0,
-    genotype: order.genotype || "",
-    rareTraits: Array.isArray(order.rareTraits) ? order.rareTraits : [],
     importLink: order.designUrl || "",
     ownerName: who.userId,
     fromBreedOrder: order.id,
@@ -3823,21 +3569,8 @@ async function breedAdmin(body, DB, who, breed){
   // we read the whole collection (small) and filter to this breed.
   let orders=[]; try{ orders = (await DB.listAll('breedOrders')).filter(o=>o.breedId===breed.id); }catch(e){}
   const pending = orders.filter(o=>o.status==='submitted');
-  const slotReqs = orders.filter(o=>o.kind==='breedingSlot' && o.status==='paid');
   const th = Object.assign({}, BREED_THEME_DEFAULTS, breed.theme||{});
   const isFounder = breed.owner===who.userId;
-  const registered = await breedGeneticsRegistered(DB, breed.name);
-  let cfgCustomBreeds=[], cfgCustomGenes=[];
-  try{ const g = await DB.get('config','global'); cfgCustomBreeds=(g&&g.customBreeds)||[]; cfgCustomGenes=(g&&g.customGenes)||[]; }catch(e){}
-  const copierGenes = copierGenesFor(breed.name, cfgCustomBreeds, cfgCustomGenes);
-  const copierBreedTraits = copierTraitsFor(breed.name, cfgCustomBreeds);
-  let groupHorses=[];
-  {
-    const _gStaff=[...new Set([breed.owner, ...(Array.isArray(breed.staff)?breed.staff:[])].filter(Boolean))];
-    for(const uid of _gStaff){
-      try{ const hs=await DB.listByOwner('horses', uid); (hs||[]).forEach(h=>{ if(h && h.groupBreeding && String(h.breed||'').trim().toLowerCase()===String(breed.name).trim().toLowerCase()) groupHorses.push(h); }); }catch(e){}
-    }
-  }
 
   body.innerHTML = `
     <div class="card">
@@ -3848,9 +3581,6 @@ async function breedAdmin(body, DB, who, breed){
           <div class="small">by ${esc(o.owner)} · ${esc(String(o.submittedAt||'').slice(0,10))}</div>
           ${o.refs?`<div class="small" style="margin-top:4px;">Refs: ${esc(o.refs)}</div>`:''}
           ${o.designUrl?`<div class="small"><a href="${esc(o.designUrl)}" target="_blank" rel="noopener">Premade design →</a></div>`:''}
-          <details style="margin-top:8px;"><summary class="small" style="cursor:pointer;color:var(--accent);">🧬 Set genetics for this horse</summary>
-            <div style="margin-top:8px;">${copierHtml(o.id, copierGenes, copierBreedTraits, o)}</div>
-          </details>
           <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             ${o.kind==='custom'?`<input placeholder="Design URL to attach" data-design="${esc(o.id)}" style="flex:1;min-width:180px;" />`:''}
             <input placeholder="Note to buyer (optional)" data-note="${esc(o.id)}" style="flex:1;min-width:160px;" />
@@ -3860,76 +3590,15 @@ async function breedAdmin(body, DB, who, breed){
         </div>`).join("") : `<span class="small muted">No pending orders.</span>`}
     </div>
 
-    ${slotReqs.length ? `<div class="card">
-      <h3>🐎 Breeding slot requests <span class="bk-badge">${slotReqs.length}</span></h3>
-      <p class="small muted" style="margin-top:0;">Granting reserves a slot on the animal for the buyer — they then breed with it in their Stable Manager.</p>
-      ${slotReqs.map(o=>`
-        <div style="border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:8px;background:var(--deep);">
-          <b>${esc(o.studName)}</b> <span class="tag">${esc(o.role||'breeding')}</span> <span class="tag">${o.ticketUsed?'🎟 Ticket':'✦'+(Number(o.price)||0)+' paid'}</span>
-          <div class="small">for ${esc(o.owner)} · ${esc(String(o.submittedAt||'').slice(0,10))}</div>
-          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <button data-grantslot="${esc(o.id)}">Grant slot</button>
-            <button class="ghost" data-declineslot="${esc(o.id)}" style="color:var(--bad);">Decline</button>
-          </div>
-        </div>`).join('')}
-    </div>` : ''}
-
-    ${isFounder ? `<div class="card">
-      <h3>🐎 Create group horse <span class="small muted">(NPC stud / broodmare)</span></h3>
-      <p class="small muted" style="margin-top:0;">A breed-owned NPC for group breeding — set its sex, level, stats, genes &amp; traits here. It becomes this breed's stock; put it up for slots with a price below.</p>
-      ${registered ? `
-      <label>Name</label><input id="npc_name" placeholder="e.g. Ancient Oracle" />
-      <label>Portrait image link (optional)</label><input id="npc_image" placeholder="https://…" />
-      <label>Design link — DeviantArt etc. (optional)</label><input id="npc_design" placeholder="https://www.deviantart.com/…" />
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:6px;">
-        <label class="small" style="display:flex;flex-direction:column;">Sex<select id="npc_gender"><option value="Stallion">Stallion (stud)</option><option value="Mare">Mare (broodmare)</option></select></label>
-        <label class="small" style="display:flex;flex-direction:column;">Slot price (✦)<input id="npc_price" type="number" min="0" value="0" style="max-width:120px;" /></label>
-        <label class="small" style="display:flex;flex-direction:column;">Level (1–10)<input id="npc_level" type="number" min="1" max="10" value="10" style="max-width:90px;" /></label>
-        <button class="ghost" id="npc_fill" style="margin-top:0;">Auto-fill stats for level</button>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
-        ${STATS.map(s=>`<label class="small" style="display:flex;flex-direction:column;">${STAT_LABELS[s]||s}<input type="number" min="0" data-npcstat data-stat="${s}" value="10" style="max-width:72px;" /></label>`).join('')}
-      </div>
-      <details style="margin:10px 0;" open><summary class="small" style="cursor:pointer;color:var(--accent);">🧬 Genes &amp; traits</summary>
-        <div style="margin-top:6px;">${copierHtml('npc', copierGenes, copierBreedTraits)}</div>
-      </details>
-      <button id="npc_create">Create group horse</button><span id="npc_msg" class="small" style="margin-left:8px;"></span>
-      ` : `<div class="small muted">Register this breed's genetics (below) before you can create NPC horses.</div>`}
-    </div>` : ''}
-
-    ${isFounder && groupHorses.length ? `<div class="card">
-      <h3>🐎 Group Breeding Stock <span class="small muted">(${groupHorses.length})</span></h3>
-      <p class="small muted" style="margin-top:0;">Your breed's NPC studs &amp; broodmares — edit genes, traits, level, stats &amp; slot price, remove them, or send one to your personal roster. Managed here, kept off your roster.</p>
-      <div id="gstock_list">${groupHorses.map(h=>{
-        const g=String(h.gender||'').toLowerCase();
-        const role=/(stallion|colt|rig|stud)/.test(g)?'Stud':/(mare|filly|broodmare|dam)/.test(g)?'Broodmare':'Breeding';
-        return `<div class="reg-row" data-gsrow="${esc(h.id)}">
-          <div class="thumb" ${imgOk(h.image)?`style="background-image:url('${esc(h.image)}')"`:''}></div>
-          <div style="flex:1;"><b>${esc(h.name)}</b> <span class="tag">${role}</span><div class="small">Lvl ${h.level||1} · ✦${Number(h.slotPrice)||0}/slot${h.genotype?' · genes set':' · no genes'}${h.designUrl?` · <a href="${esc(h.designUrl)}" target="_blank" rel="noopener">design ↗</a>`:''}</div></div>
-          <button class="ghost" data-gsedit="${esc(h.id)}" style="padding:5px 10px;">Edit</button>
-          <button class="ghost" data-gsunflag="${esc(h.id)}" style="padding:5px 10px;">→ My roster</button>
-          <button class="ghost" data-gsdel="${esc(h.id)}" style="color:var(--bad);padding:5px 10px;">Remove</button>
-        </div>`;
-      }).join('')}</div>
-    </div>` : ''}
-
     <div class="card">
       <h3>List an import</h3>
-      ${registered ? `
       <label>Name</label><input id="ni_name" placeholder="e.g. Black Spell" />
       <label>Preview image link</label><input id="ni_image" placeholder="https://…/preview.png" />
       <label>Design link (DeviantArt etc.)</label><input id="ni_design" placeholder="https://www.deviantart.com/…" />
       <label>Price (✦)</label><input id="ni_price" type="number" min="0" value="0" />
-      <details style="margin:8px 0;"><summary class="small" style="cursor:pointer;color:var(--accent);">🧬 Set genetics (so the horse arrives bred-ready)</summary>
-        <div style="margin-top:6px;">${copierHtml('ni', copierGenes, copierBreedTraits)}</div>
-      </details>
       <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button id="ni_add">List import</button><span id="ni_msg" class="small"></span>
-      </div>` : `
-      <div style="border:1px solid var(--accent);border-radius:8px;padding:12px;background:var(--deep);">
-        <b style="color:var(--accent);">⚠ Please register your genetics with the Stable Manager</b>
-        <p class="small" style="margin:6px 0 0;">Imports are locked until this breed's genetics are added to the database. Use the <b>“Request genetics for the Stable Manager”</b> form below to submit them — once an admin builds them, listing unlocks automatically.</p>
-      </div>`}
+      </div>
     </div>
 
     <div class="card">
@@ -3962,13 +3631,13 @@ async function breedAdmin(body, DB, who, breed){
       <textarea id="ba_inst" rows="3">${esc(breed.importInstructions||'')}</textarea>
       <label>Banner image link</label><input id="ba_banner" value="${esc(breed.banner||'')}" />
       <label>Blurb</label><input id="ba_blurb" value="${esc(breed.blurb||'')}" />
-      <label>Business ID (imports &amp; breeding slots paid here)</label>
-      <input id="ba_biz" value="${esc(breed.businessId||'')}" placeholder="BIZ-…" />
+      <label>Business name (imports paid here)</label>
+      <input id="ba_biz" value="${esc(breed.businessName||'')}" />
       <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap;">
         <button type="button" id="ba_biz_verify" class="ghost" style="padding:4px 12px;">Verify business</button>
-        <span id="ba_biz_status" class="small">${breed.businessName?`✓ ${esc(breed.businessName)}`:''}</span>
+        <span id="ba_biz_status" class="small"></span>
       </div>
-      <p class="small muted" style="margin:4px 0 0;">Paste the <b>Business ID</b> (the <code>BIZ-…</code> code from when you made the business account in the Bank). Using the ID means buyers always pay the right account — no name typos. Click Verify to confirm.</p>
+      <p class="small muted" style="margin:4px 0 0;">Imports are paid by exact business name — verify it matches the Bank so buyers don't hit “no business found”.</p>
       <label>Colors</label>
       <div class="swatch-row">
         <div class="swatch"><span class="small">Accent</span><input type="color" id="ba_accent" value="${esc(th.accent)}"></div>
@@ -3997,15 +3666,7 @@ async function breedAdmin(body, DB, who, breed){
     </div>` : ''}`;
 
   // order approve/decline
-  body.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>breedApproveOrder(body, DB, who, breed, orders.find(o=>o.id===b.dataset.approve), body.querySelector(`[data-design="${CSS.escape(b.dataset.approve)}"]`), body.querySelector(`[data-note="${CSS.escape(b.dataset.approve)}"]`), copierGenotype(body, b.dataset.approve), copierTraits(body, b.dataset.approve)));
-  body.querySelectorAll('[data-grantslot]').forEach(b=>b.onclick=()=>breedGrantSlot(body, DB, who, breed, orders.find(o=>o.id===b.dataset.grantslot)));
-  body.querySelectorAll('[data-declineslot]').forEach(b=>b.onclick=async()=>{
-    const o=orders.find(x=>x.id===b.dataset.declineslot); if(!o) return;
-    if(!confirm(`Decline the slot request for ${o.studName}? Remember to refund ${o.owner} if they paid.`)) return;
-    o.status='declined';
-    try{ await DB.putWithField('breedOrders', o.id, o.owner, o, 'breedId', o.breedId); renderBreeds(document.getElementById('view')); }
-    catch(err){ alert('Failed: '+(err.message||err)); }
-  });
+  body.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>breedApproveOrder(body, DB, who, breed, orders.find(o=>o.id===b.dataset.approve), body.querySelector(`[data-design="${CSS.escape(b.dataset.approve)}"]`), body.querySelector(`[data-note="${CSS.escape(b.dataset.approve)}"]`)));
   body.querySelectorAll('[data-decline]').forEach(b=>b.onclick=async()=>{
     const o=orders.find(x=>x.id===b.dataset.decline); if(!o) return;
     const note = body.querySelector(`[data-note="${CSS.escape(o.id)}"]`);
@@ -4024,152 +3685,22 @@ async function breedAdmin(body, DB, who, breed){
     const rec={ id, owner:who.userId, breedId:breed.id, name,
       image:$("ni_image").value.trim(), designUrl:$("ni_design").value.trim(),
       price:Math.max(0,Number($("ni_price").value)||0), kind:"premade",
-      genotype: copierGenotype(document, 'ni'),
-      rareTraits: copierTraits(document, 'ni'),
       status:"available", listedAt:new Date().toISOString() };
     $("ni_msg").textContent="Listing…";
     try{ await DB.put('breedImports', id, who.userId, rec); renderBreeds(document.getElementById('view')); }
     catch(err){ $("ni_msg").textContent="Failed: "+(err.message||err); }
   };
 
-  // Level table mirrors stable.html's LEVEL_TABLE (for NPC breeding slots + stat auto-fill).
-  const NPC_LEVELS={1:{exp:0,bonus:0,slots:0},2:{exp:50,bonus:2,slots:1},3:{exp:100,bonus:2,slots:1},4:{exp:150,bonus:3,slots:1},5:{exp:200,bonus:3,slots:1},6:{exp:250,bonus:3,slots:1},7:{exp:300,bonus:4,slots:1},8:{exp:500,bonus:4,slots:1},9:{exp:750,bonus:4,slots:1},10:{exp:1000,bonus:5,slots:2}};
-  if($("npc_fill")) $("npc_fill").onclick = ()=>{
-    const L=Math.max(1,Math.min(10,Math.round(Number($("npc_level").value)||1)));
-    let bonus=0; for(let i=2;i<=L;i++) bonus+=NPC_LEVELS[i].bonus;
-    document.querySelectorAll('[data-npcstat]').forEach(inp=>{ inp.value=10+bonus; });
-  };
-  if($("npc_create")) $("npc_create").onclick = async ()=>{
-    const name=($("npc_name").value||'').trim();
-    if(!name){ $("npc_msg").textContent="Name it."; return; }
-    const L=Math.max(1,Math.min(10,Math.round(Number($("npc_level").value)||1)));
-    let slots=2; for(let i=2;i<=L;i++) slots+=NPC_LEVELS[i].slots;
-    const stats={};
-    document.querySelectorAll('[data-npcstat]').forEach(inp=>{ stats[inp.dataset.stat]=Math.max(0,Math.round(Number(inp.value)||0)); });
-    STATS.forEach(s=>{ if(!Number.isFinite(Number(stats[s]))) stats[s]=10; });
-    const id="h_"+Math.random().toString(36).slice(2,10);
-    const horse={
-      id, name, breed:breed.name, gender:$("npc_gender").value, image:($("npc_image").value||'').trim(),
-      designUrl:($("npc_design").value||'').trim(),
-      age:3, stage:"adult",
-      genotype:copierGenotype(document,'npc'), rareTraits:copierTraits(document,'npc'),
-      groupBreeding:true, slotPrice:Math.max(0,Number($("npc_price").value)||0),
-      npcOverride:true, level:L, exp:NPC_LEVELS[L].exp, breedingSlots:slots,
-      stats, baseStats:Object.assign({},stats),
-      ownerName:who.userId, createdAt:new Date().toISOString()
-    };
-    $("npc_msg").textContent="Creating…";
-    try{
-      if(window.EquiAuth && window.EquiAuth.uid!==who.userId){ await upgradeToOwnerSession(); }
-      await DB.put('horses', id, who.userId, horse);
-      $("npc_msg").textContent="Created ✓";
-      renderBreeds(document.getElementById('view'));
-    }catch(err){ $("npc_msg").textContent="Failed: "+(err.message||err); }
-  };
-
-  // Group Breeding Stock management
-  body.querySelectorAll('[data-gsdel]').forEach(b=>b.onclick=async()=>{
-    const h=groupHorses.find(x=>x.id===b.dataset.gsdel); if(!h) return;
-    if(!confirm(`Remove ${h.name} permanently? Any open breeding slots on it are lost.`)) return;
-    try{ if(window.EquiAuth && window.EquiAuth.uid!==(h.__owner||who.userId)){ await upgradeToOwnerSession(); } await DB.remove('horses', h.id); renderBreeds(document.getElementById('view')); }catch(err){ alert('Failed: '+(err.message||err)); }
-  });
-  body.querySelectorAll('[data-gsunflag]').forEach(b=>b.onclick=async()=>{
-    const h=groupHorses.find(x=>x.id===b.dataset.gsunflag); if(!h) return;
-    if(!confirm(`Send ${h.name} to your personal roster? It stops being group breeding stock.`)) return;
-    const upd=Object.assign({}, h); delete upd.__owner; delete upd.__id; upd.groupBreeding=false;
-    try{ if(window.EquiAuth && window.EquiAuth.uid!==(h.__owner||who.userId)){ await upgradeToOwnerSession(); } await DB.put('horses', h.id, h.__owner||who.userId, upd); renderBreeds(document.getElementById('view')); }catch(err){ alert('Failed: '+(err.message||err)); }
-  });
-  body.querySelectorAll('[data-gsedit]').forEach(b=>b.onclick=()=>{
-    const h=groupHorses.find(x=>x.id===b.dataset.gsedit); if(!h) return;
-    const row=body.querySelector(`[data-gsrow="${CSS.escape(h.id)}"]`); if(!row) return;
-    row.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;gap:6px;">
-      <b>${esc(h.name)}</b>
-      <label class="small" style="display:block;">Design link<input data-gsf="design" value="${esc(h.designUrl||'')}" placeholder="https://www.deviantart.com/…" style="width:100%;" /></label>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-        <label class="small" style="display:flex;flex-direction:column;">Slot price (✦)<input data-gsf="price" type="number" min="0" value="${Number(h.slotPrice)||0}" style="max-width:120px;" /></label>
-        <label class="small" style="display:flex;flex-direction:column;">Level (1–10)<input data-gsf="level" type="number" min="1" max="10" value="${h.level||1}" style="max-width:90px;" /></label>
-        <button class="ghost" data-gsfill>Auto-fill stats</button>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;">
-        ${STATS.map(s=>`<label class="small" style="display:flex;flex-direction:column;">${STAT_LABELS[s]||s}<input type="number" min="0" data-gsstat data-stat="${s}" value="${(h.stats&&Number.isFinite(Number(h.stats[s])))?h.stats[s]:10}" style="max-width:70px;" /></label>`).join('')}
-      </div>
-      <div class="small">Genetics: ${h.genotype?`<code>${esc(h.genotype)}</code>`:'<i>none</i>'} · Traits: ${(h.rareTraits&&h.rareTraits.length)?esc(h.rareTraits.join(', ')):'none'}</div>
-      <details><summary class="small" style="cursor:pointer;color:var(--accent);">🧬 Change genes &amp; traits</summary>
-        <div style="margin-top:6px;"><label class="small" style="display:block;margin-bottom:6px;"><input type="checkbox" data-gsgenapply /> Apply the genes &amp; traits below on save</label>${copierHtml(h.id, copierGenes, copierBreedTraits, h)}</div>
-      </details>
-      <div style="display:flex;gap:8px;"><button data-gssave="${esc(h.id)}">Save</button><button class="ghost" data-gscancel>Cancel</button><span data-gsmsg class="small"></span></div>
-    </div>`;
-    row.querySelector('[data-gsfill]').onclick=()=>{
-      const L=Math.max(1,Math.min(10,Math.round(Number(row.querySelector('[data-gsf="level"]').value)||1)));
-      let bonus=0; for(let i=2;i<=L;i++) bonus+=NPC_LEVELS[i].bonus;
-      row.querySelectorAll('[data-gsstat]').forEach(inp=>{ inp.value=10+bonus; });
-    };
-    row.querySelector('[data-gscancel]').onclick=()=>renderBreeds(document.getElementById('view'));
-    row.querySelector('[data-gssave]').onclick=async()=>{
-      const L=Math.max(1,Math.min(10,Math.round(Number(row.querySelector('[data-gsf="level"]').value)||1)));
-      let slots=2; for(let i=2;i<=L;i++) slots+=NPC_LEVELS[i].slots;
-      const stats={}; row.querySelectorAll('[data-gsstat]').forEach(inp=>{ stats[inp.dataset.stat]=Math.max(0,Math.round(Number(inp.value)||0)); });
-      STATS.forEach(s=>{ if(!Number.isFinite(Number(stats[s]))) stats[s]=10; });
-      const upd=Object.assign({}, h); delete upd.__owner; delete upd.__id;
-      upd.slotPrice=Math.max(0,Number(row.querySelector('[data-gsf="price"]').value)||0);
-      upd.designUrl=(row.querySelector('[data-gsf="design"]').value||'').trim();
-      upd.npcOverride=true; upd.level=L; upd.exp=NPC_LEVELS[L].exp; upd.breedingSlots=slots; upd.stats=stats; upd.baseStats=Object.assign({},stats);
-      const ap=row.querySelector('[data-gsgenapply]');
-      if(ap && ap.checked){ upd.genotype=copierGenotype(row, h.id); upd.rareTraits=copierTraits(row, h.id); }
-      row.querySelector('[data-gsmsg]').textContent='Saving…';
-      try{ if(window.EquiAuth && window.EquiAuth.uid!==(h.__owner||who.userId)){ await upgradeToOwnerSession(); } await DB.put('horses', h.id, h.__owner||who.userId, upd); renderBreeds(document.getElementById('view')); }
-      catch(err){ row.querySelector('[data-gsmsg]').textContent='Failed: '+(err.message||err); }
-    };
-  });
-
   // listed imports management
   if($("ni_list") && imports.length){
-    $("ni_list").innerHTML = imports.map(i=>`<div class="reg-row" data-improw="${esc(i.id)}">
+    $("ni_list").innerHTML = imports.map(i=>`<div class="reg-row">
       <div class="thumb" ${imgOk(i.image)?`style="background-image:url('${esc(i.image)}')"`:''}></div>
       <div style="flex:1;"><b>${esc(i.name)}</b><div class="small">✦${Number(i.price)||0} · <span class="imp-status ${i.status}">${esc(i.status)}</span></div></div>
-      <button class="ghost" data-editimp="${esc(i.id)}" style="padding:5px 10px;">Edit</button>
       <button class="ghost" data-retire="${esc(i.id)}" style="color:var(--bad);padding:5px 10px;">Delete</button>
     </div>`).join("");
     $("ni_list").querySelectorAll('[data-retire]').forEach(b=>b.onclick=async()=>{
       if(!confirm('Delete this listing?')) return;
       await DB.remove('breedImports', b.dataset.retire); renderBreeds(document.getElementById('view'));
-    });
-    $("ni_list").querySelectorAll('[data-editimp]').forEach(b=>b.onclick=()=>{
-      const imp = imports.find(x=>x.id===b.dataset.editimp); if(!imp) return;
-      const row = $("ni_list").querySelector(`[data-improw="${CSS.escape(imp.id)}"]`);
-      row.innerHTML = `
-        <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
-          <input data-ef="name" value="${esc(imp.name||'')}" placeholder="Name" />
-          <input data-ef="image" value="${esc(imp.image||'')}" placeholder="Preview image link" />
-          <input data-ef="design" value="${esc(imp.designUrl||'')}" placeholder="Design link" />
-          <input data-ef="price" type="number" min="0" value="${Number(imp.price)||0}" placeholder="Price (✦)" style="max-width:140px;" />
-          <div class="small">Genetics: ${imp.genotype?`<code>${esc(imp.genotype)}</code>`:'<i>none set — this import would arrive without genes</i>'}</div>
-          <details style="margin:2px 0;"><summary class="small" style="cursor:pointer;color:var(--accent);">🧬 Set / change genetics</summary>
-            <div style="margin-top:6px;">
-              <label class="small" style="display:block;margin-bottom:6px;"><input type="checkbox" data-genapply /> Apply the genetics selected below when I save</label>
-              ${copierHtml(imp.id, copierGenes, copierBreedTraits, imp)}
-            </div>
-          </details>
-          <div style="display:flex;gap:8px;margin-top:2px;">
-            <button data-savimp="${esc(imp.id)}">Save changes</button>
-            <button class="ghost" data-cancimp="1">Cancel</button>
-            <span data-emsg class="small"></span>
-          </div>
-        </div>`;
-      const g=(f)=>row.querySelector(`[data-ef="${f}"]`).value.trim();
-      row.querySelector('[data-savimp]').onclick = async ()=>{
-        const updated = Object.assign({}, imp, {
-          name:g('name'), image:g('image'), designUrl:g('design'),
-          price:Math.max(0, Number(row.querySelector('[data-ef="price"]').value)||0)
-        });
-        const applyGen = row.querySelector('[data-genapply]');
-        if(applyGen && applyGen.checked){ updated.genotype = copierGenotype(row, imp.id); updated.rareTraits = copierTraits(row, imp.id); }
-        if(!updated.name){ row.querySelector('[data-emsg]').textContent='Name it.'; return; }
-        row.querySelector('[data-emsg]').textContent='Saving…';
-        try{ await DB.put('breedImports', imp.id, imp.owner||breed.owner, updated); renderBreeds(document.getElementById('view')); }
-        catch(err){ row.querySelector('[data-emsg]').textContent='Failed: '+(err.message||err); }
-      };
-      row.querySelector('[data-cancimp]').onclick = ()=> renderBreeds(document.getElementById('view'));
     });
   }
 
@@ -4210,18 +3741,14 @@ async function breedAdmin(body, DB, who, breed){
   attachRichToolbar($("ba_inst"));
   wireBusinessVerify("ba_biz","ba_biz_verify","ba_biz_status");
   if($("ba_save")) $("ba_save").onclick = async ()=>{
+    const patch=Object.assign({},breed,{
+      about:$("ba_about").value.trim(), importInstructions:$("ba_inst").value.trim(),
+      banner:$("ba_banner").value.trim(), blurb:$("ba_blurb").value.trim(), businessName:$("ba_biz").value.trim(),
+      theme:{accent:$("ba_accent").value,panel:$("ba_panel").value,head:$("ba_head").value},
+      updatedAt:new Date().toISOString() });
     $("ba_msg").textContent="Saving…";
     // only the founder owns the breed doc; staff edits need the founder, so guard:
     if(breed.owner!==who.userId){ $("ba_msg").textContent="Only the founder can edit the breed page."; return; }
-    const bizId = $("ba_biz").value.trim();
-    let bizName = ($("ba_biz").dataset.bizname||'').trim();
-    if(bizId && !bizName){ const rr = await resolveBusinessId(bizId); if(rr.ok && rr.exists) bizName = rr.name; }
-    const patch=Object.assign({},breed,{
-      about:$("ba_about").value.trim(), importInstructions:$("ba_inst").value.trim(),
-      banner:$("ba_banner").value.trim(), blurb:$("ba_blurb").value.trim(),
-      businessId: bizId, businessName: bizName || (bizId ? breed.businessName||'' : ''),
-      theme:{accent:$("ba_accent").value,panel:$("ba_panel").value,head:$("ba_head").value},
-      updatedAt:new Date().toISOString() });
     try{ await DB.putBreed(breed.id, who.userId, patch); Object.assign(breed,patch); $("ba_msg").textContent="Saved."; }
     catch(err){ $("ba_msg").textContent="Failed: "+(err.message||err); }
   };
@@ -4252,15 +3779,13 @@ async function breedAdmin(body, DB, who, breed){
 
 // Approve: mark the order approved so the BUYER can claim it (which pays + creates
 // the horse on their own account). Staff attach a design URL for customs here.
-async function breedApproveOrder(body, DB, who, breed, order, designEl, noteEl, genotype, traits){
+async function breedApproveOrder(body, DB, who, breed, order, designEl, noteEl){
   if(!order) return;
   order.status="approved";
   order.reviewedBy=who.userId;
   order.reviewNote=(noteEl&&noteEl.value.trim())||"";
   order.decidedAt=new Date().toISOString();
   if(designEl && designEl.value.trim()) order.designUrl=designEl.value.trim();
-  if(genotype && genotype.trim()) order.genotype=genotype.trim();
-  if(Array.isArray(traits)) order.rareTraits=traits;
   try{
     await DB.putWithField('breedOrders', order.id, order.owner, order, 'breedId', order.breedId);
   }catch(err){
@@ -4302,15 +3827,15 @@ const PREMIUM_SHOP_OWNERS = PREMIUM_MEMBERS;
 // "permanent" for the list) if active, otherwise a gentle invite to support.
 function premiumStatusLine(uid){
   if(ADMIN_MEMBERS.includes(uid) || PREMIUM_MEMBERS.includes(uid)){
-    return `<div class="small" style="color:var(--equi-brass-light);margin-top:2px;">${premiumCrestSvg()} Premium member</div>`;
+    return `<div class="small" style="color:var(--equi-brass-light);margin-top:2px;">&#128081; Premium member</div>`;
   }
   const until = __premiumCache[uid];
   if(until && until > Date.now()){
     const days = Math.ceil((until - Date.now())/(24*60*60*1000));
     const dateStr = new Date(until).toLocaleDateString();
-    return `<div class="small" style="color:var(--equi-brass-light);margin-top:2px;">${premiumCrestSvg()} Premium active — ${days} day${days===1?'':'s'} left (until ${dateStr}). Renew anytime; early renewals add on.</div>`;
+    return `<div class="small" style="color:var(--equi-brass-light);margin-top:2px;">&#128081; Premium active — ${days} day${days===1?'':'s'} left (until ${dateStr}). Renew anytime; early renewals add on.</div>`;
   }
-  return `<div class="small muted" style="margin-top:2px;">Not premium. <a href="https://ko-fi.com/" target="_blank" style="color:var(--accent);">Support EquiStories</a> to unlock the golden horseshoe crest, custom shop looks, multiple shops, and +3 gear. Enter your User ID <b>${esc(uid)}</b> at checkout.</div>`;
+  return `<div class="small muted" style="margin-top:2px;">Not premium. <a href="https://ko-fi.com/" target="_blank" style="color:var(--accent);">Support EquiStories</a> to unlock the crown, custom shop looks, multiple shops, and +3 gear. Enter your User ID <b>${esc(uid)}</b> at checkout.</div>`;
 }
 
 function shopThemeVars(t){
@@ -4566,7 +4091,7 @@ async function buyFromShop(v, DB, who, shop, items, itemId){
   const item = items.find(i=>i.id===itemId);
   const msg = v.querySelector(`[data-msg="${CSS.escape(itemId)}"]`);
   if(!item || !msg) return;
-  if(!shop.businessId && !shop.businessName){ msg.innerHTML = `<span style="color:var(--bad)">This shop has no business linked — it can't take payment.</span>`; return; }
+  if(!shop.businessName){ msg.innerHTML = `<span style="color:var(--bad)">This shop has no business linked — it can't take payment.</span>`; return; }
   const btn = v.querySelector(`[data-buy="${CSS.escape(itemId)}"]`);
   btn.disabled = true; msg.textContent = "Paying…";
 
@@ -4593,7 +4118,7 @@ async function buyFromShop(v, DB, who, shop, items, itemId){
   // Charge (skip the bank entirely if a ticket makes it free).
   if(charge > 0){
     const pay = await railwayCall('/payBusiness', { idToken: token,
-      body:{ businessId:shop.businessId||undefined, businessName:shop.businessName||undefined, amount:charge,
+      body:{ businessName:shop.businessName, amount:charge,
       note:`Shop: ${shop.name} — ${item.name}${discount?` (ticket −✦${discount})`:''}` } });
     if(!pay || !pay.success){ msg.innerHTML = `<span style="color:var(--bad)">${esc((pay&&pay.error)||'Payment failed.')}</span>`; btn.disabled=false; return; }
   }
@@ -4682,13 +4207,12 @@ async function renderShopManage(v, DB, who){
       <input id="mg_banner" placeholder="https://…/banner.png" value="${esc(shop.banner||'')}" />
       <label>Shop blurb</label>
       <textarea id="mg_blurb" rows="2" placeholder="A line about your shop…">${esc(shop.blurb||'')}</textarea>
-      <label>Business ID (the BIZ-… code — receives shop payments)</label>
-      <input id="mg_biz" placeholder="BIZ-…" value="${esc(shop.businessId||'')}" />
+      <label>Business name (from the Bank — exactly as registered)</label>
+      <input id="mg_biz" placeholder="e.g. Maeve's Tack Corner" value="${esc(shop.businessName||'')}" />
       <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap;">
         <button type="button" id="mg_biz_verify" class="ghost" style="padding:4px 12px;">Verify business</button>
-        <span id="mg_biz_status" class="small">${shop.businessName?`✓ ${esc(shop.businessName)}`:''}</span>
+        <span id="mg_biz_status" class="small"></span>
       </div>
-      <p class="small muted" style="margin:4px 0 0;">Paste your <b>Business ID</b> (the <code>BIZ-…</code> code from the Bank) so buyers always pay the right account — no name typos. Click Verify to confirm.</p>
       <label>Colors</label>
       <div class="swatch-row">
         <div class="swatch"><span class="small">Accent</span><input type="color" id="mg_c_accent" value="${esc(th.accent)}"></div>
@@ -4755,7 +4279,7 @@ async function renderShopManage(v, DB, who){
     </div>
 
     ${isPremium ? `<div class="card">
-      <h3>${premiumCrestSvg()} Premium — custom storefront look</h3>
+      <h3>👑 Premium — custom storefront look</h3>
       <p class="small">Style your <b>whole</b> storefront — banner, colors, fonts, framing, layout — to match your old shop.
         Your CSS restyles the real shop; buying still runs on the hub's safe buttons underneath, so it's fully secure.
         <b>No JavaScript</b> is needed or allowed — it's pure look.</p>
@@ -4894,13 +4418,10 @@ async function renderShopManage(v, DB, who){
   wireBusinessVerify("mg_biz","mg_biz_verify","mg_biz_status");
 
   $("mg_save").onclick = async ()=>{
-    const bizId = $("mg_biz").value.trim();
-    let bizName = ($("mg_biz").dataset.bizname||'').trim();
-    if(bizId && !bizName){ const rr = await resolveBusinessId(bizId); if(rr.ok && rr.exists) bizName = rr.name; }
     const patch = Object.assign({}, shop, {
       banner: $("mg_banner").value.trim(),
       blurb:  $("mg_blurb").value.trim(),
-      businessId: bizId, businessName: bizName || (bizId ? shop.businessName||'' : ''),
+      businessName: $("mg_biz").value.trim(),
       theme: { accent:$("mg_c_accent").value, panel:$("mg_c_panel").value, head:$("mg_c_head").value },
       updatedAt: new Date().toISOString()
     });
@@ -5470,8 +4991,8 @@ async function renderShopCreate(v, DB, who){
         and enter its exact name here.</p>
       <label>Shop name</label>
       <input id="cr_name" placeholder="e.g. Maeve's Tack Corner" />
-      <label>Business ID (the BIZ-… code — receives payments)</label>
-      <input id="cr_biz" placeholder="BIZ-…" />
+      <label>Bank business name (exactly as registered)</label>
+      <input id="cr_biz" placeholder="the business that receives payments" />
       <label>Banner image link (optional)</label>
       <input id="cr_banner" placeholder="https://…/banner.png" />
       <label>Blurb (optional)</label>
@@ -5488,13 +5009,12 @@ async function renderShopCreate(v, DB, who){
     const name=$("cr_name").value.trim();
     const biz=$("cr_biz").value.trim();
     if(!name){ $("cr_msg").textContent="Name your shop."; return; }
-    if(!biz){ $("cr_msg").textContent="Enter your Business ID (the BIZ-… code) so you can take payment."; return; }
+    if(!biz){ $("cr_msg").textContent="Enter your bank business name so you can take payment."; return; }
     $("cr_msg").textContent="Opening…";
     // ensure the owner session so Firestore accepts the write
     if(window.EquiAuth && window.EquiAuth.uid !== who.userId){ await upgradeToOwnerSession(); }
-    let bizName=''; { const rr=await resolveBusinessId(biz); if(rr.ok && rr.exists) bizName=rr.name; }
     const id = "shop_"+Math.random().toString(36).slice(2,10);
-    const rec = { id, owner:who.userId, name, businessId:biz, businessName:bizName,
+    const rec = { id, owner:who.userId, name, businessName:biz,
       banner:$("cr_banner").value.trim(), blurb:$("cr_blurb").value.trim(),
       theme: Object.assign({}, SHOP_THEME_DEFAULTS), createdAt:new Date().toISOString() };
     try{ await DB.put('shops', id, who.userId, rec); __shopView={mode:"manage",shopId:id}; renderShops(v); }
