@@ -86,14 +86,16 @@ const EQUI_FRAMES = [
   ["scribble-circle","Scribble Circle"], ["scissor-circle","Scissor-cut Circle"],
   ["ornate-gold","Ornate Gold"], ["corner-brackets","Corner Brackets"],
   ["rose-corners","Rose Corners"], ["gold-key","Gold Key Pattern"],
-  ["bracket-plaque","Bracket Plaque"],
+  ["bracket-plaque","Bracket Plaque"], ["victorian-square","Victorian Square"],
+  ["golden-wreath","Golden Wreath"], ["meadowlark","Meadowlark"],
 ];
 
-// The 9 new PNG-overlay frames are a premium perk — everything else
+// The 12 new PNG-overlay frames are a premium perk — everything else
 // (including Blush Circle/Starburst) stays free. Admins get every frame,
 // same as gearStatCap's Infinity case.
 const PREMIUM_FRAMES = ["ink-circle","scalloped-circle","scribble-circle","scissor-circle",
-  "ornate-gold","corner-brackets","rose-corners","gold-key","bracket-plaque"];
+  "ornate-gold","corner-brackets","rose-corners","gold-key","bracket-plaque",
+  "victorian-square","golden-wreath","meadowlark"];
 function isPremiumFrame(name){ return PREMIUM_FRAMES.includes(name); }
 function frameAllowed(name, uid){ return !isPremiumFrame(name) || isAdminMember(uid) || isPremiumMember(uid); }
 // Builds the <option> list for a frame <select>, shared by every profile
@@ -114,33 +116,63 @@ function frameOptionsHtml(current, uid){
 }
 
 // New PNG-overlay frames: real artwork layered on top of the portrait.
-// `inset` was measured per-image from each PNG's own transparency (how far
-// in from each edge the actual "hole" starts), so the photo sits flush
-// against the art instead of floating in the middle with a gap or spilling
-// out past the frame's edge. `shape` picks how the photo underneath gets
-// clipped: circle/square border-radius, a custom clip-path traced from the
-// art's silhouette (ornate-gold's arch), or a rotated square sized to the
-// measured corner marks (corner-brackets).
+// `shape` picks how the photo underneath gets clipped:
+//  - "mask": a per-pixel PNG mask (see /frames/masks) generated directly
+//    from the frame art's own alpha channel — the photo shows through
+//    exactly where the artwork is transparent, no hand-traced guesswork,
+//    so it lines up with every curve/scallop/notch in the art exactly.
+//  - "square" / "rotated-square": simple geometric insets for frames that
+//    are just corner ornaments over an (almost) full-bleed photo, not a
+//    fully enclosed cutout.
 //
-// IMAGES: upload the 9 files from equi-frame-images.zip into a /frames
-// folder next to this script (same level as equi-constants.js). If your
-// repo structure is different, update FRAME_IMAGE_BASE below to match.
+// IMAGES: upload the files from equi-frame-images.zip (including the new
+// /frames/masks subfolder) next to this script (same level as
+// equi-constants.js). If your repo structure is different, update
+// FRAME_IMAGE_BASE below to match.
 const FRAME_IMAGE_BASE = "frames/";
 const EQUI_IMAGE_FRAMES = {
-  "ink-circle": { src: FRAME_IMAGE_BASE+"frame-ink-circle.png", shape:"clip", inset:{top:0,left:0,right:0,bottom:0}, clipPath:"circle(45% at 50% 50%)" },
-  "scalloped-circle": { src: FRAME_IMAGE_BASE+"frame-scalloped-circle.png", shape:"clip", inset:{top:0,left:0,right:0,bottom:0}, clipPath:"circle(48.55% at 50% 50%)" },
-  "scribble-circle": { src: FRAME_IMAGE_BASE+"frame-scribble-circle.png", shape:"clip", inset:{top:0,left:0,right:0,bottom:0}, clipPath:"circle(45% at 50% 50%)" },
-  "scissor-circle": { src: FRAME_IMAGE_BASE+"frame-scissor-circle.png", shape:"clip", inset:{top:0,left:0,right:0,bottom:0}, clipPath:"circle(49.15% at 50% 50%)" },
-  "rose-corners":     { src: FRAME_IMAGE_BASE+"frame-rose-corners.png",     shape:"square", ar:1.549, inset:{top:1,    left:1,    right:1,    bottom:1} },
- "gold-key": { src: FRAME_IMAGE_BASE + "frame-gold-key.png", shape: "clip", inset: { top: 0, left: 0, right: 0, bottom: 0 }, clipPath: "polygon(6.00% 0.00%, 6.00% 4.70%, 0.00% 4.70%, 0.00% 14.80%, 4.50% 14.80%, 4.50% 6.10%, 6.00% 6.10%, 94.00% 6.10%, 95.50% 6.10%, 95.50% 14.80%, 100.00% 14.80%, 100.00% 4.70%, 94.00% 4.70%, 94.00% 0.00%, 94.00% 100.00%, 94.00% 95.30%, 100.00% 95.30%, 100.00% 85.20%, 95.50% 85.20%, 95.50% 93.90%, 94.00% 93.90%, 6.00% 93.90%, 4.50% 93.90%, 4.50% 85.20%, 0.00% 85.20%, 0.00% 95.30%, 6.00% 95.30%)" },
-  "bracket-plaque": { src: FRAME_IMAGE_BASE+"frame-bracket-plaque.png", shape:"clip", inset:{top:0,left:0,right:0,bottom:0}, clipPath:"polygon(83.20% 8.67%, 54.87% 7.56%, 49.94% 3.00%, 45.02% 7.56%, 18.03% 7.89%, 14.89% 10.78%, 14.11% 14.44%, 8.73% 16.89%, 7.61% 45.00%, 3.02% 50.00%, 7.61% 54.89%, 7.95% 81.67%, 10.53% 84.56%, 14.22% 85.56%, 16.46% 91.11%, 44.90% 92.33%, 49.94% 96.89%, 54.87% 92.33%, 81.86% 92.00%, 84.77% 89.44%, 85.67% 85.33%, 91.15% 82.78%, 92.27% 54.56%, 96.86% 49.78%, 93.39% 47.33%, 92.16% 44.33%, 92.05% 18.56%, 89.92% 15.56%, 85.67% 14.22%)" },
-  // Ornate Gold: the photo is clipped to a polygon traced from the actual
-  // arch/scrollwork silhouette instead of a plain rounded rectangle.
-  "ornate-gold": { src: FRAME_IMAGE_BASE+"frame-ornate-gold.png", shape:"clip", ar:0.658, inset:{top:0,left:0,right:0,bottom:0}, clipPath:"polygon(46.45% 1.22%, 33.28% 3.00%, 18.24% 7.56%, 12.84% 13.33%, 5.74% 13.11%, 8.45% 17.89%, 2.20% 23.22%, 4.39% 25.89%, 4.39% 74.00%, 2.20% 76.67%, 8.45% 82.00%, 5.74% 86.78%, 13.85% 87.00%, 18.24% 92.33%, 36.49% 97.56%, 53.21% 98.67%, 70.27% 95.89%, 82.26% 92.00%, 86.49% 86.78%, 93.92% 86.67%, 91.39% 82.00%, 97.64% 76.67%, 95.44% 74.11%, 95.44% 25.89%, 97.64% 23.22%, 91.39% 17.89%, 93.92% 13.22%, 85.98% 12.89%, 81.59% 7.56%, 62.67% 2.22%)" },
+  // Ink Circle: the brush stroke is rough/irregular by design, so instead of
+  // chasing its jagged ink edge exactly, the photo is a clean circle sized
+  // to sit just inside the stroke — it renders BEHIND the frame art (see
+  // framedImg below), so the rough ink edge naturally overlaps and hides
+  // the seam.
+  "ink-circle": { src: FRAME_IMAGE_BASE+"frame-ink-circle.png", shape:"circle", inset:{top:10,left:10,right:10,bottom:10} },
+  "scalloped-circle": { src: FRAME_IMAGE_BASE+"frame-scalloped-circle.png", shape:"mask", mask: FRAME_IMAGE_BASE+"masks/mask-scalloped-circle.png" },
+  "scribble-circle": { src: FRAME_IMAGE_BASE+"frame-scribble-circle.png", shape:"mask", mask: FRAME_IMAGE_BASE+"masks/mask-scribble-circle.png" },
+  "scissor-circle": { src: FRAME_IMAGE_BASE+"frame-scissor-circle.png", shape:"mask", mask: FRAME_IMAGE_BASE+"masks/mask-scissor-circle.png" },
+  // Rose Corners: new rose-cluster border art. It's not a fully enclosed
+  // cutout (roses sit only in two corners, connected by a thin traced
+  // line) so the photo is a plain rectangle sized to the thin line's
+  // actual position (measured directly off the art), not the flower
+  // silhouettes — the roses simply overlap on top at the two corners.
+  "rose-corners": { src: FRAME_IMAGE_BASE+"frame-rose-corners.png", shape:"square", radius:"0%", ar:1, inset:{top:8.9, left:5.0, right:5.1, bottom:8.3} },
+  // Gold Key: the repeating fret pattern is a thin decorative line that
+  // sits right at the canvas edge, with small key-pattern motifs jutting
+  // inward only at the 4 corners. The photo follows the OUTER straight
+  // border only — a plain edge-to-edge square — and the corner motifs
+  // simply sit on top of it rather than notching the photo out.
+  "gold-key": { src: FRAME_IMAGE_BASE+"frame-gold-key.png", shape:"square", radius:"0%", inset:{top:0.5,left:0.5,right:0.5,bottom:0.5} },
+  "bracket-plaque": { src: FRAME_IMAGE_BASE+"frame-bracket-plaque.png", shape:"mask", mask: FRAME_IMAGE_BASE+"masks/mask-bracket-plaque.png" },
+  // Ornate Gold: photo masked to the exact arch/scrollwork silhouette,
+  // pulled straight from the artwork's own alpha channel.
+  "ornate-gold": { src: FRAME_IMAGE_BASE+"frame-ornate-gold.png", shape:"mask", ar:0.658, mask: FRAME_IMAGE_BASE+"masks/mask-ornate-gold.png" },
   // Corner Brackets: the 4 marks sit almost exactly equidistant from
   // center, ~7.6° off the axis-aligned corners — so it's one plain square,
   // rotated, not a corner-clipped octagon.
   "corner-brackets": { src: FRAME_IMAGE_BASE+"frame-corner-brackets.png", shape:"rotated-square", size:88.5, rotate:-7.64 },
+  // Victorian Square: photo fitted to the OUTER edge of the main double-line
+  // rectangle (measured off the art), not the inner scrollwork — the corner
+  // and mid-edge flourishes sit outside that line and simply overlay on top.
+  "victorian-square": { src: FRAME_IMAGE_BASE+"frame-victorian-square.png", shape:"square", radius:"0%", inset:{top:15.08, left:16.24, right:16.08, bottom:15.32} },
+  // Golden Wreath: exact circle cutout from the ring's own alpha channel.
+  "golden-wreath": { src: FRAME_IMAGE_BASE+"frame-golden-wreath.png", shape:"mask", mask: FRAME_IMAGE_BASE+"masks/mask-golden-wreath.png" },
+  // Meadowlark: mask rebuilt from the user's own reference mockup (a smooth
+  // dome-topped shape fitted behind the rose-vine frame), mapped from that
+  // mockup's crop onto this artwork's actual canvas — top is a gentle dome
+  // tucked just under the rose crown rather than tracing every rose bump or
+  // the earlier flat cut, sides/bottom follow the vine stems and the open
+  // notch in the bottom spray as they naturally are.
+  "meadowlark": { src: FRAME_IMAGE_BASE+"frame-meadowlark.png", shape:"mask", ar:0.77, mask: FRAME_IMAGE_BASE+"masks/mask-meadowlark.png" },
 };
 
 function frameClass(name){
@@ -177,9 +209,21 @@ function framedImg(url, frame, size, caption){
     if(imgFrame.shape === 'rotated-square'){
       const off = (100 - imgFrame.size) / 2;
       avatarStyle = `top:${off}%;left:${off}%;right:${off}%;bottom:${off}%;transform:rotate(${imgFrame.rotate}deg);`;
+    } else if(imgFrame.shape === 'mask'){
+      // Exact-cutout frames: a PNG mask generated from the frame art's own
+      // alpha channel, stretched over the same box as the art image itself
+      // (same inset:0 + 100%/100%) so every pixel lines up 1:1 with the
+      // artwork's actual transparent hole — curves, notches and all —
+      // instead of an approximated clip-path polygon.
+      const m = `url('${__esc(imgFrame.mask)}')`;
+      avatarStyle = `top:0;left:0;right:0;bottom:0;`
+        + `-webkit-mask-image:${m};mask-image:${m};`
+        + `-webkit-mask-size:100% 100%;mask-size:100% 100%;`
+        + `-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;`
+        + `-webkit-mask-position:center;mask-position:center;`;
     } else {
       const i = imgFrame.inset;
-      const radius = imgFrame.shape === 'circle' ? '50%' : imgFrame.shape === 'clip' ? '4%' : '10%';
+      const radius = imgFrame.radius !== undefined ? imgFrame.radius : (imgFrame.shape === 'circle' ? '50%' : imgFrame.shape === 'clip' ? '4%' : '10%');
       const clip = imgFrame.clipPath ? `clip-path:${imgFrame.clipPath};` : '';
       avatarStyle = `top:${i.top}%;left:${i.left}%;right:${i.right}%;bottom:${i.bottom}%;border-radius:${radius};${clip}`;
     }
