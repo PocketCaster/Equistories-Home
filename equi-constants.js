@@ -127,7 +127,7 @@ function frameOptionsHtml(current, uid){
 // repo structure is different, update FRAME_IMAGE_BASE below to match.
 const FRAME_IMAGE_BASE = "frames/";
 const EQUI_IMAGE_FRAMES = {
-  "ink-circle": { src: FRAME_IMAGE_BASE+"frame-ink-circle.png", shape:"clip", inset:{top:0,left:0,right:0,bottom:0}, clipPath:"polygon(56.84% 9.44%, 40.40% 9.67%, 29.60% 15.44%, 17.83% 25.67%, 22.23% 17.00%, 15.52% 28.33%, 16.44% 20.89%, 14.25% 24.00%, 14.01% 25.11%, 10.43% 25.22%, 15.63% 16.56%, 8.33% 31.67%, 5.32% 45.11%, 0.82% 42.89%, 1.63% 55.67%, .74% 59.22%, 0.47% 57.00%, 0.94% 59.44%, 2.44% 57.56%, 8.69% 71.33%, 9.50% 69.89%, 25.01% 82.00%, 35.89% 89.22%, 55.10% 88.78%, 70.38% 79.11%, 78.02% 70.89%, 80.81% 60.67%, 81.84% 67.56%, 86.35% 64.22%, 84.73% 62.78%, 86.12% 58.67%, 87.86% 63.00%, 87.86% 48.44%, 82.53% 28.78%, 73.85% 15.67%)" },
+  "ink-circle": { src: FRAME_IMAGE_BASE+"frame-ink-circle.png", shape:"clip", inset:{top:0,left:0,right:0,bottom:0}, clipPath:"circle(45% at 50% 50%)" },
   "scalloped-circle": { src: FRAME_IMAGE_BASE+"frame-scalloped-circle.png", shape:"clip", inset:{top:0,left:0,right:0,bottom:0}, clipPath:"circle(48.55% at 50% 50%)" },
   "scribble-circle": { src: FRAME_IMAGE_BASE+"frame-scribble-circle.png", shape:"clip", inset:{top:0,left:0,right:0,bottom:0}, clipPath:"circle(45% at 50% 50%)" },
   "scissor-circle": { src: FRAME_IMAGE_BASE+"frame-scissor-circle.png", shape:"clip", inset:{top:0,left:0,right:0,bottom:0}, clipPath:"circle(49.15% at 50% 50%)" },
