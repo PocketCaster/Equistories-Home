@@ -236,16 +236,16 @@
 
   /* Thread page — sidebar-style post card, classic forum layout */
   .pb-post{
-    display:grid; grid-template-columns:180px 1fr;
+    display:grid; grid-template-columns:240px 1fr;
     border:1px solid var(--line); border-radius:10px; overflow:hidden; margin-bottom:16px;
     background:var(--panel2);
   }
   .pb-post__side{
-    background:var(--panel); padding:18px 12px; text-align:center;
+    background:var(--panel); padding:18px 8px; text-align:center;
     border-right:1px solid var(--line); display:flex; flex-direction:column; align-items:center;
   }
   .pb-post__side .equi-frame, .pb-post__side .equi-frame-img, .pb-post__side .equi-frame-standalone{ margin:0 auto; }
-  .pb-post__name{ margin-top:10px; font-weight:700; font-family:var(--equi-display,var(--equi-serif)); overflow-wrap:break-word; word-break:normal; hyphens:auto; font-size:.95em; line-height:1.25; max-width:100%; }
+  .pb-post__name{ margin-top:10px; font-weight:700; font-family:var(--equi-display,var(--equi-serif)); overflow-wrap:break-word; word-break:normal; hyphens:auto; font-size:clamp(12px,0.7vw,13.5px); line-height:1.25; max-width:100%; }
   .pb-post__badges{ margin-top:4px; }
   .pb-post__body{ padding:18px 22px; min-width:0; }
   .pb-post__meta{
