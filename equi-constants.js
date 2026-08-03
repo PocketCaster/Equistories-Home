@@ -155,7 +155,7 @@ const EQUI_IMAGE_FRAMES = {
   "bracket-plaque": { src: FRAME_IMAGE_BASE+"frame-bracket-plaque.png", shape:"mask", mask: FRAME_IMAGE_BASE+"masks/mask-bracket-plaque.png" },
   // Ornate Gold: photo masked to the exact arch/scrollwork silhouette,
   // pulled straight from the artwork's own alpha channel.
-  "ornate-gold": { src: FRAME_IMAGE_BASE+"frame-ornate-gold.png", shape:"mask", mask: FRAME_IMAGE_BASE+"masks/mask-ornate-gold.png" },
+  "ornate-gold": { src: FRAME_IMAGE_BASE+"frame-ornate-gold.png", shape:"mask", ar:0.658, mask: FRAME_IMAGE_BASE+"masks/mask-ornate-gold.png" },
   // Corner Brackets: the 4 marks sit almost exactly equidistant from
   // center, ~7.6° off the axis-aligned corners — so it's one plain square,
   // rotated, not a corner-clipped octagon.
@@ -172,7 +172,7 @@ const EQUI_IMAGE_FRAMES = {
   // tucked just under the rose crown rather than tracing every rose bump or
   // the earlier flat cut, sides/bottom follow the vine stems and the open
   // notch in the bottom spray as they naturally are.
-  "meadowlark": { src: FRAME_IMAGE_BASE+"frame-meadowlark.png", shape:"mask", mask: FRAME_IMAGE_BASE+"masks/mask-meadowlark.png" },
+  "meadowlark": { src: FRAME_IMAGE_BASE+"frame-meadowlark.png", shape:"mask", ar:0.77, mask: FRAME_IMAGE_BASE+"masks/mask-meadowlark.png" },
 };
 
 function frameClass(name){

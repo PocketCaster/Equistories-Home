@@ -6,6 +6,7 @@
 <title>EquiStories — Admin</title>
 <link rel="stylesheet" href="equi-shell.css" />
 <link rel="stylesheet" href="equi-components.css" />
+<link rel="stylesheet" href="equi-mobile.css?v=3" />
 <style>
   /* Same responsive root size the Stable Manager and Shows use, so the three
      apps read at identical scale instead of the hub looking shrunken. */
@@ -164,7 +165,7 @@
 </style>
 
 <script src="equi-nav.js" data-app="admin" defer></script>
-<script src="equi-constants.js"></script>
+<script src="equi-constants.js?v=3"></script>
 <script src="equi-bank.js"></script>
 </head>
 <body>
@@ -202,6 +203,11 @@ async function boot(){
     app.innerHTML = `<div class="card"><h2>Admin</h2><p class="small">Database unavailable — try reloading.</p></div>`;
     return;
   }
+  // Load the dynamic admin list (siteAdmins) BEFORE gating access. Without
+  // this, __adminCache is empty here and ONLY the hardcoded founder passes —
+  // which is why admins added via the Admin page could see the Admin tab but
+  // got bounced the moment they opened this panel.
+  try{ await loadAdminCache(EquiDB); }catch(e){}
   if(!isAdminMember(who && who.userId)){
     app.innerHTML = `<div class="card"><h2>Admin</h2><p class="small">This page is for site admins only.</p></div>`;
     return;
@@ -211,6 +217,19 @@ async function boot(){
     <div class="card">
       <h2>⚙ Admin Hub</h2>
       <p class="small">Every site-wide admin control, in one place. Per-shop and per-breed owner controls stay with their own shop/breed — this page is only for things that affect the whole site.</p>
+    </div>
+
+    <div class="card">
+      <h3>📢 Newsletter <span class="small muted">(sends a message to every member's inbox)</span></h3>
+      <p class="small muted" style="margin-top:0;">Writes one inbox message to every registered member — announcements, event notices, updates. Members read and delete it like any other message.</p>
+      <label class="small">Subject</label>
+      <input id="a_nl_subject" placeholder="e.g. Spring Show Season is here!" maxlength="120" />
+      <label class="small" style="margin-top:8px;">Message</label>
+      <textarea id="a_nl_body" rows="6" placeholder="Write your newsletter here…" style="width:100%;"></textarea>
+      <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button id="a_nl_send">Send to all members</button>
+        <span id="a_nl_status" class="small" style="min-height:1.2em;"></span>
+      </div>
     </div>
 
     <div class="card">
@@ -333,6 +352,35 @@ async function boot(){
   // community fields still stored (start/affiliate/widgetbot) are preserved.
   const hubCfg = (await EquiDB.get('config','hub')) || {};
   $("a_discord").value = hubCfg.discord || "";
+
+  $("a_nl_send").onclick = async ()=>{
+    const subject = ($("a_nl_subject").value||"").trim().slice(0,120);
+    const body = ($("a_nl_body").value||"").trim().slice(0,4000);
+    const st = $("a_nl_status");
+    if(!body){ st.textContent = "Write a message first."; return; }
+    let recipients = [];
+    try{ recipients = (await EquiDB.listAll('profiles')).map(p=>p.__owner||p.__id).filter(Boolean); }
+    catch(e){ st.textContent = "Couldn't load members: "+(e&&(e.message||e.code)||e); return; }
+    recipients = Array.from(new Set(recipients)).filter(u=> u && u !== (who&&who.userId));
+    if(!recipients.length){ st.textContent = "No members found."; return; }
+    if(!confirm("Send this newsletter to "+recipients.length+" member"+(recipients.length===1?"":"s")+"? This can't be undone.")) return;
+    $("a_nl_send").disabled = true;
+    let sent=0, failed=0;
+    const chunk = 12;
+    for(let i=0;i<recipients.length;i+=chunk){
+      const batch = recipients.slice(i,i+chunk);
+      await Promise.all(batch.map(async to=>{
+        const id = 'msg_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+        const rec = { id, from: who.userId, to:String(to), subject, body, sentAt:new Date().toISOString(), read:false, newsletter:true };
+        try{ await EquiDB.putWithField('messages', id, who.userId, rec, 'to', String(to)); sent++; }
+        catch(e){ failed++; }
+      }));
+      st.textContent = "Sending… "+sent+"/"+recipients.length+(failed?(" ("+failed+" failed)"):"");
+    }
+    $("a_nl_send").disabled = false;
+    st.textContent = "Done — delivered to "+sent+" member"+(sent===1?"":"s")+(failed?(", "+failed+" failed — press Send again to retry those"):"")+".";
+    if(!failed){ $("a_nl_subject").value=""; $("a_nl_body").value=""; }
+  };
 
   $("a_save_community").onclick = async ()=>{
     $("a_status_community").textContent = "Saving…";
@@ -520,6 +568,7 @@ async function boot(){
     $("ie_cancel").onclick = ()=>{ box.innerHTML = ""; };
     $("ie_save").onclick = async ()=>{
       $("ie_status").textContent = "Saving…";
+      try{
       const newStats = {};
       STATS.forEach(s=>{ const v=Number($("ie_stat_"+s).value)||0; if(v!==0) newStats[s]=v; });
       const imageVal = $("ie_image").value.trim();
@@ -538,6 +587,12 @@ async function boot(){
           active: $("ie_active").value === "true",
           stats: newStats,
           exp: Number($("ie_exp").value)||0,
+          // These four are collected by the editor above but were previously
+          // dropped on catalog saves, so editing them appeared to do nothing.
+          price: Number($("ie_price").value)||0,
+          pp: Number($("ie_pp").value)||0,
+          uses: Number($("ie_uses").value)||0,
+          setId: $("ie_setId").value || null,
         });
         if(ok){
           const idx = allItems.findIndex(i=>i.id===item.id);
@@ -567,6 +622,13 @@ async function boot(){
         }
       }
       $("ie_status").textContent = ok ? "Saved." : "Failed — check the console.";
+      }catch(err){
+        console.error('[Admin] item save failed:', err);
+        const perm = err && (err.code === 'permission-denied' || /permission|insufficient/i.test(err.message||''));
+        $("ie_status").textContent = perm
+          ? "Blocked by the database: an admin can't write an item owned by another account. This needs a Firestore rules change (see console)."
+          : ("Failed: " + (err && (err.message||err.code) || err));
+      }
     };
   }
 }

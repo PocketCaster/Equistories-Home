@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="equi-shell.css" />
   <link rel="stylesheet" href="equi-components.css" />
   <link rel="stylesheet" href="equi-tracker.css" />
+  <link rel="stylesheet" href="equi-mobile.css?v=3" />
 </head>
 <body>
 <!-- ============================================================
@@ -51,7 +52,7 @@ try{
 }catch(e){}
 </script>
 
-<script src="equi-constants.js"></script>
+<script src="equi-constants.js?v=3"></script>
 <script src="equi-bank.js"></script>
 <script type="module" src="equi-core.js"></script>
 
@@ -985,6 +986,28 @@ const SHOP_ATTIRE_CATS = ["Jacket","Shirt","Breeches","Boots","Helmet","Gloves",
 // state.consumables; spending happens at use time via spendConsumable().
 // invDoc: pass the already-fetched inventory doc to skip a redundant read
 // (mergeShopInventory needs the exact same doc — see loadFromSheets).
+// Items transferred from the OLD Google-script inventory often arrive WITHOUT an
+// `effect` field, so they showed in the saddlebag list but never registered as
+// usable breeding tokens (the breeding tab said "you don't own any"). Recover
+// them by reading the intent from the item NAME. Only breeding-token names
+// match here — anything else still needs a real authored effect.
+function inferBreedingEffect(name){
+  const n = String(name||'').toLowerCase();
+  if(/reroll/.test(n)) return {effect:'breeding_reroll'};
+  if(/\btwin/.test(n)) return {effect:'breeding_twin'};
+  if(/gender/.test(n)) return {effect:'breeding_gender'};
+  if(/colou?r\s*(guarantee|token)/.test(n)) return {effect:'breeding_colour'};
+  if(/prepotency/.test(n)) return {effect:'breeding_prepotency'};
+  if(/breeding\s*ticket|(^|\s)ticket(\s|$)/.test(n)) return {effect:'breeding_ticket'};
+  if(/\bhealth\b/.test(n)) return {effect:'breeding_health'};
+  // Trait tokens — the generic "Trait Token" plus specific-trait ones (Indigo
+  // Eyes, Dominant White, Brindle/Somatic, Chimera, Silken, etc.). The specific
+  // trait is kept as a tag so it can be used to guarantee that trait.
+  const tm = n.match(/indigo eyes|unrelated ble?u|dominant white|dom white|brindle|somatic|chimera|silken|birdcatcher|gulastra|peacock|bloodmark|mismarked|lacing|glossy|circe/);
+  if(tm) return {effect:'breeding_trait', tag: tm[0]};
+  if(/trait/.test(n)) return {effect:'breeding_trait'};
+  return null;
+}
 async function loadConsumables(userId, invDoc){
   state.consumables = [];
   try{
@@ -993,14 +1016,17 @@ async function loadConsumables(userId, invDoc){
     const inv = invDoc !== undefined ? invDoc : await window.EquiDB.get('inventory', userId);
     const items = (inv && inv.items) || [];
     for(const e of items){
-      if(!e || !e.effect) continue;                 // only items with an authored effect
+      if(!e) continue;
+      let eff = e.effect, tag = e.effectTag||null;
+      if(!eff){ const inf = inferBreedingEffect(e.name); if(inf){ eff = inf.effect; if(inf.tag && !tag) tag = inf.tag; } }
+      if(!eff) continue;                 // still nothing usable — skip
       const left = (Number(e.usesLeft)>0) ? Number(e.usesLeft)
                   : (e.singleUse ? (Number(e.qty)||1) : (Number(e.qty)||0));
       if(left<=0) continue;
       state.consumables.push({
-        invId: e.id, name: e.name||'Consumable', effect: e.effect,
+        invId: e.id, name: e.name||'Consumable', effect: eff,
         effectValue: Number(e.effectValue)||0, effectStat: e.effectStat||null,
-        effectTag: e.effectTag||null, left, shopName: e.shopName||'a shop'
+        effectTag: tag, left, shopName: e.shopName||'a shop'
       });
     }
   }catch(err){ console.warn('[Stable] consumable load skipped:', err && err.message || err); }
@@ -1714,6 +1740,10 @@ function applyLevelsFromExp(h, silent){
 function checkLevelUp(h){ applyLevelsFromExp(h, false); }
 
 function recomputeHorse(h){
+  // NPC / group breeding animals have their level and stats set BY HAND (an NPC
+  // stud can be any level without training), so we skip the EXP-driven rebuild
+  // for them — otherwise this would wipe the override on every load.
+  if(h.npcOverride){ if(!h.stats||typeof h.stats!=='object') h.stats={}; return; }
   // A horse's starting point. Normally every stat begins at BASE_STAT_VALUE,
   // but a FOAL starts from the average of its parents — so that average is
   // stored on the horse and used here. Without this, stats are rebuilt from
@@ -2683,7 +2713,8 @@ function renderPlayerProfilePage(app, data){
   const linksHtml=(Array.isArray(prof.links)?prof.links:[]).filter(l=>l.url).map(l=>
     `<a href="${l.url}" target="_blank" rel="noopener" class="tag" style="margin:2px;">${(l.label||l.url).replace(/</g,'&lt;')} ↗</a>`).join(" ");
 
-  const horseCards = horses.length ? horses.map(h=>`
+  const shownHorses = (horses||[]).filter(h=>!h.groupBreeding);   // group/NPC breeding stock isn't part of a member's shown horses
+  const horseCards = shownHorses.length ? shownHorses.map(h=>`
     <div class="tag" data-act="pp-open-horse" data-id="${h.id}" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;margin:4px;padding:6px 10px;">
       ${h.image?`<img src="${h.image}" style="width:34px;height:34px;object-fit:cover;border-radius:5px;" />`:''}
       <span><b>${(h.name||'Horse').replace(/</g,'&lt;')}</b> · ${h.breed||''} · Lvl ${h.level||1}</span>
@@ -2720,7 +2751,7 @@ function renderPlayerProfilePage(app, data){
         </div>
       </div>
       <div class="pcard">
-        <h3>Horses (${horses.length})</h3>
+        <h3>Horses (${shownHorses.length})</h3>
         <div>${horseCards}</div>
       </div>
       <div class="pcard">
@@ -3423,6 +3454,7 @@ function showTrainingEditModal(horse, entryId){
 
 function renderRoster(){
   const wrap = el('div');
+  const groupWrap = el('div');   // breed-owned group/NPC horses — kept OFF the personal roster
 
   const form = el('div','card',`
     <details id="nh_details" class="collapse">
@@ -3445,8 +3477,7 @@ function renderRoster(){
             const customOpts=custom.length?`<optgroup label="— Custom/Created Breeds —">
               ${custom.map(b=>`<option value="${b.name.toLowerCase()}">${b.name}</option>`).join("")}
             </optgroup>`:"";
-            return `<optgroup label="— Common Breeds —">${commonOpts}</optgroup>${customOpts}
-              <option value="__other__">Other (type it in)…</option>`;
+            return `<optgroup label="— Common Breeds —">${commonOpts}</optgroup>${customOpts}`;
           })()}
         </select>
         <input id="nh_breed_other" placeholder="Type breed name" style="display:none;margin-top:4px;" />
@@ -3653,6 +3684,7 @@ function renderRoster(){
   };
 
   state.horses.forEach(h=>{
+    if(h.groupBreeding) return;   // group/NPC stock is managed in the Breed Admin panel, not the personal roster
     const open = expandedLogs.has(h.id);
     const pct = h.level>=10?100:Math.min(100,((h.exp-LEVEL_TABLE[h.level].exp)/(LEVEL_TABLE[h.level+1].exp-LEVEL_TABLE[h.level].exp))*100);
     const photoHtml = h.profileImage
@@ -3765,12 +3797,36 @@ function renderRoster(){
         <button class="danger" data-act="del" data-id="${h.id}" style="font-size:1em;padding:4px 10px;margin-top:0;">Remove</button>
         <button class="secondary" data-act="transfer-horse" data-id="${h.id}" style="font-size:1em;padding:4px 10px;margin-top:0;">Sell / Transfer</button>
       </div>
+      ${h.groupBreeding ? `<details data-npcedit="${h.id}" style="margin-top:6px;">
+        <summary class="small" style="cursor:pointer;color:var(--equi-accent);">⚙ NPC level &amp; stats (breeding override)</summary>
+        <div style="margin-top:8px;padding:10px;border:1px solid var(--equi-line);border-radius:8px;">
+          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+            <label class="small" style="display:flex;flex-direction:column;">Level (1&ndash;10)
+              <input type="number" min="1" max="10" data-npclevel="${h.id}" value="${h.level||1}" style="max-width:90px;" /></label>
+            <button class="secondary" data-npcfill="${h.id}" style="margin-top:0;">Auto-fill stats for level</button>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+            ${STATS.map(s=>`<label class="small" style="display:flex;flex-direction:column;">${STAT_LABELS[s]||s}
+              <input type="number" min="0" data-npcstat="${h.id}" data-stat="${s}" value="${(h.stats&&Number.isFinite(Number(h.stats[s])))?h.stats[s]:BASE_STAT_VALUE}" style="max-width:72px;" /></label>`).join('')}
+          </div>
+          <button class="secondary" data-npcsave="${h.id}" style="margin-top:10px;">Save NPC level &amp; stats</button>
+          <span data-npcmsg="${h.id}" class="small" style="margin-left:8px;"></span>
+        </div>
+      </details>` : ''}
       ${artLogHtml}
     `;
-    wrap.appendChild(card);
+    (h.groupBreeding ? groupWrap : wrap).appendChild(card);
   });
 
   if(!state.horses.length) wrap.appendChild(el('div','small','<div style="padding:12px;color:var(--equi-faint);">No horses yet — add one above!</div>'));
+
+  if(groupWrap.children.length){
+    const gsec = el('div','card');
+    gsec.style.marginTop='16px';
+    gsec.innerHTML = `<h3 style="margin-top:0;">🐎 Group Breeding Stock <span class="small" style="color:var(--equi-faint);font-weight:normal;">— breed-owned NPCs, not part of your personal roster</span></h3>`;
+    gsec.appendChild(groupWrap);
+    wrap.appendChild(gsec);
+  }
 
   wrap.querySelectorAll('[data-act="toggle-log"]').forEach(b=>b.onclick=()=>{
     if(expandedLogs.has(b.dataset.id)) expandedLogs.delete(b.dataset.id);
@@ -3790,6 +3846,49 @@ function renderRoster(){
   wrap.querySelectorAll('[data-act="transfer-horse"]').forEach(b=>b.onclick=()=>{
     const h=state.horses.find(x=>x.id===b.dataset.id);
     if(h) transferHorseToMember(h);
+  });
+  wrap.querySelectorAll('[data-act="group-breeding"]').forEach(b=>b.onclick=async()=>{
+    const h=state.horses.find(x=>x.id===b.dataset.id);
+    if(!h) return;
+    if(h.groupBreeding){
+      if(confirm(`Stop offering ${h.name} for group breeding? Any unclaimed slot listings for it will disappear from the breed page.`)){
+        h.groupBreeding=false;
+        await saveHorse(h); render();
+      }
+      return;
+    }
+    const g=String(h.gender||'').toLowerCase();
+    const role = /(stallion|colt|rig|stud)/.test(g) ? 'stud' : /(mare|filly|broodmare|dam)/.test(g) ? 'broodmare' : 'breeding animal';
+    if(/gelding/.test(g)){ alert(`${h.name} is a gelding and can't be offered for breeding.`); return; }
+    const priceStr = prompt(`Offer ${h.name} as a group ${role} for the ${h.breed||'(no breed)'} breed.\n\nMembers will buy breeding slots on it from the breed page. Set the price (\u2726) per slot:`, String(Number(h.slotPrice)||0));
+    if(priceStr===null) return;
+    h.groupBreeding=true;
+    h.slotPrice=Math.max(0, Number(priceStr)||0);
+    await saveHorse(h); render();
+  });
+  wrap.querySelectorAll('[data-npcfill]').forEach(b=>b.onclick=()=>{
+    const root=b.closest('[data-npcedit]'); if(!root) return;
+    const L=Math.max(1,Math.min(10, Math.round(Number(root.querySelector('[data-npclevel]').value)||1)));
+    let bonus=0; for(let i=2;i<=L;i++) bonus+=(LEVEL_TABLE[i]?.bonus||0);
+    root.querySelectorAll('[data-npcstat]').forEach(inp=>{ inp.value = BASE_STAT_VALUE + bonus; });
+  });
+  wrap.querySelectorAll('[data-npcsave]').forEach(b=>b.onclick=async()=>{
+    const h=state.horses.find(x=>x.id===b.dataset.npcsave); if(!h) return;
+    const root=b.closest('[data-npcedit]'); if(!root) return;
+    const L=Math.max(1,Math.min(10, Math.round(Number(root.querySelector('[data-npclevel]').value)||1)));
+    const stats={};
+    root.querySelectorAll('[data-npcstat]').forEach(inp=>{ stats[inp.dataset.stat]=Math.max(0, Math.round(Number(inp.value)||0)); });
+    STATS.forEach(s=>{ if(!Number.isFinite(Number(stats[s]))) stats[s]=BASE_STAT_VALUE; });
+    h.npcOverride=true;
+    h.level=L;
+    h.exp=(LEVEL_TABLE[L]?.exp)||0;
+    let slots=BASE_BREEDING_SLOTS; for(let i=2;i<=L;i++) slots+=(LEVEL_TABLE[i]?.slots||0);
+    h.breedingSlots=slots;
+    h.stats=stats;
+    h.baseStats=Object.assign({}, stats);   // survives any recompute
+    await saveHorse(h);
+    const msg=root.querySelector('[data-npcmsg]'); if(msg){ msg.textContent='Saved.'; }
+    render();
   });
   wrap.querySelectorAll('[data-act="equip-select"]').forEach(sel=>sel.onchange=()=>{
     const h=state.horses.find(x=>x.id===sel.dataset.id);
@@ -4342,7 +4441,7 @@ function renderPedigreeChart(h){
     +`<span style="color:${strong?'var(--equi-accent)':'var(--equi-dim)'};font-weight:${strong?'bold':'normal'};">${lead?' ':''}${label}: </span>`
     +`${nm(key)}</div>`;
 
-  return `<div style="font-family:var(--equi-mono);font-size:.95em;background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:8px;padding:14px;line-height:1.7;">
+  return `<div class="equi-pedigree" style="font-family:var(--equi-mono);font-size:.95em;background:var(--equi-ink);border:1px solid var(--equi-line);border-radius:8px;padding:14px;line-height:1.7;">
     <div style="font-family:var(--equi-serif);color:var(--equi-accent);margin-bottom:8px;font-weight:bold;">Bloodline:</div>
     ${line(L3,'SSS','sss')}
     ${line(L2,'SS','ss')}
@@ -8613,12 +8712,22 @@ function firstOpenSlotIndex(h){
 // shop put in their inventory. Matches on the effect string, so a token only
 // works if the shop item's effect matches BREEDING_TOKENS[key].effect exactly.
 function availableBreedingTokens(){
-  const byEffect={};
-  Object.values(BREEDING_TOKENS).forEach(t=>byEffect[t.effect]=t);
+  const defs = Object.values(BREEDING_TOKENS);
+  const norm = s => String(s||'').trim().toLowerCase().replace(/[\s_\-]+/g,'');
   const out=[];
   (state.consumables||[]).forEach(c=>{
-    const def=byEffect[c.effect];
-    if(def) out.push({key:def.key, label:def.label, desc:def.desc, invId:c.invId, left:c.left});
+    const ce = norm(c.effect), cn = norm(c.name), ct = norm(c.effectTag);
+    // Match generously: an item counts as a breeding token if its effect, tag,
+    // or name lines up with the token's effect, key, or label — with or without
+    // the "breeding_" prefix / "token" suffix. Prevents an item that was
+    // authored as e.g. "twin" or "Twin Token" from silently not appearing.
+    const def = defs.find(t=>{
+      const te = norm(t.effect), tk = norm(t.key), tl = norm(t.label);
+      return ce===te || ce===tk || ce===('breeding'+tk) ||
+             ct===te || ct===tk ||
+             cn===tl || cn===te || cn===('breeding'+tk) || cn===(tk+'token');
+    });
+    if(def && def.key!=='ticket' && def.effect!=='breeding_ticket' && !out.some(o=>o.invId===c.invId)) out.push({key:def.key, label:def.label, desc:def.desc, invId:c.invId, left:c.left});
   });
   return out;
 }
