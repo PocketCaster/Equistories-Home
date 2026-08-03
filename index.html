@@ -2609,6 +2609,10 @@ let __msgCache = { inbox:[], sent:[], loadedAt:0, loading:false };
 // would drift out of step the first time either side changed. So the button
 // opens the tracker with the claim already identified and it finishes the job.
 let __resultsCache = { items:[], loadedAt:0, loading:false };
+// Counts the Messages-tab badge needs that aren't in the mail cache: pending
+// incoming friend requests + unread social notifications (mentions, replies…).
+// Kept here so renderNav() can read them synchronously.
+let __socialCache = { friendReqs:0, socialUnread:0, loadedAt:0 };
 
 async function loadHubResults(force){
   const who=me(); if(!who) return __resultsCache;
@@ -2646,6 +2650,28 @@ async function loadHubResults(force){
   return __resultsCache;
 }
 function resultsWaiting(){ return __resultsCache.items.filter(i=>!i.pending).length; }
+
+function socialPending(){ return (__socialCache.friendReqs||0) + (__socialCache.socialUnread||0); }
+// Loads pending friend requests + unread social notifications into __socialCache
+// so the Messages tab lights up even before the tab is opened.
+async function loadSocialCounts(){
+  const who=me();
+  if(!who){ __socialCache={friendReqs:0,socialUnread:0,loadedAt:0}; return; }
+  const DB=await waitForDB();
+  if(DB){
+    try{
+      const reqs=(await DB.listByField('friendRequests','toUserId', who.userId))||[];
+      __socialCache.friendReqs = reqs.filter(f=>f.status==='pending').length;
+    }catch(e){}
+  }
+  try{
+    const tk=await idToken();
+    const rn=await railwayCall('/getNotifications', { method:'GET', idToken: tk });
+    const feed=(rn && rn.success) ? (rn.data||[]) : [];
+    __socialCache.socialUnread = feed.filter(n=>isSocialNotif(n.type) && !n.read && !/friend_request/i.test(String(n.type||''))).length;
+  }catch(e){}
+  __socialCache.loadedAt=Date.now();
+}
 
 function renderResultsInbox(host){
   const items=__resultsCache.items;
@@ -2782,6 +2808,12 @@ function renderMessages(v){
     }catch(e){}
     const newsletterNotifs = (__msgCache.inbox||[]).filter(m=>m.newsletter && !m.read);
     const notifTotal = friendReqs.length + newsletterNotifs.length + socialNotifs.filter(n=>!n.read).length;
+    // Keep the tab badge in sync with what's actually shown here (e.g. after a
+    // friend request is accepted/declined or a notification is read).
+    __socialCache.friendReqs = friendReqs.length;
+    __socialCache.socialUnread = socialNotifs.filter(n=>!n.read).length;
+    __socialCache.loadedAt = Date.now();
+    renderNav();
     const notifCard = `
       <div class="card">
         <b style="color:var(--accent);">Notifications${notifTotal?` (${notifTotal})`:''}</b>
@@ -2961,7 +2993,7 @@ function renderNav(){
   // since it now covers horses/riders too and "Members" undersold that.
   const TAB_LABELS = { Members: "Directory", Community: "Rules & Guides" };
   $("nav").innerHTML = visibleTabs.map(t=>{
-    const __n = (t==="Messages") ? (msgUnread()+resultsWaiting()) : 0;
+    const __n = (t==="Messages") ? (msgUnread()+resultsWaiting()+socialPending()) : 0;
     const badge = __n ? ` <span style="background:var(--equi-accent);color:var(--equi-ink);border-radius:9px;padding:0 6px;font-size:.82em;font-weight:bold;">${__n}</span>` : "";
     return `<div class="tab ${t===tab?'active':''}" data-tab="${t}">${TAB_LABELS[t]||t}${badge}</div>`;
   }).join("")
@@ -3193,16 +3225,18 @@ function render(){
     loadHubResults();
     loadMessages().then(c=>{
       if(c && c.inbox && c.inbox.length) renderNav();
-      if(window.EquiNav && window.EquiNav.setBadge) window.EquiNav.setBadge('hub', msgUnread()+resultsWaiting());
+      if(window.EquiNav && window.EquiNav.setBadge) window.EquiNav.setBadge('hub', msgUnread()+resultsWaiting()+socialPending());
     });
   }
+  // Friend requests + social notifications for the Messages badge.
+  loadSocialCounts().then(renderNav);
   // Live notifications: quietly re-check mail every 60s so a newsletter or new
   // message lights up the Messages badge for members who are already online,
   // without them having to reload.
   if(!window.__equiMsgPoll){
     window.__equiMsgPoll = setInterval(()=>{
       if(!me()) return;
-      loadMessages(true).then(()=>renderNav()).catch(()=>{});
+      Promise.all([loadMessages(true), loadSocialCounts()]).then(()=>renderNav()).catch(()=>{});
     }, 60000);
   }
   const v=$("view");
