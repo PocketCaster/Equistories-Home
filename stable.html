@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="equi-shell.css" />
   <link rel="stylesheet" href="equi-components.css" />
   <link rel="stylesheet" href="equi-tracker.css" />
-  <link rel="stylesheet" href="equi-mobile.css?v=3" />
+  <link rel="stylesheet" href="equi-mobile.css?v=6" />
 </head>
 <body>
 <!-- ============================================================
@@ -52,7 +52,7 @@ try{
 }catch(e){}
 </script>
 
-<script src="equi-constants.js?v=3"></script>
+<script src="equi-constants.js?v=6"></script>
 <script src="equi-bank.js"></script>
 <script type="module" src="equi-core.js"></script>
 
@@ -5332,6 +5332,14 @@ function renderTraining(){
     const litWords=parseInt(card.querySelector('#tr_lit').value)||0;
     const link=card.querySelector('#tr_link').value.trim();
     const res=card.querySelector('#tr_result');
+
+    // FIX: when editing an existing entry, the image field is filled via
+    // set(el.value=...), which does NOT fire the oninput that keeps
+    // `uploadedImage` in sync. Read the field directly here so an edit can be
+    // re-submitted — and a changed or cleared image is honoured — without the
+    // user having to re-paste the link. (Previously this blocked with "An
+    // image is required" even though the field visibly showed the image.)
+    uploadedImage = card.querySelector('#tr_image_url').value.trim() || null;
 
     if(!uploadedImage){ res.innerHTML='<div class="result fail">An image is required to log training.</div>'; return; }
     if(!artRows.length){ res.innerHTML='<div class="result fail">Please add at least one art type for this sheet.</div>'; return; }
