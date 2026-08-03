@@ -134,7 +134,7 @@ const FRAME_IMAGE_BASE = "frames/";
 // it's appended to every frame/mask <img>/mask URL so browsers fetch the new
 // file instead of a cached one with the same name (the cause of masks/frames
 // appearing "not to update" after a redeploy).
-const FRAME_ASSET_VER = "?v=5";
+const FRAME_ASSET_VER = "?v=6";
 const EQUI_IMAGE_FRAMES = {
   // Ink Circle: the brush stroke is rough/irregular by design, so instead of
   // chasing its jagged ink edge exactly, the photo is a clean circle sized
@@ -168,7 +168,7 @@ const EQUI_IMAGE_FRAMES = {
   // Victorian Square: photo fitted to the OUTER edge of the main double-line
   // rectangle (measured off the art), not the inner scrollwork — the corner
   // and mid-edge flourishes sit outside that line and simply overlay on top.
-  "victorian-square": { src: FRAME_IMAGE_BASE+"frame-victorian-square.png", shape:"square", radius:"0%", inset:{top:15.08, left:16.24, right:16.08, bottom:15.32} },
+  "victorian-square": { src: FRAME_IMAGE_BASE+"frame-victorian-square.png", shape:"square", radius:"0%", inset:{top:5.22, left:6.35, right:6.25, bottom:5.73} },
   // Golden Wreath: exact circle cutout from the ring's own alpha channel.
   "golden-wreath": { src: FRAME_IMAGE_BASE+"frame-golden-wreath.png", shape:"mask", mask: FRAME_IMAGE_BASE+"masks/mask-golden-wreath.png" },
   // Meadowlark: mask rebuilt from the user's own reference mockup (a smooth
