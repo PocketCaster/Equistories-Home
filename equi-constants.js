@@ -130,6 +130,11 @@ function frameOptionsHtml(current, uid){
 // equi-constants.js). If your repo structure is different, update
 // FRAME_IMAGE_BASE below to match.
 const FRAME_IMAGE_BASE = "frames/";
+// Bump this whenever a frame PNG or mask PNG changes but keeps its filename —
+// it's appended to every frame/mask <img>/mask URL so browsers fetch the new
+// file instead of a cached one with the same name (the cause of masks/frames
+// appearing "not to update" after a redeploy).
+const FRAME_ASSET_VER = "?v=5";
 const EQUI_IMAGE_FRAMES = {
   // Ink Circle: the brush stroke is rough/irregular by design, so instead of
   // chasing its jagged ink edge exactly, the photo is a clean circle sized
@@ -151,11 +156,11 @@ const EQUI_IMAGE_FRAMES = {
   // inward only at the 4 corners. The photo follows the OUTER straight
   // border only — a plain edge-to-edge square — and the corner motifs
   // simply sit on top of it rather than notching the photo out.
-  "gold-key": { src: FRAME_IMAGE_BASE+"frame-gold-key.png", shape:"square", radius:"0%", inset:{top:0.5,left:0.5,right:0.5,bottom:0.5} },
+  "gold-key": { src: FRAME_IMAGE_BASE+"frame-gold-key.png", shape:"mask", mask: FRAME_IMAGE_BASE+"masks/mask-gold-key.png" },
   "bracket-plaque": { src: FRAME_IMAGE_BASE+"frame-bracket-plaque.png", shape:"mask", mask: FRAME_IMAGE_BASE+"masks/mask-bracket-plaque.png" },
   // Ornate Gold: photo masked to the exact arch/scrollwork silhouette,
   // pulled straight from the artwork's own alpha channel.
-  "ornate-gold": { src: FRAME_IMAGE_BASE+"frame-ornate-gold.png", shape:"mask", ar:0.658, mask: FRAME_IMAGE_BASE+"masks/mask-ornate-gold.png" },
+  "ornate-gold": { src: FRAME_IMAGE_BASE+"frame-ornate-gold.png", shape:"mask", mask: FRAME_IMAGE_BASE+"masks/mask-ornate-gold.png" },
   // Corner Brackets: the 4 marks sit almost exactly equidistant from
   // center, ~7.6° off the axis-aligned corners — so it's one plain square,
   // rotated, not a corner-clipped octagon.
@@ -172,7 +177,7 @@ const EQUI_IMAGE_FRAMES = {
   // tucked just under the rose crown rather than tracing every rose bump or
   // the earlier flat cut, sides/bottom follow the vine stems and the open
   // notch in the bottom spray as they naturally are.
-  "meadowlark": { src: FRAME_IMAGE_BASE+"frame-meadowlark.png", shape:"mask", ar:0.77, mask: FRAME_IMAGE_BASE+"masks/mask-meadowlark.png" },
+  "meadowlark": { src: FRAME_IMAGE_BASE+"frame-meadowlark.png", shape:"mask", mask: FRAME_IMAGE_BASE+"masks/mask-meadowlark.png" },
 };
 
 function frameClass(name){
@@ -215,7 +220,7 @@ function framedImg(url, frame, size, caption){
       // (same inset:0 + 100%/100%) so every pixel lines up 1:1 with the
       // artwork's actual transparent hole — curves, notches and all —
       // instead of an approximated clip-path polygon.
-      const m = `url('${__esc(imgFrame.mask)}')`;
+      const m = `url('${__esc(imgFrame.mask)}${FRAME_ASSET_VER}')`;
       avatarStyle = `top:0;left:0;right:0;bottom:0;`
         + `-webkit-mask-image:${m};mask-image:${m};`
         + `-webkit-mask-size:100% 100%;mask-size:100% 100%;`
@@ -232,7 +237,7 @@ function framedImg(url, frame, size, caption){
       : `<div style="width:100%;height:100%;background:var(--deep);display:flex;align-items:center;justify-content:center;font-size:${px*0.35}px;">&#128100;</div>`;
     return `<div class="equi-frame-img" style="position:relative;width:${fw};height:${fh};"${cap}>
       <div class="equi-frame-img__avatar" style="position:absolute;overflow:hidden;box-sizing:border-box;${avatarStyle}">${inner}</div>
-      <img class="equi-frame-img__art" src="${__esc(imgFrame.src)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;" />
+      <img class="equi-frame-img__art" src="${__esc(imgFrame.src)}${FRAME_ASSET_VER}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;" />
     </div>`;
   }
   if(!url) return `<div class="${frameClass(frame)}" style="width:${dim};height:${dim};">
