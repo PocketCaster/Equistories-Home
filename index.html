@@ -213,6 +213,8 @@
   .pb-meta{ color:var(--dim); font-size:.85em; margin-top:5px; }
   .pb-stats{ text-align:center; color:var(--dim); font-size:.85em; line-height:1.35; }
   .pb-stats b{ display:block; color:var(--brass-light); font-size:1.35em; font-family:var(--equi-display,var(--equi-serif)); font-weight:700; }
+  .pb-stats .pb-stat-label{ display:block; }
+  .pb-stats .pb-stat-posts{ display:block; margin-top:4px; color:var(--dim); opacity:.85; }
   .pb-lastpost{ display:flex; align-items:center; gap:10px; font-size:.85em; color:var(--dim); min-width:0; }
   .pb-lastpost img, .pb-lastpost .pb-avatar-fallback{
     width:36px; height:36px; border-radius:8px; object-fit:cover; flex:0 0 auto;
@@ -1949,7 +1951,7 @@ async function renderForumBoards(v, DB, who, boards){
             <div class="pb-title">${esc(b.name)}</div>
             <div class="pb-desc">${esc(b.desc||'')}</div>
           </div>
-          <div class="pb-stats"><b>${countByBoard[b.id]||0}</b>thread${(countByBoard[b.id]||0)===1?'':'s'}<span>${postsByBoard[b.id]||0} post${(postsByBoard[b.id]||0)===1?'':'s'}</span></div>
+          <div class="pb-stats"><b>${countByBoard[b.id]||0}</b><span class="pb-stat-label">thread${(countByBoard[b.id]||0)===1?'':'s'}</span><span class="pb-stat-posts">${postsByBoard[b.id]||0} post${(postsByBoard[b.id]||0)===1?'':'s'}</span></div>
           ${lastPostHtml(b.id)}
         </div>`).join("")}
     </div>`;
