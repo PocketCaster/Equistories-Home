@@ -1,0 +1,77 @@
+/* ============================================================
+   EQUI CUSTOM SLOTS — stable hooks for premium profile CSS
+   ------------------------------------------------------------
+   Every "box" a member might want to frame or restyle (portrait
+   images, reference sheets, bio panels, stat panels, etc.) gets
+   two things at render time:
+
+     1. class="equi-custom-slot"   — a permanent, generic hook
+     2. data-slot="some-name"      — identifies WHICH box it is
+
+   Premium members write their Custom CSS against these instead
+   of guessing at inline styles or relying on markup that can
+   change later. Example — put a custom frame image around just
+   the reference sheet on a horse profile:
+
+     .horse-profile-custom [data-slot="horse-reference-image"]{
+       position:relative;
+     }
+     .horse-profile-custom [data-slot="horse-reference-image"]::after{
+       content:"";
+       position:absolute;
+       inset:-40px;                 <-- tune to match your frame art
+       background:url('https://yourhost.com/my-frame.png') no-repeat center/contain;
+       pointer-events:none;
+       z-index:5;
+     }
+
+   Because .equi-custom-slot is always position:relative and never
+   clips overflow, an ::after frame like this can safely bleed
+   outward without needing to know the exact pixel size of the
+   box — no more guessing inset values against the wrong wrapper.
+
+   ------------------------------------------------------------
+   CURRENT SLOT NAMES
+   ------------------------------------------------------------
+   Horse profile (renderHorseProfilePage, stable.html):
+     horse-portrait            - the small round/frame profile photo
+     horse-reference-image     - the reference/registration sheet
+     horse-header              - the whole header card (photo + stats)
+     horse-bio                 - Personality / History card
+     horse-pedigree            - Pedigree card
+     horse-tack                - Equipped Tack card
+     horse-ribbons             - Ribbon Wall / Competition History card
+     horse-artlog              - Art Log card
+
+   Rider profile (renderRiderProfilePage, stable.html):
+     rider-portrait            - the small round/frame profile photo
+     rider-header              - the whole header card (photo + stats)
+     rider-bio                 - About card
+     rider-horses              - Horses card
+     rider-attire               - Attire card
+     rider-prestige-log        - Prestige Log card
+     rider-gallery             - Gallery card
+
+   Player/user profile (renderPlayerProfilePage, stable.html):
+     player-header             - the whole header card (avatar + info)
+     player-horses             - Horses card
+     player-riders             - Riders card
+
+   NOTE: the site-wide member profile (renderMemberProfile in
+   index.html) uses an older "card" layout that hasn't been
+   converted to this system yet — treat that page as a separate
+   follow-up pass, its hooks aren't listed here yet.
+   ============================================================ */
+
+.equi-custom-slot{
+  position: relative;
+  overflow: visible;
+}
+
+/* Slot content itself (the actual img/card) stays clipped normally;
+   only the slot WRAPPER is overflow:visible, so a custom ::after
+   frame can bleed outward without spilling the card's own contents. */
+.equi-custom-slot > img,
+.equi-custom-slot > .equi-frame-img{
+  display: block;
+}

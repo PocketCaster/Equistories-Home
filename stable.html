@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="equi-shell.css" />
   <link rel="stylesheet" href="equi-components.css" />
   <link rel="stylesheet" href="equi-tracker.css" />
+  <link rel="stylesheet" href="equi-custom-slots.css" />
   <link rel="stylesheet" href="equi-mobile.css?v=6" />
 </head>
 <body>
@@ -2703,9 +2704,9 @@ function renderPlayerProfilePage(app, data){
   shareUrl.searchParams.set('player', data.userId);
   if(STABLE_URL) shareUrl.searchParams.set('stable', STABLE_URL);
 
-  const avatar = prof.avatar
+  const avatar = '<div class="equi-custom-slot" data-slot="player-portrait">' + (prof.avatar
     ? `<img src="${prof.avatar}" onclick="openLightbox('${jsStr(prof.avatar)}','${jsStr(name)}')" style="width:min(240px,50vw);height:min(240px,50vw);border-radius:12px;object-fit:cover;border:3px solid var(--equi-accent);cursor:zoom-in;" />`
-    : `<div style="width:min(240px,50vw);height:min(240px,50vw);border-radius:12px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);">👤</div>`;
+    : `<div style="width:min(240px,50vw);height:min(240px,50vw);border-radius:12px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);">👤</div>`) + '</div>';
 
   let discordHtml='';
   if(prof.discord){
@@ -2743,7 +2744,7 @@ function renderPlayerProfilePage(app, data){
         <span data-act="pp-back" style="color:var(--equi-accent);cursor:pointer;">← Back to Stable Manager</span>
         ${owned?`<button data-act="pp-edit" class="secondary" style="margin-top:0;">Edit my profile</button>`:''}
       </div>
-      <div class="pcard">
+      <div class="pcard equi-custom-slot" data-slot="player-header">
         <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
           <div style="flex:none;">${avatar}</div>
           <div style="flex:1;min-width:220px;">
@@ -2754,11 +2755,11 @@ function renderPlayerProfilePage(app, data){
           </div>
         </div>
       </div>
-      <div class="pcard">
+      <div class="pcard equi-custom-slot" data-slot="player-horses">
         <h3>Horses (${shownHorses.length})</h3>
         <div>${horseCards}</div>
       </div>
-      <div class="pcard">
+      <div class="pcard equi-custom-slot" data-slot="player-riders">
         <h3>Riders (${riders.length})</h3>
         <div>${riderCards}</div>
       </div>
@@ -2987,11 +2988,11 @@ function renderRiderProfilePage(app, rider){
     `<div class="small" style="opacity:.6;">No Prestige logged yet.</div>`;
 
   const riderHasFrame = rider.frame && rider.frame !== 'none';
-  const photoHtml = riderHasFrame
+  const photoHtml = '<div class="equi-custom-slot" data-slot="rider-portrait">' + (riderHasFrame
     ? `<span id="rp_photo_frame" style="display:inline-block;cursor:${rider.image?'zoom-in':'default'};">${framedImg(rider.image, rider.frame, 'min(300px,55vw)', rider.name)}</span>`
     : rider.image
       ? `<img id="rp_photo_frame" src="${rider.image}" onclick="openLightbox('${jsStr(rider.image)}','${jsStr(rider.name)}')" style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;object-fit:cover;border:3px solid var(--equi-accent);cursor:zoom-in;" />`
-      : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);">\ud83e\uddcd</div>`;
+      : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);">\ud83e\uddcd</div>`) + '</div>';
 
   app.innerHTML=`
     <style>
@@ -3020,7 +3021,7 @@ function renderRiderProfilePage(app, rider){
     <div class="rider-profile-custom" style="width:100%;margin:0 auto;padding:clamp(16px,3vw,32px);">
       <div style="margin-bottom:12px;"><span data-act="back-from-rider" style="color:var(--equi-accent);text-decoration:none;cursor:pointer;">\u2190 Back to Stable Manager</span></div>
 
-      <div class="pcard">
+      <div class="pcard equi-custom-slot" data-slot="rider-header">
         <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
           <div style="display:flex;flex-direction:column;gap:8px;align-items:center;">
             ${photoHtml}
@@ -3039,27 +3040,27 @@ function renderRiderProfilePage(app, rider){
         </div>
       </div>
 
-      ${rider.bio ? `<div class="pcard">
+      ${rider.bio ? `<div class="pcard equi-custom-slot" data-slot="rider-bio">
         <h3>About</h3>
         <p style="font-size:1.06em;line-height:1.7;white-space:pre-wrap;">${rider.bio.replace(/</g,'&lt;')}</p>
       </div>` : ""}
 
-      <div class="pcard">
+      <div class="pcard equi-custom-slot" data-slot="rider-horses">
         <h3>Horses</h3>
         <div>${riderHorsesHtml(rider)}</div>
       </div>
 
-      <div class="pcard">
+      <div class="pcard equi-custom-slot" data-slot="rider-attire">
         <h3>Attire</h3>
         <div>${attireHtml}</div>
       </div>
 
-      <div class="pcard">
+      <div class="pcard equi-custom-slot" data-slot="rider-prestige-log">
         <h3>Prestige Log (${log.length})</h3>
         ${logHtml}
       </div>
 
-      <div class="pcard">
+      <div class="pcard equi-custom-slot" data-slot="rider-gallery">
         <h3>Gallery</h3>
         ${riderGalleryHtml(rider)}
       </div>
@@ -9289,18 +9290,20 @@ function renderHorseProfilePage(app, h){
     `<div class="small" style="opacity:.6;">No art logged yet.</div>`;
 
   const hasFrame = h.frame && h.frame !== 'none';
-  const photoHtml = hasFrame
+  const photoHtml = '<div class="equi-custom-slot" data-slot="horse-portrait">' + (hasFrame
     ? `<span id="pp_photo_frame" style="display:inline-block;cursor:${h.profileImage?'zoom-in':'default'};">${framedImg(h.profileImage, h.frame, 'min(300px,55vw)', h.name)}</span>`
     : h.profileImage
       ? `<img id="pp_photo_frame" src="${h.profileImage}" onclick="openLightbox('${jsStr(h.profileImage)}','${jsStr(h.name)}')" style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;object-fit:cover;border:3px solid var(--equi-accent);cursor:zoom-in;" />`
-      : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);"></div>`;
+      : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);"></div>`) + '</div>';
 
   const refColumnHtml = (h.referenceImage || bankAccount.linked)
     ? `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:20px;padding-top:20px;border-top:1px solid var(--equi-line);">
         <div class="small" style="text-align:center;">Reference / Registration${h.referenceLink?` · <a href="${h.referenceLink}" target="_blank">View on site</a>`:""}</div>
+        <div class="equi-custom-slot" data-slot="horse-reference-image">
         ${h.referenceImage
-          ? `<span class="ref-frame-wrap" style="display:inline-block;position:relative;max-width:92%;"><img src="${h.referenceImage}" onclick="openLightbox('${jsStr(h.referenceImage)}','${jsStr(h.name+' — Reference / Registration')}')" style="display:block;width:min(560px,92%);max-height:460px;border-radius:10px;object-fit:contain;border:3px solid var(--accent, var(--equi-accent));cursor:zoom-in;background:var(--equi-ink);box-shadow:0 6px 20px rgba(0,0,0,.45);" /></span>`
+          ? `<img src="${h.referenceImage}" onclick="openLightbox('${jsStr(h.referenceImage)}','${jsStr(h.name+' — Reference / Registration')}')" style="width:min(560px,92%);max-height:460px;border-radius:10px;object-fit:contain;border:3px solid var(--accent, var(--equi-accent));cursor:zoom-in;background:var(--equi-ink);box-shadow:0 6px 20px rgba(0,0,0,.45);" />`
           : `<div style="width:min(560px,92%);height:260px;border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:1em;background:var(--equi-ink);color:var(--equi-faint);text-align:center;padding:10px;">No reference sheet uploaded yet.</div>`}
+        </div>
         ${bankAccount.linked?`
           <button id="pp_ref_change_btn" class="secondary" style="font-size:.92em;">Change Image</button>
           <div id="pp_ref_url_wrap" style="display:none;width:100%;max-width:420px;">
@@ -9339,7 +9342,7 @@ function renderHorseProfilePage(app, h){
     <div class="horse-profile-custom" style="width:100%;margin:0 auto;padding:clamp(16px,3vw,32px);">
       <div style="margin-bottom:12px;"><span data-act="back-to-roster" style="color:var(--equi-accent);text-decoration:none;cursor:pointer;">← Back to Stable Manager</span></div>
 
-      <div class="pcard">
+      <div class="pcard equi-custom-slot" data-slot="horse-header">
         <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
         <div style="display:flex;flex-direction:column;gap:8px;align-items:center;">
           ${photoHtml}
@@ -9385,12 +9388,12 @@ function renderHorseProfilePage(app, h){
         ${refColumnHtml}
       </div>
 
-      ${h.personality||h.horseHistory ? `<div class="pcard">
+      ${h.personality||h.horseHistory ? `<div class="pcard equi-custom-slot" data-slot="horse-bio">
         ${h.personality?`<h3>Personality</h3><p style="font-size:1.06em;line-height:1.7;white-space:pre-wrap;">${h.personality}</p>`:""}
         ${h.horseHistory?`<h3>History</h3><p style="font-size:1.06em;line-height:1.7;white-space:pre-wrap;">${h.horseHistory}</p>`:""}
       </div>` : ""}
 
-      <div class="pcard">
+      <div class="pcard equi-custom-slot" data-slot="horse-pedigree">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
           <h3 style="margin:0;">Pedigree</h3>
           ${isOwn?`<button data-act="edit-lineage-profile" data-id="${h.id}" class="secondary" style="margin-top:0;font-size:.98em;padding:4px 12px;">Edit Lineage</button>`:''}
@@ -9401,19 +9404,19 @@ function renderHorseProfilePage(app, h){
         <div style="margin-top:10px;">${breedingRecHtml}</div>
       </div>
 
-      <div class="pcard">
+      <div class="pcard equi-custom-slot" data-slot="horse-tack">
         <h3>Equipped Tack</h3>
         <div>${tackEquippedHtml}</div>
       </div>
 
-      <div class="pcard">
+      <div class="pcard equi-custom-slot" data-slot="horse-ribbons">
         <h3>Ribbon Wall</h3>
         ${ribbonWall || '<div class="small" style="opacity:.6;">No placements yet.</div>'}
         <h3 style="margin-top:16px;">Competition History</h3>
         ${compHistoryHtml}
       </div>
 
-      <div class="pcard">
+      <div class="pcard equi-custom-slot" data-slot="horse-artlog">
         <h3>Art Log</h3>
         ${artLogHtml}
       </div>
