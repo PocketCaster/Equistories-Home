@@ -1,0 +1,108 @@
+/* ============================================================
+   PRAIRIE PASTEL — soft butter yellow, sage, and lavender
+   ------------------------------------------------------------
+   HOW TO USE
+   1. Copy this ENTIRE file.
+   2. Open your horse or rider's Edit Profile page (Premium members only).
+   3. Paste it into the "Custom CSS" box and save.
+   Works on BOTH horse profiles and rider profiles.
+
+   WANT TO CUSTOMIZE?
+   - Change any of the colors below.
+   - Swap url('frames/frame-meadowlark.png') for another frame in
+     the /frames/ folder, or your own hosted image.
+   - Adjust the "inset" number if the frame sits too tight/loose.
+   ============================================================ */
+
+.horse-profile-custom,
+.rider-profile-custom{
+  --equi-bg: #fdf9ee;
+  --equi-panel: #ffffff;
+  --equi-ink: #f7f2e2;
+  --equi-raised: #f2ecd8;
+  --equi-line: #c9d9b4;
+  --equi-text: #4a4636;
+  --equi-dim: #8a8468;
+  --equi-faint: #a8a488;
+  --equi-accent: #8fae6e;
+  --equi-accent-2: #b39ddb;
+  --equi-brass-light: #d4b96a;
+  --equi-plum: #b39ddb;
+  --equi-rust: #d69a5c;
+  --equi-good: #7fa96a;
+  --equi-good-soft: #e9f2e0;
+  --equi-bad: #d97a8c;
+  --equi-bad-soft: #fbeaee;
+  --equi-warn: #d4b96a;
+
+  position: relative;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(179,157,219,.15), transparent 40%),
+    radial-gradient(circle at 90% 85%, rgba(143,174,110,.18), transparent 50%),
+    linear-gradient(160deg, #fdf9ee 0%, #f7f2e2 60%, #fdf9ee 100%);
+  border-radius: 16px;
+}
+
+.horse-profile-custom, .horse-profile-custom p, .horse-profile-custom div, .horse-profile-custom span, .horse-profile-custom li,
+.rider-profile-custom, .rider-profile-custom p, .rider-profile-custom div, .rider-profile-custom span, .rider-profile-custom li{
+  color: #4a4636;
+}
+.horse-profile-custom .small, .rider-profile-custom .small{
+  color: #8a8468 !important;
+}
+
+/* ---------- Headings ---------- */
+.horse-profile-custom h1, .rider-profile-custom h1{
+  font-weight: 800;
+  color: #7fa96a !important;
+}
+.horse-profile-custom h3, .rider-profile-custom h3{
+  color: #b39ddb !important;
+  border-bottom: 2px dotted #c9d9b4;
+  padding-bottom: 6px;
+}
+
+/* ---------- Cards ---------- */
+.horse-profile-custom .pcard, .rider-profile-custom .pcard{
+  background: #ffffff !important;
+  border: 1.5px solid #c9d9b4 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 22px rgba(143,174,110,.15) !important;
+}
+
+/* ---------- Links / tags / buttons ---------- */
+.horse-profile-custom a, .rider-profile-custom a{ color:#b39ddb !important; font-weight:600; }
+.horse-profile-custom .tag, .rider-profile-custom .tag{
+  background: #f2ecd8 !important;
+  border: 1px solid #c9d9b4 !important;
+  color: #7fa96a !important;
+  border-radius: 12px !important;
+}
+.horse-profile-custom button:not(.secondary), .rider-profile-custom button:not(.secondary){
+  background: linear-gradient(135deg,#8fae6e,#b39ddb) !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+/* ============================================================
+   FRAME OVERLAYS
+   ============================================================ */
+
+.horse-profile-custom [data-slot="horse-portrait"]::after,
+.rider-profile-custom  [data-slot="rider-portrait"]::after{
+  content: "";
+  position: absolute;
+  inset: -26px;
+  background: url('frames/frame-meadowlark.png') no-repeat center/contain;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.horse-profile-custom [data-slot="horse-reference-image"]::after{
+  content: "";
+  position: absolute;
+  inset: -42px;
+  background: url('frames/frame-meadowlark.png') no-repeat center/contain;
+  pointer-events: none;
+  z-index: 5;
+}

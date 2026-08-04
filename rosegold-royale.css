@@ -1,0 +1,125 @@
+/* ============================================================
+   ROSEGOLD ROYALE — pink · white · gold
+   ------------------------------------------------------------
+   HOW TO USE
+   1. Copy this ENTIRE file.
+   2. Open your horse or rider's Edit Profile page (Premium members only).
+   3. Paste it into the "Custom CSS" box and save.
+   Works on BOTH horse profiles and rider profiles — paste the same
+   file on either page, it only applies the rules that match.
+
+   WANT TO CUSTOMIZE?
+   - Change any of the colors in the :root-style block below.
+   - To swap the frame graphic around your portrait or reference
+     image, replace the url('frames/frame-rose-corners.png') lines
+     near the bottom with any image link (must be a direct link to
+     a .png with a transparent center).
+   - If your frame looks too tight or too loose against the photo,
+     adjust the "inset" number below it — a bigger negative number
+     makes the frame bigger/further out, a smaller one pulls it in.
+   ============================================================ */
+
+.horse-profile-custom,
+.rider-profile-custom{
+  --equi-bg: #fff3f9;
+  --equi-panel: #fffbf8;
+  --equi-ink: #fff0f8;
+  --equi-raised: #ffeaf5;
+  --equi-line: #f0c869;
+  --equi-text: #5c2f4a;
+  --equi-dim: #9c6690;
+  --equi-faint: #b884ab;
+  --equi-accent: #c9962c;
+  --equi-accent-2: #d1499b;
+  --equi-brass-light: #a67c1e;
+  --equi-plum: #b56a9e;
+  --equi-rust: #c9962c;
+  --equi-good: #4f8a52;
+  --equi-good-soft: #e7f3e3;
+  --equi-bad: #c1447a;
+  --equi-bad-soft: #fbe4ee;
+  --equi-warn: #c9962c;
+
+  position: relative;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(255,255,255,.9), transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(255,214,235,.8), transparent 50%),
+    linear-gradient(160deg, #fff6fb 0%, #ffe3f1 35%, #fff8ec 70%, #ffe9c9 100%);
+  border-radius: 18px;
+}
+
+.horse-profile-custom, .horse-profile-custom p, .horse-profile-custom div, .horse-profile-custom span, .horse-profile-custom li,
+.rider-profile-custom, .rider-profile-custom p, .rider-profile-custom div, .rider-profile-custom span, .rider-profile-custom li{
+  color: #5c2f4a;
+}
+.horse-profile-custom .small, .rider-profile-custom .small{
+  color: #9c6690 !important;
+}
+
+/* ---------- Headings ---------- */
+.horse-profile-custom h1, .rider-profile-custom h1{
+  font-weight: 900;
+  background: linear-gradient(90deg,#c9962c 0%,#ffe9a8 30%,#e8a4cf 60%,#c9962c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  text-shadow: 0 2px 18px rgba(255,150,210,.35);
+}
+.horse-profile-custom h1::before, .rider-profile-custom h1::before{ content:"✦ "; color:#e8a4cf; }
+.horse-profile-custom h1::after, .rider-profile-custom h1::after{ content:" ✦"; color:#e8a4cf; }
+
+.horse-profile-custom h3, .rider-profile-custom h3{
+  color: #c9962c !important;
+  border-bottom: 2px dashed #f3b8d8;
+  padding-bottom: 6px;
+}
+
+/* ---------- Cards ---------- */
+.horse-profile-custom .pcard, .rider-profile-custom .pcard{
+  background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,246,251,.88)) !important;
+  border: 2px solid #f0c869 !important;
+  border-radius: 18px !important;
+  box-shadow: 0 0 0 5px #fff, 0 0 0 7px #f7d9ec, 0 14px 34px rgba(233,140,190,.28) !important;
+}
+
+/* ---------- Links / tags / buttons ---------- */
+.horse-profile-custom a, .rider-profile-custom a{ color:#d1499b !important; font-weight:600; }
+.horse-profile-custom .tag, .rider-profile-custom .tag{
+  background: linear-gradient(135deg,#fff0f8,#ffe1ef) !important;
+  border: 1.5px solid #f0c869 !important;
+  color: #b5568f !important;
+  border-radius: 14px !important;
+}
+.horse-profile-custom button:not(.secondary), .rider-profile-custom button:not(.secondary){
+  background: linear-gradient(135deg,#f0c869,#e8a4cf) !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+/* ============================================================
+   FRAME OVERLAYS — this is the part that used to break!
+   These target the new named slots directly, so the frame always
+   sizes itself to the box it's actually attached to. No more
+   guessing pixel offsets against the wrong wrapper.
+   ============================================================ */
+
+/* Portrait photo — small round/square headshot at the top of the page */
+.horse-profile-custom [data-slot="horse-portrait"]::after,
+.rider-profile-custom  [data-slot="rider-portrait"]::after{
+  content: "";
+  position: absolute;
+  inset: -24px;                 /* tune this to fit your frame image */
+  background: url('frames/frame-rose-corners.png') no-repeat center/contain;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Reference / registration sheet — the larger image lower on the horse page */
+.horse-profile-custom [data-slot="horse-reference-image"]::after{
+  content: "";
+  position: absolute;
+  inset: -40px;                 /* tune this to fit your frame image */
+  background: url('frames/frame-rose-corners.png') no-repeat center/contain;
+  pointer-events: none;
+  z-index: 5;
+}

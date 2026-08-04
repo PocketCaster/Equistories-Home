@@ -9323,7 +9323,8 @@ function renderHorseProfilePage(app, h){
       : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);"></div>`) + '</div>';
 
   const refColumnHtml = (h.referenceImage || bankAccount.linked)
-    ? `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:20px;padding-top:20px;border-top:1px solid var(--equi-line);">
+    ? `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:20px;padding-top:20px;">
+        <div class="equi-custom-divider" data-divider="horse-header-to-reference"></div>
         <div class="small" style="text-align:center;">Reference / Registration${h.referenceLink?` · <a href="${h.referenceLink}" target="_blank">View on site</a>`:""}</div>
         <div class="equi-custom-slot" data-slot="horse-reference-image">
         ${h.referenceImage
@@ -9597,7 +9598,7 @@ function showProfileModal(horseId){
         ${isPremiumMember(h.owner||h.ownerName||bankAccount.userId) ? `
         <div style="margin-top:14px;border-top:1px solid var(--equi-line);padding-top:10px;">
           <label>Custom CSS <span class="small" style="color:var(--equi-brass-light);">&#9733; Premium</span></label>
-          <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.horse-profile-custom</code> so your styling stays on this horse's page. Hooks: <code>.pcard</code>, <code>h3</code>, and named boxes like <code>[data-slot="horse-portrait"]</code> or <code>[data-slot="horse-reference-image"]</code> for custom frames — see the Customization Templates forum thread for ready-made skins.</div>
+          <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.horse-profile-custom</code> so your styling stays on this horse's page. Hooks: <code>.pcard</code>, <code>h3</code>, named boxes like <code>[data-slot="horse-portrait"]</code>/<code>[data-slot="horse-reference-image"]</code>/<code>[data-slot="horse-pedigree"]</code> etc. for custom frames, and <code>[data-divider="horse-header-to-reference"]</code> for section dividers — see the Customization Templates forum thread for ready-made skins.</div>
           <textarea id="pm_css" style="min-height:110px;font-family:monospace;font-size:.85em;" placeholder=".horse-profile-custom .pcard{ background:#1a1006; }">${escAttr(h.customCss||'')}</textarea>
         </div>` : ''}
 

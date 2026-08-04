@@ -1,0 +1,109 @@
+/* ============================================================
+   MIDNIGHT MEADOW — deep forest green, plum, and old brass
+   ------------------------------------------------------------
+   HOW TO USE
+   1. Copy this ENTIRE file.
+   2. Open your horse or rider's Edit Profile page (Premium members only).
+   3. Paste it into the "Custom CSS" box and save.
+   Works on BOTH horse profiles and rider profiles.
+
+   WANT TO CUSTOMIZE?
+   - Change any of the colors below to shift the mood lighter/darker.
+   - Swap url('frames/frame-victorian-square.png') for any other
+     frame in the /frames/ folder, or your own hosted image.
+   - Adjust the "inset" number if the frame sits too tight/loose.
+   ============================================================ */
+
+.horse-profile-custom,
+.rider-profile-custom{
+  --equi-bg: #0d1712;
+  --equi-panel: #14211b;
+  --equi-ink: #0a120e;
+  --equi-raised: #1a2a22;
+  --equi-line: #3a5c48;
+  --equi-text: #e4ead5;
+  --equi-dim: #9db3a0;
+  --equi-faint: #6f8a78;
+  --equi-accent: #c9a84c;
+  --equi-accent-2: #8a5ea8;
+  --equi-brass-light: #e8c97a;
+  --equi-plum: #6a4a8a;
+  --equi-rust: #a3663a;
+  --equi-good: #6fae70;
+  --equi-good-soft: #24382a;
+  --equi-bad: #b1473f;
+  --equi-bad-soft: #3a2020;
+  --equi-warn: #c9a23a;
+
+  position: relative;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(138,94,168,.18), transparent 45%),
+    radial-gradient(circle at 90% 90%, rgba(58,92,72,.35), transparent 55%),
+    linear-gradient(170deg, #0d1712 0%, #14211b 60%, #0a120e 100%);
+  border-radius: 14px;
+}
+
+.horse-profile-custom, .horse-profile-custom p, .horse-profile-custom div, .horse-profile-custom span, .horse-profile-custom li,
+.rider-profile-custom, .rider-profile-custom p, .rider-profile-custom div, .rider-profile-custom span, .rider-profile-custom li{
+  color: #e4ead5;
+}
+.horse-profile-custom .small, .rider-profile-custom .small{
+  color: #9db3a0 !important;
+}
+
+/* ---------- Headings ---------- */
+.horse-profile-custom h1, .rider-profile-custom h1{
+  font-weight: 800;
+  color: #e8c97a !important;
+  text-shadow: 0 2px 14px rgba(0,0,0,.6);
+  letter-spacing: .02em;
+}
+.horse-profile-custom h3, .rider-profile-custom h3{
+  color: #c9a84c !important;
+  border-bottom: 1px solid #3a5c48;
+  padding-bottom: 6px;
+}
+
+/* ---------- Cards ---------- */
+.horse-profile-custom .pcard, .rider-profile-custom .pcard{
+  background: linear-gradient(180deg, rgba(20,33,27,.95), rgba(10,18,14,.92)) !important;
+  border: 1px solid #3a5c48 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 0 0 1px rgba(201,168,76,.15), 0 14px 30px rgba(0,0,0,.5) !important;
+}
+
+/* ---------- Links / tags / buttons ---------- */
+.horse-profile-custom a, .rider-profile-custom a{ color:#8a5ea8 !important; font-weight:600; }
+.horse-profile-custom .tag, .rider-profile-custom .tag{
+  background: #1a2a22 !important;
+  border: 1px solid #3a5c48 !important;
+  color: #c9a84c !important;
+}
+.horse-profile-custom button:not(.secondary), .rider-profile-custom button:not(.secondary){
+  background: linear-gradient(135deg,#3a5c48,#8a5ea8) !important;
+  color: #f1e6d8 !important;
+  border: none !important;
+}
+
+/* ============================================================
+   FRAME OVERLAYS
+   ============================================================ */
+
+.horse-profile-custom [data-slot="horse-portrait"]::after,
+.rider-profile-custom  [data-slot="rider-portrait"]::after{
+  content: "";
+  position: absolute;
+  inset: -22px;
+  background: url('frames/frame-ink-circle.png') no-repeat center/contain;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.horse-profile-custom [data-slot="horse-reference-image"]::after{
+  content: "";
+  position: absolute;
+  inset: -36px;
+  background: url('frames/frame-victorian-square.png') no-repeat center/contain;
+  pointer-events: none;
+  z-index: 5;
+}
