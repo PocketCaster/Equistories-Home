@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="equi-shell.css" />
   <link rel="stylesheet" href="equi-components.css" />
   <link rel="stylesheet" href="equi-tracker.css" />
-  <link rel="stylesheet" href="equi-custom-slots.css" />
   <link rel="stylesheet" href="equi-mobile.css?v=6" />
 </head>
 <body>
@@ -105,29 +104,91 @@ const LEVEL_TABLE = {
 // and a headshot, say. Each has to count at its own rate, so instead of a
 // single art type times a count, the form keeps a list of {art, n} rows.
 function readArtRows(card){
-  return [...card.querySelectorAll('[data-artrow]')].map(r=>({
-    art: (r.querySelector('[data-art-type]')||{}).value || "",
-    n:   Math.max(1, parseInt((r.querySelector('[data-art-n]')||{}).value)||1),
-  })).filter(x=>x.art);
+  return [...card.querySelectorAll('[data-artrow]')].map(r=>{
+    // Bonus Elements are now PER IMAGE — read the active chips inside THIS row,
+    // not a single sheet-wide set. A shaded halfbody and a plain headshot on the
+    // same sheet each carry only the bonuses that actually apply to them.
+    const bonuses=[...r.querySelectorAll('[data-art-bonuses] [data-bonus].active')].map(p=>p.dataset.bonus);
+    const cN=parseInt((r.querySelector('[data-art-creature-n]')||{}).value)||1;
+    return {
+      art: (r.querySelector('[data-art-type]')||{}).value || "",
+      n:   Math.max(1, parseInt((r.querySelector('[data-art-n]')||{}).value)||1),
+      bonuses,
+      creatureN: bonuses.includes("Additional Creature (per)") ? Math.max(1,cN) : undefined,
+    };
+  }).filter(x=>x.art);
 }
-function artRowsExp(rows){   return rows.reduce((s,r)=>s+(ART_EXP[r.art]||0)*r.n, 0); }
+// EXP from ONE row's bonus chips (creatures multiply by that row's own count).
+function artRowBonusExp(r){
+  return (r.bonuses||[]).reduce((s,k)=>{
+    if(!BONUS_EXP[k]) return s;
+    if(k==="Additional Creature (per)") return s + BONUS_EXP[k]*Math.max(1, r.creatureN||1);
+    return s + BONUS_EXP[k];
+  }, 0);
+}
+// artRowsExp now INCLUDES each row's own bonuses, so callers must NOT also add a
+// sheet-wide bonus total (that shared set has been retired).
+function artRowsExp(rows){   return rows.reduce((s,r)=>s+(ART_EXP[r.art]||0)*r.n + artRowBonusExp(r), 0); }
 function artRowsImages(rows){ return rows.reduce((s,r)=>s+r.n, 0); }
 function artRowsLabel(rows){  return rows.map(r=>r.n>1?`${r.art} ×${r.n}`:r.art).join(" + "); }
 function artRowsSources(rows){
-  return rows.map(r=>{
+  const out=[];
+  rows.forEach(r=>{
     const each=ART_EXP[r.art]||0;
-    return r.n>1 ? `${r.art} ×${r.n} (+${each*r.n})` : `${r.art} (+${each})`;
+    out.push(r.n>1 ? `${r.art} ×${r.n} (+${each*r.n})` : `${r.art} (+${each})`);
+    (r.bonuses||[]).forEach(k=>{
+      if(!BONUS_EXP[k]) return;
+      if(k==="Additional Creature (per)"){ const c=Math.max(1,r.creatureN||1); out.push(`↳ Additional Creature ×${c} (+${BONUS_EXP[k]*c})`); }
+      else out.push(`↳ ${k} (+${BONUS_EXP[k]})`);
+    });
+  });
+  return out;
+}
+// Flattened set of every bonus used across the sheet — kept on the saved entry's
+// top-level `bonuses` field so older display/edit code (which reads one flat
+// list) keeps working unchanged.
+function artRowsBonusUnion(rows){
+  const set=new Set(); rows.forEach(r=>(r.bonuses||[]).forEach(k=>set.add(k))); return [...set];
+}
+// Delegated wiring so bonus chips work on rows added AFTER the form is built.
+// Toggles the chip and shows/hides that row's creature-count field.
+function wireArtRowBonuses(card, recalc){
+  card.addEventListener('click', ev=>{
+    const pill = ev.target.closest && ev.target.closest('[data-art-bonuses] [data-bonus]');
+    if(!pill) return;
+    pill.classList.toggle('active');
+    const row = pill.closest('[data-artrow]');
+    if(row){
+      const on = !!row.querySelector('[data-bonus="Additional Creature (per)"].active');
+      const crow = row.querySelector('[data-art-creature-row]');
+      if(crow) crow.classList.toggle('hide', !on);
+    }
+    if(recalc) setTimeout(recalc, 0);
   });
 }
-// One row of the breakdown. The first row can't be removed.
-function artRowHTML(selected, n, removable){
-  return `<div data-artrow style="display:flex;gap:6px;align-items:center;margin-top:4px;">
-    <select data-art-type style="flex:1;">
-      <option value="">— select art type —</option>
-      ${Object.keys(ART_EXP).map(k=>`<option value="${k}"${selected===k?' selected':''}>${k} (+${ART_EXP[k]} EXP)</option>`).join("")}
-    </select>
-    <input type="number" data-art-n min="1" value="${n||1}" title="How many of this kind on the sheet" style="max-width:74px;" />
-    ${removable?`<button type="button" data-art-remove class="secondary" style="padding:4px 9px;margin:0;">✕</button>`:'<span style="width:29px;"></span>'}
+// One image card of the sheet breakdown: art kind + count, then its OWN bonus
+// chips. The first card can't be removed. `bonuses`/`creatureN` prefill an edit.
+function artRowHTML(selected, n, removable, bonuses, creatureN){
+  const sel=new Set(bonuses||[]);
+  const creatureOn=sel.has("Additional Creature (per)");
+  return `<div data-artrow class="art-card" style="border:1px solid var(--equi-line);border-radius:8px;padding:8px 9px;margin-top:8px;background:var(--equi-ink);">
+    <div style="display:flex;gap:6px;align-items:center;">
+      <select data-art-type style="flex:1;">
+        <option value="">— select art type —</option>
+        ${Object.keys(ART_EXP).map(k=>`<option value="${k}"${selected===k?' selected':''}>${k} (+${ART_EXP[k]} EXP)</option>`).join("")}
+      </select>
+      <input type="number" data-art-n min="1" value="${n||1}" title="How many of this exact image on the sheet" style="max-width:74px;" />
+      ${removable?`<button type="button" data-art-remove class="secondary" style="padding:4px 9px;margin:0;">✕</button>`:'<span style="width:29px;"></span>'}
+    </div>
+    <div class="small" style="opacity:.7;margin:6px 0 2px;">Bonus elements on this image:</div>
+    <div class="pill-select" data-art-bonuses>
+      ${Object.keys(BONUS_EXP).map(k=>`<div class="pill${sel.has(k)?' active':''}" data-bonus="${k}">${k} (+${BONUS_EXP[k]})</div>`).join("")}
+    </div>
+    <div data-art-creature-row class="${creatureOn?'':'hide'}" style="margin-top:6px;">
+      <label class="small" style="display:inline;">Additional creatures on this image:</label>
+      <input type="number" data-art-creature-n min="1" value="${creatureN||1}" style="max-width:80px;padding:4px 6px;" />
+      <span class="small" style="opacity:.7;">(+${BONUS_EXP["Additional Creature (per)"]} EXP each)</span>
+    </div>
   </div>`;
 }
 
@@ -546,30 +607,11 @@ const MILESTONES = {
   },
 };
 
-const STAGE_ORDER = ["foal", "yearling", "two-year-old", "adult"];
-
 function trainingOptionsFor(h){
   const m = MILESTONES[h.stage];
   if(m){
     const equibreak = TRAININGS.find(t=>t.id==="equibreak");
-    const done = new Set(h.completedMilestones||[]);
-    const options = [...m.options];
-    // If a milestone from an EARLIER stage was completed and then its art
-    // entry got deleted (accident, broken link, re-upload, etc.), it drops
-    // out of completedMilestones again — but the horse may have already
-    // aged past that stage, so it would otherwise vanish from the training
-    // list forever with no way to fix it. Offer it back here, but ONLY if
-    // it's still incomplete. Stages the horse hasn't reached yet are never
-    // included, so this can't be used to skip ahead.
-    const currentIdx = STAGE_ORDER.indexOf(h.stage);
-    STAGE_ORDER.slice(0, currentIdx).forEach(stageName=>{
-      const sm = MILESTONES[stageName];
-      if(!sm) return;
-      sm.options.forEach(opt=>{
-        if(!done.has(opt.id) && !options.some(o=>o.id===opt.id)) options.push(opt);
-      });
-    });
-    return [...options, equibreak];
+    return [...m.options, equibreak];
   }
   return TRAININGS.filter(t=>!t.youngOnly);
 }
@@ -2723,9 +2765,9 @@ function renderPlayerProfilePage(app, data){
   shareUrl.searchParams.set('player', data.userId);
   if(STABLE_URL) shareUrl.searchParams.set('stable', STABLE_URL);
 
-  const avatar = '<div class="equi-custom-slot" data-slot="player-portrait">' + (prof.avatar
+  const avatar = prof.avatar
     ? `<img src="${prof.avatar}" onclick="openLightbox('${jsStr(prof.avatar)}','${jsStr(name)}')" style="width:min(240px,50vw);height:min(240px,50vw);border-radius:12px;object-fit:cover;border:3px solid var(--equi-accent);cursor:zoom-in;" />`
-    : `<div style="width:min(240px,50vw);height:min(240px,50vw);border-radius:12px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);">👤</div>`) + '</div>';
+    : `<div style="width:min(240px,50vw);height:min(240px,50vw);border-radius:12px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);">👤</div>`;
 
   let discordHtml='';
   if(prof.discord){
@@ -2763,7 +2805,7 @@ function renderPlayerProfilePage(app, data){
         <span data-act="pp-back" style="color:var(--equi-accent);cursor:pointer;">← Back to Stable Manager</span>
         ${owned?`<button data-act="pp-edit" class="secondary" style="margin-top:0;">Edit my profile</button>`:''}
       </div>
-      <div class="pcard equi-custom-slot" data-slot="player-header">
+      <div class="pcard">
         <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
           <div style="flex:none;">${avatar}</div>
           <div style="flex:1;min-width:220px;">
@@ -2774,11 +2816,11 @@ function renderPlayerProfilePage(app, data){
           </div>
         </div>
       </div>
-      <div class="pcard equi-custom-slot" data-slot="player-horses">
+      <div class="pcard">
         <h3>Horses (${shownHorses.length})</h3>
         <div>${horseCards}</div>
       </div>
-      <div class="pcard equi-custom-slot" data-slot="player-riders">
+      <div class="pcard">
         <h3>Riders (${riders.length})</h3>
         <div>${riderCards}</div>
       </div>
@@ -2839,7 +2881,7 @@ function showRiderProfileModal(riderId){
         ${isPremiumMember(bankAccount.userId) ? `
         <div style="margin-top:14px;border-top:1px solid var(--equi-line);padding-top:10px;">
           <label>Custom CSS <span class="small" style="color:var(--equi-brass-light);">&#9733; Premium</span></label>
-          <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.rider-profile-custom</code> so your styling stays on this rider's page. Hooks: <code>.pcard</code>, <code>h3</code>, and named boxes like <code>[data-slot="rider-portrait"]</code> or <code>[data-slot="rider-bio"]</code> for custom frames — see the Customization Templates forum thread for ready-made skins.</div>
+          <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.rider-profile-custom</code> so your styling stays on this rider's page. Hooks: <code>.pcard</code>, <code>h3</code>.</div>
           <textarea id="rm_css" style="min-height:110px;font-family:monospace;font-size:.85em;" placeholder=".rider-profile-custom .pcard{ background:#1a1006; }">${escAttr(r.customCss||'')}</textarea>
         </div>` : ''}
 
@@ -3007,11 +3049,11 @@ function renderRiderProfilePage(app, rider){
     `<div class="small" style="opacity:.6;">No Prestige logged yet.</div>`;
 
   const riderHasFrame = rider.frame && rider.frame !== 'none';
-  const photoHtml = '<div class="equi-custom-slot" data-slot="rider-portrait">' + (riderHasFrame
+  const photoHtml = riderHasFrame
     ? `<span id="rp_photo_frame" style="display:inline-block;cursor:${rider.image?'zoom-in':'default'};">${framedImg(rider.image, rider.frame, 'min(300px,55vw)', rider.name)}</span>`
     : rider.image
       ? `<img id="rp_photo_frame" src="${rider.image}" onclick="openLightbox('${jsStr(rider.image)}','${jsStr(rider.name)}')" style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;object-fit:cover;border:3px solid var(--equi-accent);cursor:zoom-in;" />`
-      : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);">\ud83e\uddcd</div>`) + '</div>';
+      : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);">\ud83e\uddcd</div>`;
 
   app.innerHTML=`
     <style>
@@ -3040,7 +3082,7 @@ function renderRiderProfilePage(app, rider){
     <div class="rider-profile-custom" style="width:100%;margin:0 auto;padding:clamp(16px,3vw,32px);">
       <div style="margin-bottom:12px;"><span data-act="back-from-rider" style="color:var(--equi-accent);text-decoration:none;cursor:pointer;">\u2190 Back to Stable Manager</span></div>
 
-      <div class="pcard equi-custom-slot" data-slot="rider-header">
+      <div class="pcard">
         <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
           <div style="display:flex;flex-direction:column;gap:8px;align-items:center;">
             ${photoHtml}
@@ -3059,27 +3101,27 @@ function renderRiderProfilePage(app, rider){
         </div>
       </div>
 
-      ${rider.bio ? `<div class="pcard equi-custom-slot" data-slot="rider-bio">
+      ${rider.bio ? `<div class="pcard">
         <h3>About</h3>
         <p style="font-size:1.06em;line-height:1.7;white-space:pre-wrap;">${rider.bio.replace(/</g,'&lt;')}</p>
       </div>` : ""}
 
-      <div class="pcard equi-custom-slot" data-slot="rider-horses">
+      <div class="pcard">
         <h3>Horses</h3>
         <div>${riderHorsesHtml(rider)}</div>
       </div>
 
-      <div class="pcard equi-custom-slot" data-slot="rider-attire">
+      <div class="pcard">
         <h3>Attire</h3>
         <div>${attireHtml}</div>
       </div>
 
-      <div class="pcard equi-custom-slot" data-slot="rider-prestige-log">
+      <div class="pcard">
         <h3>Prestige Log (${log.length})</h3>
         ${logHtml}
       </div>
 
-      <div class="pcard equi-custom-slot" data-slot="rider-gallery">
+      <div class="pcard">
         <h3>Gallery</h3>
         ${riderGalleryHtml(rider)}
       </div>
@@ -4986,7 +5028,6 @@ function renderTraining(){
   if(!myHorses.length){ wrap.innerHTML='<div class="card small">You have no personal horses to train yet.</div>'; return wrap; }
 
   let combinedMode=false;
-  let selectedBonuses=new Set();
   let uploadedImage=null;
 
   function currentHorse(){ return state.horses.find(x=>x.id===card.querySelector('#tr_horse').value); }
@@ -5024,23 +5065,12 @@ function renderTraining(){
         <label>What's on this sheet? <span class="required">* Required</span></label>
         <div id="tr_artrows">${artRowHTML("",1,false)}</div>
         <button type="button" id="tr_add_art" class="secondary" style="margin-top:6px;padding:4px 10px;">+ Add another image type</button>
-        <p class="small" style="margin:4px 0 0;opacity:.75;">One row per kind of image. A sheet with a fullbody, a halfbody and two headshots gets a row each — every image counts at its own rate.</p>
+        <p class="small" style="margin:4px 0 0;opacity:.75;">One card per image. A fullbody, a halfbody and two headshots each get their own card — set that image's kind, count, and its own bonus elements (shading, background, etc.) right on the card, so a shaded halfbody and a plain headshot score differently.</p>
       </div>
       <div>
         <label>Literature Word Count <span class="small">(optional)</span></label>
         <input type="number" id="tr_lit" min="0" placeholder="e.g. 350 — min 200 for EXP" />
         <div class="small" id="tr_lit_preview" style="margin-top:2px;"></div>
-      </div>
-    </div>
-    <div style="margin-top:8px;">
-      <label>Bonus Elements <span class="small">(optional)</span></label>
-      <div class="pill-select" id="tr_bonuses">
-        ${Object.keys(BONUS_EXP).map(k=>`<div class="pill" data-bonus="${k}">${k} (+${BONUS_EXP[k]})</div>`).join("")}
-      </div>
-      <div id="tr_creatureRow" class="hide" style="margin-top:6px;">
-        <label class="small" style="display:inline;">How many additional creatures?</label>
-        <input type="number" id="tr_creature_n" min="1" value="1" style="max-width:90px;padding:4px 6px;" />
-        <span class="small" style="opacity:.7;">(+2 EXP each)</span>
       </div>
     </div>
     <div style="margin-top:8px;"><label>Link to Art <span class="small">(optional)</span></label><input id="tr_link" placeholder="https://…" /></div>
@@ -5161,12 +5191,7 @@ function renderTraining(){
     refreshPrompt();
   };
 
-  card.querySelectorAll('[data-bonus]').forEach(p=>p.onclick=()=>{
-    const k=p.dataset.bonus;
-    if(selectedBonuses.has(k)){selectedBonuses.delete(k);p.classList.remove('active');}
-    else{selectedBonuses.add(k);p.classList.add('active');}
-    if(k==="Additional Creature (per)"){ const row=card.querySelector('#tr_creatureRow'); if(row) row.classList.toggle('hide', !selectedBonuses.has(k)); }
-  });
+  wireArtRowBonuses(card, ()=>{ try{ recalcTrTotal(); }catch(e){} });
 
   // Depicted tack: toggleable chips from owned tack with stat/EXP bonuses.
   // (Rider apparel is picked in the Rider Prestige form, not here.)
@@ -5248,11 +5273,8 @@ function renderTraining(){
       if(imgCount>1) Object.keys(allStats).forEach(st=>allStats[st]=allStats[st]*imgCount);
       const previewRider = (trRPP && trRPP.riderId) ? trRPP.riderId() : '';
       applyRiderTrainingBonus(h, allStats, previewRider);
-      let exp=artRowsExp(artRows);
+      let exp=artRowsExp(artRows);   // includes each image's own bonus chips
       exp+=calcLitExp(parseInt(card.querySelector('#tr_lit').value)||0);
-      selectedBonuses.forEach(k=>{ if(!BONUS_EXP[k]) return;
-        if(k==="Additional Creature (per)"){ const nEl=card.querySelector('#tr_creature_n'); exp+=BONUS_EXP[k]*Math.max(1,parseInt(nEl&&nEl.value)||1); }
-        else exp+=BONUS_EXP[k]; });
       exp+=riderTrainingExp(h, previewRider);
       const cbL=(card.querySelector('#tr_cb_label').value||'').trim();
       const cbE=parseInt(card.querySelector('#tr_cb_exp').value)||0;
@@ -5292,17 +5314,19 @@ function renderTraining(){
     // rebuild the sheet breakdown
     const rowsHost=card.querySelector('#tr_artrows');
     if(rowsHost){
-      const rows = (e.artMix && e.artMix.length) ? e.artMix
+      let rows = (e.artMix && e.artMix.length) ? e.artMix
                  : (e.art ? [{art:e.art, n:1}] : []);
+      // Legacy entries stored one sheet-wide bonus list (e.bonuses) rather than
+      // per-image chips. Re-open them with those bonuses on the FIRST image so
+      // nothing is lost; the user can redistribute them across images.
+      const legacyPerRow = rows.some(r=>r.bonuses);
+      if(!legacyPerRow && (e.bonuses||[]).length && rows.length){
+        rows = rows.map((r,i)=> i===0 ? {...r, bonuses:[...e.bonuses]} : r);
+      }
       rowsHost.innerHTML = rows.length
-        ? rows.map((r,i)=>artRowHTML(r.art, r.n, i>0)).join("")
+        ? rows.map((r,i)=>artRowHTML(r.art, r.n, i>0, r.bonuses, r.creatureN)).join("")
         : artRowHTML("",1,false);
     }
-    // bonus pills
-    selectedBonuses = new Set(e.bonuses||[]);
-    card.querySelectorAll('[data-bonus]').forEach(p=>{
-      p.classList.toggle('active', selectedBonuses.has(p.dataset.bonus));
-    });
     // featured rider
     const rsel=card.querySelector('.rpp_rider');
     if(rsel && e.featuredRiderId) rsel.value = e.featuredRiderId;
@@ -5385,34 +5409,18 @@ function renderTraining(){
     const milestoneIds=[];
     if(m){
       if(!Array.isArray(h.completedMilestones)) h.completedMilestones=[];
-      // Check against every stage's milestone list the horse has REACHED
-      // (current stage plus any earlier ones), not just the current stage —
-      // trainingOptionsFor() can now offer an earlier stage's milestone back
-      // if it was deleted after age-up, so logging it needs to be recognized
-      // as completing that milestone, not just scored as a plain training.
-      const reachedStages = STAGE_ORDER.slice(0, STAGE_ORDER.indexOf(h.stage)+1);
-      const reachableOptions = reachedStages.flatMap(stageName=>(MILESTONES[stageName]||{}).options||[]);
       [t,t2].filter(Boolean).forEach(tr=>{
-        if(reachableOptions.some(o=>o.id===tr.id)){
+        if(m.options.some(o=>o.id===tr.id)){
           milestoneIds.push(tr.id);
           if(!h.completedMilestones.includes(tr.id)) h.completedMilestones.push(tr.id);
         }
       });
     }
 
-    let expGain=artRowsExp(artRows);
-    const sources=artRowsSources(artRows);
+    let expGain=artRowsExp(artRows);            // art kinds + each image's own bonuses
+    const sources=artRowsSources(artRows);       // breakdown incl. per-image bonuses
     const litExp=calcLitExp(litWords);
     if(litExp>0){expGain+=litExp; sources.push(`Lit ${litWords}w (+${litExp})`);}
-    selectedBonuses.forEach(k=>{
-      if(!BONUS_EXP[k]) return;
-      if(k==="Additional Creature (per)"){
-        const nEl=card.querySelector('#tr_creature_n');
-        const n=Math.max(1, parseInt(nEl && nEl.value)||1);
-        const add=BONUS_EXP[k]*n;
-        expGain+=add; sources.push(`Additional Creature ×${n} (+${add})`);
-      } else { expGain+=BONUS_EXP[k]; sources.push(`${k} (+${BONUS_EXP[k]})`); }
-    });
     if(riderNote) sources.push(riderNote);
     const rExp=riderTrainingExp(h, featuredRiderId);
     if(rExp>0){ expGain+=rExp; sources.push(`Rider +${rExp} EXP`); }
@@ -5457,7 +5465,7 @@ function renderTraining(){
     h.exp+=expGain;
     checkLevelUp(h);
 
-    const trainEntry={id:uid2(),day:state.log.length+1,type:"training",label,art:artRowsLabel(artRows),artMix:artRows,imgCount:imgCount>1?imgCount:undefined,lit:litWords?`${litWords} words`:null,bonuses:[...selectedBonuses],customBonus,depicted:depictedNames.length?depictedNames:undefined,itemsUsed:treatsToSpend.length?treatsToSpend.map(id=>{const c=(state.consumables||[]).find(x=>x.invId===id);return c?c.name:id;}):undefined,exp:expGain,link:link||null,image:uploadedImage,statsDelta:allStats,milestoneIds};
+    const trainEntry={id:uid2(),day:state.log.length+1,type:"training",label,art:artRowsLabel(artRows),artMix:artRows,imgCount:imgCount>1?imgCount:undefined,lit:litWords?`${litWords} words`:null,bonuses:artRowsBonusUnion(artRows),customBonus,depicted:depictedNames.length?depictedNames:undefined,itemsUsed:treatsToSpend.length?treatsToSpend.map(id=>{const c=(state.consumables||[]).find(x=>x.invId===id);return c?c.name:id;}):undefined,exp:expGain,link:link||null,image:uploadedImage,statsDelta:allStats,milestoneIds};
 
     // Spend the treats from the shared inventory now that the effect is locked in.
     if(treatsToSpend.length){
@@ -5508,8 +5516,8 @@ function renderTraining(){
     card.querySelector('#tr_lit').value='';
     card.querySelector('#tr_lit_preview').textContent='';
     card.querySelector('#tr_link').value='';
-    selectedBonuses.clear();
-    card.querySelectorAll('[data-bonus]').forEach(p=>p.classList.remove('active'));
+    const trRows=card.querySelector('#tr_artrows');
+    if(trRows) trRows.innerHTML=artRowHTML("",1,false);
     refreshMilestoneStatus();
   };
 
@@ -5612,7 +5620,7 @@ function buildShowLogForm(){
       <div><label>What's on this sheet? <span class="small">(for EXP — optional)</span></label>
         <div id="cs_artrows">${artRowHTML("",1,false)}</div>
         <button type="button" id="cs_add_art" class="secondary" style="margin-top:6px;padding:4px 10px;">+ Add another image type</button>
-        <p class="small" style="margin:4px 0 0;opacity:.75;">Leave the first row blank for "no art". One row per kind of image on the sheet — each counts at its own rate.</p>
+        <p class="small" style="margin:4px 0 0;opacity:.75;">Leave the first card blank for "no art". One card per image — set each image's kind, count, and its own bonus elements right on the card.</p>
       </div>
       <div><label>Literature Word Count <span class="small">(optional)</span></label>
         <input type="number" id="cs_lit" min="0" placeholder="min 200 for EXP" />
@@ -5628,17 +5636,6 @@ function buildShowLogForm(){
       </div>
     </div>
     <p class="small" style="margin:4px 0 0;opacity:.75;">For EXP awarded by a host on top of the normal show maths — community events, placement bonuses, catch-up rewards for shows you never logged. Needs both a reason and an amount.</p>
-    <div style="margin-top:8px;">
-      <label>Bonus Elements <span class="small">(optional)</span></label>
-      <div class="pill-select" id="cs_bonuses">
-        ${Object.keys(BONUS_EXP).map(k=>`<div class="pill" data-bonus="${k}">${k} (+${BONUS_EXP[k]})</div>`).join("")}
-      </div>
-      <div id="cs_creatureRow" class="hide" style="margin-top:6px;">
-        <label class="small" style="display:inline;">How many additional creatures?</label>
-        <input type="number" id="cs_creature_n" min="1" value="1" style="max-width:90px;padding:4px 6px;" />
-        <span class="small" style="opacity:.7;">(+2 EXP each)</span>
-      </div>
-    </div>
     <div style="margin-top:8px;"><label>Link to Art <span class="small">(optional)</span></label>
       <input id="cs_link" placeholder="https://… (DeviantArt, Toyhouse, etc.)" />
     </div>` : ""}
@@ -5684,13 +5681,7 @@ function buildShowLogForm(){
     };
   }
 
-  const selectedBonuses=new Set();
-  card.querySelectorAll('[data-bonus]').forEach(p=>p.onclick=()=>{
-    const k=p.dataset.bonus;
-    if(selectedBonuses.has(k)){selectedBonuses.delete(k);p.classList.remove('active');}
-    else{selectedBonuses.add(k);p.classList.add('active');}
-    if(k==="Additional Creature (per)"){ const row=card.querySelector('#cs_creatureRow'); if(row) row.classList.toggle('hide', !selectedBonuses.has(k)); }
-  });
+  wireArtRowBonuses(card, ()=>{ try{ recalcCsTotal(); }catch(e){} });
 
   // FIX (this was the show-art part of the bug): show art photos were
   // almost always full-res phone/screenshot uploads, embedded as base64,
@@ -5753,13 +5744,10 @@ function buildShowLogForm(){
       const placement=Number(card.querySelector('#cs_place').value)||null;
       let exp=0;
       if(artRows.length){
-        exp+=artRowsExp(artRows);
+        exp+=artRowsExp(artRows);   // art kinds + each image's own bonuses
         const litEl=card.querySelector('#cs_lit');
         exp+=calcLitExp(parseInt(litEl && litEl.value)||0);
         exp+=1; // show entry
-        selectedBonuses.forEach(k=>{ if(!BONUS_EXP[k]) return;
-          if(k==="Additional Creature (per)"){ const nEl=card.querySelector('#cs_creature_n'); exp+=BONUS_EXP[k]*Math.max(1,parseInt(nEl&&nEl.value)||1); }
-          else exp+=BONUS_EXP[k]; });
         if(placement) exp+=({1:4,2:3,3:2}[placement]||1);
       }
       // A host-awarded bonus stands on its own — it applies even when no art is
@@ -5799,8 +5787,14 @@ function buildShowLogForm(){
 
     const rowsHost=card.querySelector('#cs_artrows');
     if(rowsHost){
-      const rows = (e.artMix && e.artMix.length) ? e.artMix : (e.art ? [{art:e.art, n:1}] : []);
-      rowsHost.innerHTML = rows.length ? rows.map((r,i)=>artRowHTML(r.art, r.n, i>0)).join("")
+      let rows = (e.artMix && e.artMix.length) ? e.artMix : (e.art ? [{art:e.art, n:1}] : []);
+      // Legacy show entries stored one sheet-wide bonus list — re-open them with
+      // those bonuses on the first image so nothing is lost.
+      const legacyPerRow = rows.some(r=>r.bonuses);
+      if(!legacyPerRow && (e.bonuses||[]).length && rows.length){
+        rows = rows.map((r,i)=> i===0 ? {...r, bonuses:[...e.bonuses]} : r);
+      }
+      rowsHost.innerHTML = rows.length ? rows.map((r,i)=>artRowHTML(r.art, r.n, i>0, r.bonuses, r.creatureN)).join("")
                                        : artRowHTML("",1,false);
     }
     const rsel=card.querySelector('.rpp_rider');
@@ -5856,19 +5850,10 @@ function buildShowLogForm(){
     const sources=[];
     const discStats={};
     if(artRows.length){
-      expGain+=artRowsExp(artRows); artRowsSources(artRows).forEach(x=>sources.push(x));
+      expGain+=artRowsExp(artRows); artRowsSources(artRows).forEach(x=>sources.push(x));  // incl. per-image bonuses
       const litExp=calcLitExp(litWords);
       if(litExp>0){expGain+=litExp; sources.push(`Lit ${litWords}w (+${litExp})`);}
       expGain+=1; sources.push(`Show Entry (+1)`);
-      selectedBonuses.forEach(k=>{
-      if(!BONUS_EXP[k]) return;
-      if(k==="Additional Creature (per)"){
-        const nEl=card.querySelector('#cs_creature_n');
-        const n=Math.max(1, parseInt(nEl && nEl.value)||1);
-        const add=BONUS_EXP[k]*n;
-        expGain+=add; sources.push(`Additional Creature ×${n} (+${add})`);
-      } else { expGain+=BONUS_EXP[k]; sources.push(`${k} (+${BONUS_EXP[k]})`); }
-    });
       nonPlacementExp=expGain;
       const placeExp={1:4,2:3,3:2}[placement]||1;
       if(placement){expGain+=placeExp; sources.push(`Placement (+${placeExp})`);}
@@ -5898,7 +5883,7 @@ function buildShowLogForm(){
       artLogId=uid2();
       const artEntry={id:artLogId,day:state.log.length+1,type:"competition",label:`${disc}${venue?" — "+venue:""}`,
         placement,art:artRowsLabel(artRows),artMix:artRows,lit:litWords?`${litWords} words`:null,
-        bonuses:[...selectedBonuses],exp:expGain,link:link||null,image:artImage,
+        bonuses:artRowsBonusUnion(artRows),exp:expGain,link:link||null,image:artImage,
         statsDelta:discStats,nonPlacementExp,discipline:disc};
       h.artLog.unshift(artEntry);
       artSavePromise = saveArtEntry(h, artEntry); // don't await yet — runs alongside saveHorse below
@@ -5947,8 +5932,6 @@ function buildShowLogForm(){
     if(card.querySelector('#cs_cb_label')) card.querySelector('#cs_cb_label').value='';
     if(card.querySelector('#cs_cb_exp')) card.querySelector('#cs_cb_exp').value='';
     if(card.querySelector('#cs_lit')){ card.querySelector('#cs_lit').value=''; card.querySelector('#cs_lit_preview').textContent=''; }
-    selectedBonuses.clear();
-    card.querySelectorAll('[data-bonus]').forEach(p=>p.classList.remove('active'));
     refreshPrizeArea();
   };
 
@@ -9316,21 +9299,18 @@ function renderHorseProfilePage(app, h){
     `<div class="small" style="opacity:.6;">No art logged yet.</div>`;
 
   const hasFrame = h.frame && h.frame !== 'none';
-  const photoHtml = '<div class="equi-custom-slot" data-slot="horse-portrait">' + (hasFrame
+  const photoHtml = hasFrame
     ? `<span id="pp_photo_frame" style="display:inline-block;cursor:${h.profileImage?'zoom-in':'default'};">${framedImg(h.profileImage, h.frame, 'min(300px,55vw)', h.name)}</span>`
     : h.profileImage
       ? `<img id="pp_photo_frame" src="${h.profileImage}" onclick="openLightbox('${jsStr(h.profileImage)}','${jsStr(h.name)}')" style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;object-fit:cover;border:3px solid var(--equi-accent);cursor:zoom-in;" />`
-      : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);"></div>`) + '</div>';
+      : `<div style="width:min(300px,55vw);height:min(300px,55vw);border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:3.5em;background:var(--equi-ink);"></div>`;
 
   const refColumnHtml = (h.referenceImage || bankAccount.linked)
-    ? `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:20px;padding-top:20px;">
-        <div class="equi-custom-divider" data-divider="horse-header-to-reference"></div>
+    ? `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:20px;padding-top:20px;border-top:1px solid var(--equi-line);">
         <div class="small" style="text-align:center;">Reference / Registration${h.referenceLink?` · <a href="${h.referenceLink}" target="_blank">View on site</a>`:""}</div>
-        <div class="equi-custom-slot" data-slot="horse-reference-image">
         ${h.referenceImage
           ? `<img src="${h.referenceImage}" onclick="openLightbox('${jsStr(h.referenceImage)}','${jsStr(h.name+' — Reference / Registration')}')" style="width:min(560px,92%);max-height:460px;border-radius:10px;object-fit:contain;border:3px solid var(--accent, var(--equi-accent));cursor:zoom-in;background:var(--equi-ink);box-shadow:0 6px 20px rgba(0,0,0,.45);" />`
           : `<div style="width:min(560px,92%);height:260px;border-radius:10px;border:3px solid var(--equi-line);display:flex;align-items:center;justify-content:center;font-size:1em;background:var(--equi-ink);color:var(--equi-faint);text-align:center;padding:10px;">No reference sheet uploaded yet.</div>`}
-        </div>
         ${bankAccount.linked?`
           <button id="pp_ref_change_btn" class="secondary" style="font-size:.92em;">Change Image</button>
           <div id="pp_ref_url_wrap" style="display:none;width:100%;max-width:420px;">
@@ -9369,7 +9349,7 @@ function renderHorseProfilePage(app, h){
     <div class="horse-profile-custom" style="width:100%;margin:0 auto;padding:clamp(16px,3vw,32px);">
       <div style="margin-bottom:12px;"><span data-act="back-to-roster" style="color:var(--equi-accent);text-decoration:none;cursor:pointer;">← Back to Stable Manager</span></div>
 
-      <div class="pcard equi-custom-slot" data-slot="horse-header">
+      <div class="pcard">
         <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
         <div style="display:flex;flex-direction:column;gap:8px;align-items:center;">
           ${photoHtml}
@@ -9415,12 +9395,12 @@ function renderHorseProfilePage(app, h){
         ${refColumnHtml}
       </div>
 
-      ${h.personality||h.horseHistory ? `<div class="pcard equi-custom-slot" data-slot="horse-bio">
+      ${h.personality||h.horseHistory ? `<div class="pcard">
         ${h.personality?`<h3>Personality</h3><p style="font-size:1.06em;line-height:1.7;white-space:pre-wrap;">${h.personality}</p>`:""}
         ${h.horseHistory?`<h3>History</h3><p style="font-size:1.06em;line-height:1.7;white-space:pre-wrap;">${h.horseHistory}</p>`:""}
       </div>` : ""}
 
-      <div class="pcard equi-custom-slot" data-slot="horse-pedigree">
+      <div class="pcard">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
           <h3 style="margin:0;">Pedigree</h3>
           ${isOwn?`<button data-act="edit-lineage-profile" data-id="${h.id}" class="secondary" style="margin-top:0;font-size:.98em;padding:4px 12px;">Edit Lineage</button>`:''}
@@ -9431,19 +9411,19 @@ function renderHorseProfilePage(app, h){
         <div style="margin-top:10px;">${breedingRecHtml}</div>
       </div>
 
-      <div class="pcard equi-custom-slot" data-slot="horse-tack">
+      <div class="pcard">
         <h3>Equipped Tack</h3>
         <div>${tackEquippedHtml}</div>
       </div>
 
-      <div class="pcard equi-custom-slot" data-slot="horse-ribbons">
+      <div class="pcard">
         <h3>Ribbon Wall</h3>
         ${ribbonWall || '<div class="small" style="opacity:.6;">No placements yet.</div>'}
         <h3 style="margin-top:16px;">Competition History</h3>
         ${compHistoryHtml}
       </div>
 
-      <div class="pcard equi-custom-slot" data-slot="horse-artlog">
+      <div class="pcard">
         <h3>Art Log</h3>
         ${artLogHtml}
       </div>
@@ -9598,7 +9578,7 @@ function showProfileModal(horseId){
         ${isPremiumMember(h.owner||h.ownerName||bankAccount.userId) ? `
         <div style="margin-top:14px;border-top:1px solid var(--equi-line);padding-top:10px;">
           <label>Custom CSS <span class="small" style="color:var(--equi-brass-light);">&#9733; Premium</span></label>
-          <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.horse-profile-custom</code> so your styling stays on this horse's page. Hooks: <code>.pcard</code>, <code>h3</code>, named boxes like <code>[data-slot="horse-portrait"]</code>/<code>[data-slot="horse-reference-image"]</code>/<code>[data-slot="horse-pedigree"]</code> etc. for custom frames, and <code>[data-divider="horse-header-to-reference"]</code> for section dividers — see the Customization Templates forum thread for ready-made skins.</div>
+          <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.horse-profile-custom</code> so your styling stays on this horse's page. Hooks: <code>.pcard</code>, <code>h3</code>.</div>
           <textarea id="pm_css" style="min-height:110px;font-family:monospace;font-size:.85em;" placeholder=".horse-profile-custom .pcard{ background:#1a1006; }">${escAttr(h.customCss||'')}</textarea>
         </div>` : ''}
 
