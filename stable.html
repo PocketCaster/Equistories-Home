@@ -54,7 +54,7 @@ try{
 
 <script src="equi-constants.js?v=6"></script>
 <script src="equi-bank.js"></script>
-<script type="module" src="equi-core.js"></script>
+<script type="module" src="equi-core.js?v=1"></script>
 
 <script>
 // Last-resort safety net: if anything throws hard enough to stop the app from
@@ -1770,7 +1770,11 @@ function recomputeHorse(h){
     if(entry.statsDelta && entry.type!=="competition"){
       Object.entries(entry.statsDelta).forEach(([s,v])=>{ h.stats[s]=(h.stats[s]||0)+v; });
     }
-    if(entry.milestoneIds) entry.milestoneIds.forEach(id=>{ if(!h.completedMilestones.includes(id)) h.completedMilestones.push(id); });
+    // A milestone is only credited if its backing art entry still has an image.
+    // If the image was removed (e.g. deleted before it could be re-submitted),
+    // the milestone frees up again so it can be re-logged — instead of staying
+    // stuck as "completed" with nothing behind it.
+    if(entry.milestoneIds && entry.image) entry.milestoneIds.forEach(id=>{ if(!h.completedMilestones.includes(id)) h.completedMilestones.push(id); });
   });
 
   // Reference sheet bonus is DERIVED here, not stored. It used to be added
@@ -3454,7 +3458,6 @@ function showTrainingEditModal(horse, entryId){
 
 function renderRoster(){
   const wrap = el('div');
-  const groupWrap = el('div');   // breed-owned group/NPC horses — kept OFF the personal roster
 
   const form = el('div','card',`
     <details id="nh_details" class="collapse">
@@ -3815,18 +3818,10 @@ function renderRoster(){
       </details>` : ''}
       ${artLogHtml}
     `;
-    (h.groupBreeding ? groupWrap : wrap).appendChild(card);
+    wrap.appendChild(card);
   });
 
   if(!state.horses.length) wrap.appendChild(el('div','small','<div style="padding:12px;color:var(--equi-faint);">No horses yet — add one above!</div>'));
-
-  if(groupWrap.children.length){
-    const gsec = el('div','card');
-    gsec.style.marginTop='16px';
-    gsec.innerHTML = `<h3 style="margin-top:0;">🐎 Group Breeding Stock <span class="small" style="color:var(--equi-faint);font-weight:normal;">— breed-owned NPCs, not part of your personal roster</span></h3>`;
-    gsec.appendChild(groupWrap);
-    wrap.appendChild(gsec);
-  }
 
   wrap.querySelectorAll('[data-act="toggle-log"]').forEach(b=>b.onclick=()=>{
     if(expandedLogs.has(b.dataset.id)) expandedLogs.delete(b.dataset.id);
@@ -4965,6 +4960,11 @@ function renderTraining(){
   const wrap=el('div');
   if(!state.horses.length){ wrap.innerHTML='<div class="card small">Add a horse on the Stable Roster tab first.</div>'; return wrap; }
 
+  // NPC / breed-group breeding stock lives only in the Breed Admin panel — it
+  // must not appear on a member's Training tab.
+  const myHorses = state.horses.filter(h=>!h.groupBreeding);
+  if(!myHorses.length){ wrap.innerHTML='<div class="card small">You have no personal horses to train yet.</div>'; return wrap; }
+
   let combinedMode=false;
   let selectedBonuses=new Set();
   let uploadedImage=null;
@@ -4977,7 +4977,7 @@ function renderTraining(){
     <h3>Log Training</h3>
     <div class="row">
       <div><label>Horse</label>
-        <select id="tr_horse">${state.horses.map(h=>`<option value="${h.id}">${h.name} (${h.stage})</option>`).join("")}</select>
+        <select id="tr_horse">${myHorses.map(h=>`<option value="${h.id}">${h.name} (${h.stage})</option>`).join("")}</select>
       </div>
       <div style="flex:none;">
         <label>Mode</label>
@@ -4988,8 +4988,8 @@ function renderTraining(){
       </div>
     </div>
     <div class="row" style="margin-top:8px;">
-      <div><label id="tr_lbl1">Training Type</label><select id="tr_type">${buildTrainingOpts(state.horses[0])}</select></div>
-      <div id="tr_type2_wrap" style="display:none;"><label>Second Training</label><select id="tr_type2">${buildTrainingOpts(state.horses[0])}</select></div>
+      <div><label id="tr_lbl1">Training Type</label><select id="tr_type">${buildTrainingOpts(myHorses[0])}</select></div>
+      <div id="tr_type2_wrap" style="display:none;"><label>Second Training</label><select id="tr_type2">${buildTrainingOpts(myHorses[0])}</select></div>
     </div>
     <div id="tr_milestone_status"></div>
     <div id="tr_prompt"></div>
@@ -5531,7 +5531,7 @@ function buildShowLogForm(){
 
   const card=el('div','card');
   const discOpts=Object.keys(DISCIPLINES).map(d=>`<option value="${d}">${d}</option>`).join("");
-  const eligible=state.horses.filter(h=>h.stage==="adult");
+  const eligible=state.horses.filter(h=>h.stage==="adult" && !h.groupBreeding);
   if(!eligible.length){
     card.innerHTML=`<h3>Log a Show</h3><p class="small">No horses are old/broke enough to compete yet — horses must reach the <b>adult</b> stage (complete their age-up milestones on the Training tab) before entering competitions.</p>`;
     wrap.appendChild(card);
