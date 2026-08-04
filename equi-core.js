@@ -15,7 +15,8 @@
 // synchronously before this deferred module does — see equi-shell doc).
 // ============================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs }
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+         doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword,
          createUserWithEmailAndPassword, sendPasswordResetEmail, updatePassword,
@@ -32,10 +33,43 @@ const firebaseConfig = {
 };
 
 let db=null, authOk=false, auth=null;
+
+// ---------------------------------------------------------------------------
+// READ COST CONTROL
+// The big Firestore-read source on this site is full-collection reads
+// (listAll/listAllFlat) that re-run on navigation — e.g. loading every horse
+// and profile to render the Members directory. We cache each collection's
+// result briefly so repeated views reuse it instead of re-reading. Any write
+// to a collection clears its cache so the writer immediately sees fresh data;
+// cross-user staleness is bounded by LIST_TTL_MS.
+// (Note: Firestore's persistentLocalCache below does NOT reduce online reads
+// for one-time getDocs on its own — this in-memory cache is what actually cuts
+// the read count.)
+const __listCache = new Map();      // col -> { at, data }
+const LIST_TTL_MS = 45000;          // 45s
+function __cacheGet(col){
+  const e = __listCache.get(col);
+  if(e && (Date.now() - e.at) < LIST_TTL_MS) return e.data;
+  return null;
+}
+function __cacheSet(col, data){ __listCache.set(col, { at: Date.now(), data }); }
+function __cacheClear(col){ if(col){ __listCache.delete('all:'+col); __listCache.delete('flat:'+col); } else __listCache.clear(); }
+// Return a deep copy so callers can freely mutate results without corrupting
+// the cached copy (cost is local CPU, not a Firestore read).
+function __clone(arr){ try{ return JSON.parse(JSON.stringify(arr)); }catch(e){ return arr; } }
+
 const ready = (async()=>{
   try{
     const app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
+    // Persistent (IndexedDB) cache: mainly gives offline resilience and lets
+    // the SDK dedupe some work across tabs. Falls back to the default store if
+    // the browser blocks IndexedDB (private mode, etc).
+    try{
+      db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+    }catch(e){
+      console.warn('[EquiDB] persistent cache unavailable, using default store:', e.code||e);
+      db = getFirestore(app);
+    }
     auth = getAuth(app);
     // Wait for Firebase to restore any existing session before deciding who
     // the user is — otherwise a refresh briefly looks like a signed-out visitor.
@@ -121,6 +155,7 @@ window.EquiDB = {
     const rec = { owner:String(owner), id:String(id),
       json:JSON.stringify(obj), updatedAt:new Date().toISOString() };
     await this._ownerRetry(()=> setDoc(doc(db,col,String(id)), rec));
+    __cacheClear(col);
     return true;
   },
 
@@ -133,6 +168,7 @@ window.EquiDB = {
     const rec = { owner:String(owner), id:String(id),
       json:JSON.stringify(obj), staffUids, updatedAt:new Date().toISOString() };
     await this._ownerRetry(()=> setDoc(doc(db,'breeds',String(id)), rec));
+    __cacheClear('breeds');
     return true;
   },
 
@@ -146,6 +182,7 @@ window.EquiDB = {
       json:JSON.stringify(obj), updatedAt:new Date().toISOString() };
     rec[field]=String(value);
     await this._ownerRetry(()=> setDoc(doc(db,col,String(id)), rec));
+    __cacheClear(col);
     return true;
   },
 
@@ -156,7 +193,7 @@ window.EquiDB = {
     try{ return JSON.parse(s.data().json); }catch(e){ return null; }
   },
 
-  async remove(col,id){ if(!db) return false; await this._ownerRetry(()=> deleteDoc(doc(db,col,String(id)))); return true; },
+  async remove(col,id){ if(!db) return false; await this._ownerRetry(()=> deleteDoc(doc(db,col,String(id)))); __cacheClear(col); return true; },
 
   // Indexed lookup on any hoisted field, e.g. every reservation set aside for me.
   async listByField(col,field,value){
@@ -177,10 +214,13 @@ window.EquiDB = {
   // Fine for small-to-medium collections; avoid on horses/riders at scale.
   async listAll(col){
     if(!db) return [];
+    const cached = __cacheGet('all:'+col);
+    if(cached) return __clone(cached);
     const snap=await getDocs(collection(db,col));
     const out=[];
     snap.forEach(d=>{ try{ const v=JSON.parse(d.data().json); v.__owner=d.data().owner; v.__id=d.id; out.push(v); }catch(e){} });
-    return out;
+    __cacheSet('all:'+col, out);
+    return __clone(out);
   },
 
   // Like listAll(), but for the OTHER collection shape used on this site —
@@ -195,6 +235,19 @@ window.EquiDB = {
     const out = [];
     snap.forEach(d => out.push({ id: d.id, ...d.data() }));
     return out;
+  },
+  // Cheap server-side count of a subcollection (one read, doesn't fetch the
+  // docs). Used so forum reply counts stay accurate without relying on a
+  // stored counter that non-owners can't write.
+  async countSub(parentCol, parentId, subCol){
+    if(!db) return 0;
+    try{
+      const { getCountFromServer } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+      const snap = await getCountFromServer(collection(db, parentCol, String(parentId), subCol));
+      return snap.data().count;
+    }catch(e){
+      try{ const s = await getDocs(collection(db, parentCol, String(parentId), subCol)); return s.size; }catch(_){ return 0; }
+    }
   },
 
   // Auto-ID create in a subcollection. Returns the new doc's id, or null.
@@ -220,10 +273,13 @@ window.EquiDB = {
 
   async listAllFlat(col){
     if(!db) return [];
+    const cached = __cacheGet('flat:'+col);
+    if(cached) return __clone(cached);
     const snap = await getDocs(collection(db, col));
     const out = [];
     snap.forEach(d => out.push({ id: d.id, ...d.data() }));
-    return out;
+    __cacheSet('flat:'+col, out);
+    return __clone(out);
   },
 
   // Write to a flat-schema doc (see listAllFlat above). merge:true by
@@ -231,6 +287,7 @@ window.EquiDB = {
   async setFlat(col, id, fields){
     if(!db) return false;
     await this._ownerRetry(()=> setDoc(doc(db, col, String(id)), fields, { merge: true }));
+    __cacheClear(col);
     return true;
   },
 
@@ -262,8 +319,13 @@ window.EquiDB = {
       await batch.commit();
       done += Math.min(400, items.length-i);
     }
+    __cacheClear(col);
     return done;
   },
+
+  // Force-refresh the read cache (all collections, or one). Call after an
+  // out-of-band change you want reflected immediately.
+  clearListCache(col){ __cacheClear(col||null); },
 };
 
 ready.then(v=>{ try{ window.__equiDBResolve(v); }catch(e){} })

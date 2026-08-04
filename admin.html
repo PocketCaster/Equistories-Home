@@ -6,7 +6,7 @@
 <title>EquiStories — Admin</title>
 <link rel="stylesheet" href="equi-shell.css" />
 <link rel="stylesheet" href="equi-components.css" />
-<link rel="stylesheet" href="equi-mobile.css?v=3" />
+<link rel="stylesheet" href="equi-mobile.css?v=6" />
 <style>
   /* Same responsive root size the Stable Manager and Shows use, so the three
      apps read at identical scale instead of the hub looking shrunken. */
@@ -165,7 +165,7 @@
 </style>
 
 <script src="equi-nav.js" data-app="admin" defer></script>
-<script src="equi-constants.js?v=3"></script>
+<script src="equi-constants.js?v=6"></script>
 <script src="equi-bank.js"></script>
 </head>
 <body>
@@ -177,7 +177,7 @@
 <script>
 window.__equiDBReady = new Promise(r => { window.__equiDBResolve = r; });
 </script>
-<script type="module" src="equi-core.js"></script>
+<script type="module" src="equi-core.js?v=2"></script>
 
 <script>
 // Uses window.EquiDB (from equi-core.js) and the shared ADMIN_MEMBERS /

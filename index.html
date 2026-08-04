@@ -313,7 +313,7 @@
 <script>
 window.__equiDBReady = new Promise(r => { window.__equiDBResolve = r; });
 </script>
-<script type="module" src="equi-core.js"></script>
+<script type="module" src="equi-core.js?v=2"></script>
 
 
 <main class="wrap" id="view" style="padding-bottom:60px;"></main>
@@ -655,6 +655,7 @@ async function renderBank(v){
         <span class="bk-pill active" data-b="create">Create</span>
         <span class="bk-pill" data-b="balance">Balance &amp; ID</span>
         <span class="bk-pill" data-b="refund">Refund a player</span>
+        <span class="bk-pill" data-b="cashout">Cash out</span>
       </div>
 
       <!-- Create business -->
@@ -703,6 +704,19 @@ async function renderBank(v){
         </div>
         <button id="bkRefund" style="margin-top:12px;">Issue refund</button>
         <div id="bkRefundMsg" class="small" style="margin-top:8px;min-height:1.1em;"></div>
+      </div>
+
+      <!-- Cash out to your own account -->
+      <div id="bkBizCashout" class="bk-bizpanel hide">
+        <p class="small muted" style="margin:0 0 6px;">Move Buxx from your business into <b>your own</b> personal account. Needs your Business ID and passcode.</p>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+          <div><label>Business ID</label><input id="bkCashBizId" placeholder="BIZ-…" /></div>
+          <div><label>Business passcode</label><input id="bkCashPass" type="password" placeholder="Passcode" /></div>
+          <div><label>Amount</label><input id="bkCashAmt" type="number" min="0.01" step="0.01" placeholder="0" /></div>
+          <div><label>Note (optional)</label><input id="bkCashNote" placeholder="e.g. monthly cashout" /></div>
+        </div>
+        <button id="bkCashout" style="margin-top:12px;">Cash out to my account</button>
+        <div id="bkCashoutMsg" class="small" style="margin-top:8px;min-height:1.1em;"></div>
       </div>
     </div>
 
@@ -837,7 +851,7 @@ async function renderBank(v){
     const p=e.target.closest('.bk-pill'); if(!p) return;
     document.querySelectorAll('#bkBizNav .bk-pill').forEach(x=>x.classList.remove('active'));
     p.classList.add('active');
-    const map={create:'bkBizCreate', balance:'bkBizBalance', refund:'bkBizRefund'};
+    const map={create:'bkBizCreate', balance:'bkBizBalance', refund:'bkBizRefund', cashout:'bkBizCashout'};
     Object.values(map).forEach(id=>$(id).classList.add('hide'));
     $(map[p.dataset.b]).classList.remove('hide');
   };
@@ -890,6 +904,22 @@ async function renderBank(v){
     if(r&&r.success){ say('bkRefundMsg',`Refunded ${fmtBuxx(amount)} to ${toUserId}.`,'good');
       $("bkRefAmt").value='';$("bkRefNote").value=''; loadHist(); }
     else say('bkRefundMsg',(r&&r.error)||'Could not refund.','bad');
+  };
+
+  $("bkCashout").onclick = async ()=>{
+    const businessId=$("bkCashBizId").value.trim(), passcode=$("bkCashPass").value;
+    const amount=parseFloat($("bkCashAmt").value), note=$("bkCashNote").value.trim();
+    const toUserId = (me() && me().userId) || '';
+    if(!toUserId){ say('bkCashoutMsg','Sign in first.','bad'); return; }
+    if(!businessId||!passcode||!amount){ say('bkCashoutMsg','Fill in Business ID, passcode and amount.','bad'); return; }
+    const btn=$("bkCashout"); btn.disabled=true; say('bkCashoutMsg','Cashing out…');
+    // A cashout is just a business->owner transfer: the destination is your own
+    // account. Same authorized endpoint as a refund.
+    const r=await railwayCall('/businessTransfer', { body:{ businessId, passcode, toUserId, amount, note: note||'Business cashout' } });
+    btn.disabled=false;
+    if(r&&r.success){ say('bkCashoutMsg',`Cashed out ${fmtBuxx(amount)} to your account.`,'good');
+      $("bkCashAmt").value='';$("bkCashNote").value=''; loadBalance(); loadHist(); }
+    else say('bkCashoutMsg',(r&&r.error)||'Could not cash out.','bad');
   };
 
   loadBalance(); loadHist(); loadNotifs();
@@ -1826,8 +1856,27 @@ async function renderForum(v){
 }
 
 // ---- board list ----
+// Fill each thread's replyCount from the ACTUAL replies subcollection (a cheap
+// server-side count) instead of the stored counter — which only the thread
+// owner can write, so it goes stale when other members reply. This keeps forum
+// counts accurate for everyone without needing a Firestore rules change.
+async function enrichReplyCounts(DB, threads){
+  if(!DB || !DB.countSub || !threads || !threads.length) return threads;
+  try{
+    const counts = await Promise.all(threads.map(t =>
+      DB.countSub('forumThreads', t.id, 'replies').catch(()=> Number(t.replyCount)||0)
+    ));
+    threads.forEach((t,i)=>{ t.replyCount = counts[i]; });
+  }catch(e){}
+  return threads;
+}
+
 async function renderForumBoards(v, DB, who, boards){
   let threads=[]; try{ threads = await DB.listAll('forumThreads'); }catch(e){}
+  // NOTE: the overview uses each thread's stored replyCount (cheap). Accurate
+  // live counts are computed only inside a single board (renderForumBoard),
+  // where the thread count is small — this keeps the busy overview from firing
+  // one count-read per thread on every visit.
   const countByBoard = {}; const postsByBoard = {}; const lastThreadByBoard = {};
   threads.forEach(t=>{
     if(!t||!t.boardId) return;
@@ -1897,6 +1946,7 @@ async function renderForumBoards(v, DB, who, boards){
 async function renderForumBoard(v, DB, who, boards){
   const board = boards.find(b=>b.id===__forumView.boardId) || boards[0];
   let threads=[]; try{ threads = (await DB.listAll('forumThreads')).filter(t=>t&&t.boardId===board.id); }catch(e){}
+  await enrichReplyCounts(DB, threads);
   threads.sort((a,b)=>{
     if((b.pinned?1:0)!==(a.pinned?1:0)) return (b.pinned?1:0)-(a.pinned?1:0);
     return String(b.updatedAt||b.createdAt||"").localeCompare(String(a.updatedAt||a.createdAt||""));
