@@ -190,7 +190,15 @@ window.EquiDB = {
     if(!db) return null;
     const s=await getDoc(doc(db,col,String(id)));
     if(!s.exists()) return null;
-    try{ return JSON.parse(s.data().json); }catch(e){ return null; }
+    try{
+      const o = JSON.parse(s.data().json);
+      // `reactions` may be hoisted to a real top-level field (like breeds'
+      // staffUids or messages' `to`) so Firestore rules can let a NON-owner
+      // toggle a reaction without rewriting the whole json blob. When the flat
+      // field exists it's authoritative — prefer it over the copy inside json.
+      if(s.data().reactions !== undefined) o.reactions = s.data().reactions;
+      return o;
+    }catch(e){ return null; }
   },
 
   async remove(col,id){ if(!db) return false; await this._ownerRetry(()=> deleteDoc(doc(db,col,String(id)))); __cacheClear(col); return true; },
@@ -218,7 +226,10 @@ window.EquiDB = {
     if(cached) return __clone(cached);
     const snap=await getDocs(collection(db,col));
     const out=[];
-    snap.forEach(d=>{ try{ const v=JSON.parse(d.data().json); v.__owner=d.data().owner; v.__id=d.id; out.push(v); }catch(e){} });
+    snap.forEach(d=>{ try{ const v=JSON.parse(d.data().json); v.__owner=d.data().owner; v.__id=d.id;
+      // Prefer a hoisted flat `reactions` field when present (see get()).
+      if(d.data().reactions !== undefined) v.reactions = d.data().reactions;
+      out.push(v); }catch(e){} });
     __cacheSet('all:'+col, out);
     return __clone(out);
   },
@@ -275,6 +286,22 @@ window.EquiDB = {
     if(!db) return false;
     await this._ownerRetry(()=> deleteDoc(doc(db, parentCol, String(parentId), subCol, String(docId))));
     __cacheClear(parentCol);
+    return true;
+  },
+
+  // Overwrite ONE top-level field wholesale on an existing doc (updateDoc,
+  // not setDoc-merge). Needed for `reactions`: when an emoji's last reactor
+  // leaves, the client drops that emoji key — a setDoc merge would deep-merge
+  // and keep the stale key, so the un-react would appear to do nothing.
+  // updateDoc replaces the whole field, and touches only that one key, which
+  // is exactly what the rules' reactionOnlyUpdate() diff allows — so any
+  // signed-in member can react to a post they don't own. Doc must already
+  // exist (you only react to posts that are on screen).
+  async setField(col, id, field, value){
+    if(!db) return false;
+    const { updateDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    await this._ownerRetry(()=> updateDoc(doc(db, col, String(id)), { [field]: value }));
+    __cacheClear(col);
     return true;
   },
 

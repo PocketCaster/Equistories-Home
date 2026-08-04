@@ -2065,7 +2065,13 @@ async function toggleReaction(DB, collection, path, current, emoji, who){
   if(path.replyId){
     await DB.updateSub(collection, path.threadId, 'replies', path.replyId, { reactions });
   } else {
-    await DB.put(collection, path.threadId, path.owner, { ...path.threadData, reactions });
+    // Hoist reactions to a flat top-level field and replace ONLY that field.
+    // This changes just `reactions`, which is exactly what the rules'
+    // reactionOnlyUpdate() allows — so ANY signed-in member can react to the
+    // original post, not only its owner. (A full-envelope DB.put here changed
+    // `json`+`updatedAt`, which the rule rejects for non-owners, so OP
+    // reactions silently failed for everyone but the author.)
+    await DB.setField(collection, path.threadId, 'reactions', reactions);
   }
   return reactions;
 }

@@ -200,7 +200,10 @@ async function toggleReaction(assocId, postId, emoji){
     const list = new Set(reactions[emoji]||[]);
     if(list.has(who.userId)) list.delete(who.userId); else list.add(who.userId);
     reactions[emoji] = Array.from(list);
-    await DB.put('associationPosts', postId, post.owner, { ...post, reactions });
+    // Replace ONLY the hoisted `reactions` field so a non-owner reacting
+    // passes the rules' reactionOnlyUpdate(); a full-envelope DB.put changes
+    // json+updatedAt and is rejected for everyone but the post owner.
+    await DB.setField('associationPosts', postId, 'reactions', reactions);
     renderOneAssociation(assocId);
   }catch(e){}
 }
