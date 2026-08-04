@@ -546,11 +546,30 @@ const MILESTONES = {
   },
 };
 
+const STAGE_ORDER = ["foal", "yearling", "two-year-old", "adult"];
+
 function trainingOptionsFor(h){
   const m = MILESTONES[h.stage];
   if(m){
     const equibreak = TRAININGS.find(t=>t.id==="equibreak");
-    return [...m.options, equibreak];
+    const done = new Set(h.completedMilestones||[]);
+    const options = [...m.options];
+    // If a milestone from an EARLIER stage was completed and then its art
+    // entry got deleted (accident, broken link, re-upload, etc.), it drops
+    // out of completedMilestones again — but the horse may have already
+    // aged past that stage, so it would otherwise vanish from the training
+    // list forever with no way to fix it. Offer it back here, but ONLY if
+    // it's still incomplete. Stages the horse hasn't reached yet are never
+    // included, so this can't be used to skip ahead.
+    const currentIdx = STAGE_ORDER.indexOf(h.stage);
+    STAGE_ORDER.slice(0, currentIdx).forEach(stageName=>{
+      const sm = MILESTONES[stageName];
+      if(!sm) return;
+      sm.options.forEach(opt=>{
+        if(!done.has(opt.id) && !options.some(o=>o.id===opt.id)) options.push(opt);
+      });
+    });
+    return [...options, equibreak];
   }
   return TRAININGS.filter(t=>!t.youngOnly);
 }
@@ -2820,7 +2839,7 @@ function showRiderProfileModal(riderId){
         ${isPremiumMember(bankAccount.userId) ? `
         <div style="margin-top:14px;border-top:1px solid var(--equi-line);padding-top:10px;">
           <label>Custom CSS <span class="small" style="color:var(--equi-brass-light);">&#9733; Premium</span></label>
-          <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.rider-profile-custom</code> so your styling stays on this rider's page. Hooks: <code>.pcard</code>, <code>h3</code>.</div>
+          <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.rider-profile-custom</code> so your styling stays on this rider's page. Hooks: <code>.pcard</code>, <code>h3</code>, and named boxes like <code>[data-slot="rider-portrait"]</code> or <code>[data-slot="rider-bio"]</code> for custom frames — see the Customization Templates forum thread for ready-made skins.</div>
           <textarea id="rm_css" style="min-height:110px;font-family:monospace;font-size:.85em;" placeholder=".rider-profile-custom .pcard{ background:#1a1006; }">${escAttr(r.customCss||'')}</textarea>
         </div>` : ''}
 
@@ -5366,8 +5385,15 @@ function renderTraining(){
     const milestoneIds=[];
     if(m){
       if(!Array.isArray(h.completedMilestones)) h.completedMilestones=[];
+      // Check against every stage's milestone list the horse has REACHED
+      // (current stage plus any earlier ones), not just the current stage —
+      // trainingOptionsFor() can now offer an earlier stage's milestone back
+      // if it was deleted after age-up, so logging it needs to be recognized
+      // as completing that milestone, not just scored as a plain training.
+      const reachedStages = STAGE_ORDER.slice(0, STAGE_ORDER.indexOf(h.stage)+1);
+      const reachableOptions = reachedStages.flatMap(stageName=>(MILESTONES[stageName]||{}).options||[]);
       [t,t2].filter(Boolean).forEach(tr=>{
-        if(m.options.some(o=>o.id===tr.id)){
+        if(reachableOptions.some(o=>o.id===tr.id)){
           milestoneIds.push(tr.id);
           if(!h.completedMilestones.includes(tr.id)) h.completedMilestones.push(tr.id);
         }
@@ -9571,7 +9597,7 @@ function showProfileModal(horseId){
         ${isPremiumMember(h.owner||h.ownerName||bankAccount.userId) ? `
         <div style="margin-top:14px;border-top:1px solid var(--equi-line);padding-top:10px;">
           <label>Custom CSS <span class="small" style="color:var(--equi-brass-light);">&#9733; Premium</span></label>
-          <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.horse-profile-custom</code> so your styling stays on this horse's page. Hooks: <code>.pcard</code>, <code>h3</code>.</div>
+          <div class="small" style="opacity:.75;margin:2px 0 6px;">Prefix selectors with <code>.horse-profile-custom</code> so your styling stays on this horse's page. Hooks: <code>.pcard</code>, <code>h3</code>, and named boxes like <code>[data-slot="horse-portrait"]</code> or <code>[data-slot="horse-reference-image"]</code> for custom frames — see the Customization Templates forum thread for ready-made skins.</div>
           <textarea id="pm_css" style="min-height:110px;font-family:monospace;font-size:.85em;" placeholder=".horse-profile-custom .pcard{ background:#1a1006; }">${escAttr(h.customCss||'')}</textarea>
         </div>` : ''}
 
