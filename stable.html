@@ -115,6 +115,11 @@ function readArtRows(card){
       n:   Math.max(1, parseInt((r.querySelector('[data-art-n]')||{}).value)||1),
       bonuses,
       creatureN: bonuses.includes("Additional Creature (per)") ? Math.max(1,cN) : undefined,
+      // Per-card training type (training log) / discipline + placement (competition,
+      // Stage 3). Undefined on forms that don't render these controls.
+      type: (r.querySelector('[data-card-type]')||{}).value || undefined,
+      discipline: (r.querySelector('[data-card-disc]')||{}).value || undefined,
+      placement: (r.querySelector('[data-card-place]')||{}).value ? Number((r.querySelector('[data-card-place]')||{}).value) : undefined,
     };
   }).filter(x=>x.art);
 }
@@ -168,7 +173,7 @@ function wireArtRowBonuses(card, recalc){
 }
 // One image card of the sheet breakdown: art kind + count, then its OWN bonus
 // chips. The first card can't be removed. `bonuses`/`creatureN` prefill an edit.
-function artRowHTML(selected, n, removable, bonuses, creatureN){
+function artRowHTML(selected, n, removable, bonuses, creatureN, extraHTML){
   const sel=new Set(bonuses||[]);
   const creatureOn=sel.has("Additional Creature (per)");
   return `<div data-artrow class="art-card" style="border:1px solid var(--equi-line);border-radius:8px;padding:8px 9px;margin-top:8px;background:var(--equi-ink);">
@@ -180,6 +185,7 @@ function artRowHTML(selected, n, removable, bonuses, creatureN){
       <input type="number" data-art-n min="1" value="${n||1}" title="How many of this exact image on the sheet" style="max-width:74px;" />
       ${removable?`<button type="button" data-art-remove class="secondary" style="padding:4px 9px;margin:0;">✕</button>`:'<span style="width:29px;"></span>'}
     </div>
+    ${extraHTML||''}
     <div class="small" style="opacity:.7;margin:6px 0 2px;">Bonus elements on this image:</div>
     <div class="pill-select" data-art-bonuses>
       ${Object.keys(BONUS_EXP).map(k=>`<div class="pill${sel.has(k)?' active':''}" data-bonus="${k}">${k} (+${BONUS_EXP[k]})</div>`).join("")}
@@ -5027,11 +5033,41 @@ function renderTraining(){
   const myHorses = state.horses.filter(h=>!h.groupBreeding);
   if(!myHorses.length){ wrap.innerHTML='<div class="card small">You have no personal horses to train yet.</div>'; return wrap; }
 
-  let combinedMode=false;
   let uploadedImage=null;
+  // (training types are now per-image cards; the old single/combined mode is gone)
 
   function currentHorse(){ return state.horses.find(x=>x.id===card.querySelector('#tr_horse').value); }
   function buildTrainingOpts(h){ return trainingOptionsFor(h).map(t=>`<option value="${t.id}">${t.name}</option>`).join(""); }
+  // Per-image card WITH its own Training Type dropdown. Each image now trains its
+  // own type and grants that type's stats — so the type lives on the card, not
+  // once at the top of the form. `row` may prefill art/n/bonuses/creatureN/type.
+  function trCardHTML(row, removable, h){
+    row = row||{};
+    const opts = trainingOptionsFor(h).map(t=>`<option value="${t.id}"${row.type===t.id?' selected':''}>${t.name}</option>`).join("");
+    const extra = `<div style="margin-top:6px;">
+      <label class="small" style="display:block;margin-bottom:2px;">Training type for this image</label>
+      <select data-card-type style="width:100%;"><option value="">— select training —</option>${opts}</select>
+      <div class="small" data-card-stathint style="opacity:.8;margin-top:3px;"></div>
+    </div>`;
+    return artRowHTML(row.art||"", row.n||1, removable, row.bonuses, row.creatureN, extra);
+  }
+  // Total stat gain across every image: each card's training type × that card's
+  // own image count. Generalises the old "one type × total images" rule.
+  function trainingCardsStats(rows, h){
+    const opts=trainingOptionsFor(h); const all={};
+    rows.forEach(r=>{ const t=opts.find(x=>x.id===r.type); if(!t) return;
+      Object.entries(t.stats).forEach(([s,v])=>{ all[s]=(all[s]||0)+v*Math.max(1,r.n||1); }); });
+    return all;
+  }
+  // When the horse changes, repopulate every card's type dropdown for the new
+  // horse's options, keeping each card's pick when it still exists.
+  function repopulateCardTypes(h){
+    card.querySelectorAll('#tr_artrows [data-card-type]').forEach(sel=>{
+      const keep=sel.value;
+      sel.innerHTML=`<option value="">— select training —</option>${buildTrainingOpts(h)}`;
+      if([...sel.options].some(o=>o.value===keep)) sel.value=keep;
+    });
+  }
 
   const card=el('div','card');
   card.innerHTML=`
@@ -5040,17 +5076,6 @@ function renderTraining(){
       <div><label>Horse</label>
         <select id="tr_horse">${myHorses.map(h=>`<option value="${h.id}">${h.name} (${h.stage})</option>`).join("")}</select>
       </div>
-      <div style="flex:none;">
-        <label>Mode</label>
-        <div class="pill-select" style="margin-top:4px;">
-          <div class="pill active" id="tr_mode_single">Single</div>
-          <div class="pill" id="tr_mode_combined">Combined</div>
-        </div>
-      </div>
-    </div>
-    <div class="row" style="margin-top:8px;">
-      <div><label id="tr_lbl1">Training Type</label><select id="tr_type">${buildTrainingOpts(myHorses[0])}</select></div>
-      <div id="tr_type2_wrap" style="display:none;"><label>Second Training</label><select id="tr_type2">${buildTrainingOpts(myHorses[0])}</select></div>
     </div>
     <div id="tr_milestone_status"></div>
     <div id="tr_prompt"></div>
@@ -5063,9 +5088,9 @@ function renderTraining(){
     <div class="row" style="margin-top:10px;">
       <div>
         <label>What's on this sheet? <span class="required">* Required</span></label>
-        <div id="tr_artrows">${artRowHTML("",1,false)}</div>
-        <button type="button" id="tr_add_art" class="secondary" style="margin-top:6px;padding:4px 10px;">+ Add another image type</button>
-        <p class="small" style="margin:4px 0 0;opacity:.75;">One card per image. A fullbody, a halfbody and two headshots each get their own card — set that image's kind, count, and its own bonus elements (shading, background, etc.) right on the card, so a shaded halfbody and a plain headshot score differently.</p>
+        <div id="tr_artrows">${trCardHTML({}, false, myHorses[0])}</div>
+        <button type="button" id="tr_add_art" class="secondary" style="margin-top:6px;padding:4px 10px;">+ Add another image</button>
+        <p class="small" style="margin:4px 0 0;opacity:.75;">One card per image. Pick that image's kind, count, its own bonus elements, and its own training type — each image trains its own type and grants that type's stats.</p>
       </div>
       <div>
         <label>Literature Word Count <span class="small">(optional)</span></label>
@@ -5101,24 +5126,13 @@ function renderTraining(){
   wrap.appendChild(card);
 
   function refreshPrompt(){
-    const h=currentHorse();
-    const opts=trainingOptionsFor(h);
-    const t=opts.find(x=>x.id===card.querySelector('#tr_type').value);
-    const t2=combinedMode?opts.find(x=>x.id===card.querySelector('#tr_type2').value):null;
-    if(!t) return;
-    const allStats={...t.stats};
-    if(t2) Object.entries(t2.stats).forEach(([s,v])=>allStats[s]=(allStats[s]||0)+v);
-    const statsStr=Object.entries(allStats).map(([s,v])=>`+${v} ${STAT_LABELS[s]}`).join(", ");
-    // Highlight which of this training's stats matter for the horse's discipline.
+    const h=currentHorse(); if(!h) return;
     const dS=disciplineStats(h);
-    const statsMarked=Object.entries(allStats).map(([s,v])=>
-      dS.includes(s) ? `<b style="color:var(--equi-brass-light);">★ +${v} ${STAT_LABELS[s]}</b>` : `+${v} ${STAT_LABELS[s]}`).join(", ");
-    card.querySelector('#tr_prompt').innerHTML=`<div class="prompt-box">
-      ${t2?`<b>${t.name}</b> + <b>${t2.name}</b>`:`<b>${t.name}</b>`}<br>
-      <span style="font-size:1.02em;">${t.prompt}${t2?`<br><span style="opacity:.8;">${t2.prompt}</span>`:""}</span><br>
-      <span class="small">Stats: ${statsMarked}</span>
+    const promptEl=card.querySelector('#tr_prompt'); if(!promptEl) return;
+    promptEl.innerHTML=`<div class="prompt-box">
+      <span class="small">Give each image its own training type below — every image trains its own type and grants that type's stats.</span>
       ${h.discipline?`<br><span class="small" style="color:var(--equi-brass-light);">${h.discipline} needs: ${dS.map(x=>STAT_LABELS[x]).join(", ")}</span>`
-        :`<br><span class="small" style="opacity:.7;">No discipline chosen — set one in Edit Profile to see which stats to train.</span>`}
+        :`<br><span class="small" style="opacity:.7;">No discipline chosen — set one in Edit Profile to see which stats to prioritise.</span>`}
     </div>`;
   }
 
@@ -5163,32 +5177,13 @@ function renderTraining(){
   refreshRPP();
   refreshPrompt();
   refreshMilestoneStatus();
-  card.querySelector('#tr_type').onchange=refreshPrompt;
-  card.querySelector('#tr_type2').onchange=refreshPrompt;
   card.querySelector('#tr_horse').onchange=()=>{
     refreshRPP();   // default the rider to the newly selected horse's rider
     const h=currentHorse();
-    card.querySelector('#tr_type').innerHTML=buildTrainingOpts(h);
-    card.querySelector('#tr_type2').innerHTML=buildTrainingOpts(h);
+    repopulateCardTypes(h);
     refreshPrompt();
     refreshMilestoneStatus();
-  };
-
-  card.querySelector('#tr_mode_single').onclick=()=>{
-    combinedMode=false;
-    card.querySelector('#tr_mode_single').classList.add('active');
-    card.querySelector('#tr_mode_combined').classList.remove('active');
-    card.querySelector('#tr_type2_wrap').style.display='none';
-    card.querySelector('#tr_lbl1').textContent='Training Type';
-    refreshPrompt();
-  };
-  card.querySelector('#tr_mode_combined').onclick=()=>{
-    combinedMode=true;
-    card.querySelector('#tr_mode_combined').classList.add('active');
-    card.querySelector('#tr_mode_single').classList.remove('active');
-    card.querySelector('#tr_type2_wrap').style.display='';
-    card.querySelector('#tr_lbl1').textContent='First Training';
-    refreshPrompt();
+    try{ recalcTrTotal(); }catch(e){}
   };
 
   wireArtRowBonuses(card, ()=>{ try{ recalcTrTotal(); }catch(e){} });
@@ -5264,13 +5259,10 @@ function renderTraining(){
     try{
       const h=state.horses.find(x=>x.id===card.querySelector('#tr_horse').value);
       const artRows=readArtRows(card);
-      if(!h || !artRows.length){ box.innerHTML='<span class="small" style="opacity:.6;">Pick a horse and at least one art type to see this log\'s total.</span>'; return; }
-      const t=trainingOptionsFor(h).find(x=>x.id===card.querySelector('#tr_type').value);
-      const t2=combinedMode?trainingOptionsFor(h).find(x=>x.id===card.querySelector('#tr_type2').value):null;
+      if(!h || !artRows.length){ box.innerHTML='<span class="small" style="opacity:.6;">Pick a horse and at least one image to see this log\'s total.</span>'; return; }
       const imgCount=artRowsImages(artRows);
-      const allStats={...((t&&t.stats)||{})};
-      if(t2) Object.entries(t2.stats).forEach(([st,v])=>allStats[st]=(allStats[st]||0)+v);
-      if(imgCount>1) Object.keys(allStats).forEach(st=>allStats[st]=allStats[st]*imgCount);
+      // Each image trains its OWN type; sum every card's type stats × its count.
+      const allStats=trainingCardsStats(artRows, h);
       const previewRider = (trRPP && trRPP.riderId) ? trRPP.riderId() : '';
       applyRiderTrainingBonus(h, allStats, previewRider);
       let exp=artRowsExp(artRows);   // includes each image's own bonus chips
@@ -5287,6 +5279,15 @@ function renderTraining(){
         const c=(state.consumables||[]).find(x=>x.invId===invId); if(!c) return;
         if(c.effect==='exp') exp+=Number(c.effectValue)||0;
         else if(c.effect==='stat') allStats[c.effectStat]=(allStats[c.effectStat]||0)+(Number(c.effectValue)||0);
+      });
+      // Per-card stat hint: show what each image's own type grants.
+      const opts=trainingOptionsFor(h);
+      card.querySelectorAll('#tr_artrows [data-artrow]').forEach(rowEl=>{
+        const hint=rowEl.querySelector('[data-card-stathint]'); if(!hint) return;
+        const tId=(rowEl.querySelector('[data-card-type]')||{}).value;
+        const nImg=Math.max(1, parseInt((rowEl.querySelector('[data-art-n]')||{}).value)||1);
+        const t=opts.find(x=>x.id===tId);
+        hint.innerHTML = t ? `Grants: ${Object.entries(t.stats).map(([s,v])=>`+${v*nImg} ${STAT_LABELS[s]||s}`).join(", ")}` : '';
       });
       const statBits=Object.entries(allStats).filter(([,v])=>v).map(([st,v])=>`+${v} ${STAT_LABELS[st]||st}`);
       const ppEl=card.querySelector('.rpp_sum'); const pp=ppEl?Number(ppEl.textContent)||0:0;
@@ -5323,9 +5324,20 @@ function renderTraining(){
       if(!legacyPerRow && (e.bonuses||[]).length && rows.length){
         rows = rows.map((r,i)=> i===0 ? {...r, bonuses:[...e.bonuses]} : r);
       }
+      // Recover a per-card training type. New entries store `type` on each
+      // artMix row; legacy single-type entries kept it only in the label, so map
+      // the label name back to a type id and apply it to the cards.
+      if(!rows.some(r=>r.type)){
+        const legIds=(e.label||'').split(' + ').map(s=>s.trim())
+          .map(nm=>{ const t=trainingOptionsFor(h).find(x=>x.name===nm); return t?t.id:null; }).filter(Boolean);
+        // Only auto-fill when there's a single, unambiguous legacy type — an old
+        // combined (two-type) entry is left blank so the user re-picks per image
+        // rather than us silently collapsing it to one type.
+        if(legIds.length===1) rows = rows.map(r=>({...r, type: r.type || legIds[0]}));
+      }
       rowsHost.innerHTML = rows.length
-        ? rows.map((r,i)=>artRowHTML(r.art, r.n, i>0, r.bonuses, r.creatureN)).join("")
-        : artRowHTML("",1,false);
+        ? rows.map((r,i)=>trCardHTML(r, i>0, h)).join("")
+        : trCardHTML({}, false, h);
     }
     // featured rider
     const rsel=card.querySelector('.rpp_rider');
@@ -5348,7 +5360,7 @@ function renderTraining(){
   const addArtBtn=card.querySelector('#tr_add_art');
   if(addArtBtn) addArtBtn.onclick=()=>{
     const rows=card.querySelector('#tr_artrows');
-    rows.insertAdjacentHTML('beforeend', artRowHTML("",1,true));
+    rows.insertAdjacentHTML('beforeend', trCardHTML({}, true, currentHorse()));
     recalcTrTotal();
   };
   card.addEventListener('click', ev=>{
@@ -5370,8 +5382,6 @@ function renderTraining(){
     const wasEditing = consumeEditedEntry();
     const hId=card.querySelector('#tr_horse').value;
     const h=state.horses.find(x=>x.id===hId);
-    const tId=card.querySelector('#tr_type').value;
-    const tId2=combinedMode?card.querySelector('#tr_type2').value:null;
     const artRows=readArtRows(card);
     const litWords=parseInt(card.querySelector('#tr_lit').value)||0;
     const link=card.querySelector('#tr_link').value.trim();
@@ -5386,19 +5396,16 @@ function renderTraining(){
     uploadedImage = card.querySelector('#tr_image_url').value.trim() || null;
 
     if(!uploadedImage){ res.innerHTML='<div class="result fail">An image is required to log training.</div>'; return; }
-    if(!artRows.length){ res.innerHTML='<div class="result fail">Please add at least one art type for this sheet.</div>'; return; }
-    if(combinedMode && tId===tId2){ res.innerHTML='<div class="result fail">Please choose two different training types.</div>'; return; }
+    if(!artRows.length){ res.innerHTML='<div class="result fail">Please add at least one image (pick an art type) for this sheet.</div>'; return; }
+    if(artRows.some(r=>!r.type)){ res.innerHTML='<div class="result fail">Pick a training type for each image.</div>'; return; }
 
-    const t=trainingOptionsFor(h).find(x=>x.id===tId);
-    const t2=tId2?trainingOptionsFor(h).find(x=>x.id===tId2):null;
-    const label=t2?`${t.name} + ${t2.name}`:t.name;
-    // Collage: N images = N training sessions. Each image grants its own art EXP
-    // and stat gains, so we multiply both by the count. Word count / custom /
-    // rider bonuses are per-submission and are NOT multiplied.
+    // Each image trains its OWN type. Sum stats across every card (type × its
+    // count); the label lists the distinct types trained.
+    const opts=trainingOptionsFor(h);
+    const typeIds=[...new Set(artRows.map(r=>r.type))];
+    const label=typeIds.map(id=>{ const t=opts.find(x=>x.id===id); return t?t.name:null; }).filter(Boolean).join(" + ") || "Training";
     const imgCount=artRowsImages(artRows);
-    const allStats={...t.stats};
-    if(t2) Object.entries(t2.stats).forEach(([s,v])=>allStats[s]=(allStats[s]||0)+v);
-    if(imgCount>1) Object.keys(allStats).forEach(s=>allStats[s]=allStats[s]*imgCount);
+    const allStats=trainingCardsStats(artRows, h);
     // Resolve the FEATURED rider first — tier perks apply only when the rider is
     // actually in this entry, not just assigned to the horse.
     const featuredRiderId = (trRPP && trRPP.riderId) ? trRPP.riderId() : '';
@@ -5409,10 +5416,11 @@ function renderTraining(){
     const milestoneIds=[];
     if(m){
       if(!Array.isArray(h.completedMilestones)) h.completedMilestones=[];
-      [t,t2].filter(Boolean).forEach(tr=>{
-        if(m.options.some(o=>o.id===tr.id)){
-          milestoneIds.push(tr.id);
-          if(!h.completedMilestones.includes(tr.id)) h.completedMilestones.push(tr.id);
+      // Every distinct training type on the sheet that's a milestone option counts.
+      typeIds.forEach(id=>{
+        if(m.options.some(o=>o.id===id)){
+          milestoneIds.push(id);
+          if(!h.completedMilestones.includes(id)) h.completedMilestones.push(id);
         }
       });
     }
@@ -5517,7 +5525,7 @@ function renderTraining(){
     card.querySelector('#tr_lit_preview').textContent='';
     card.querySelector('#tr_link').value='';
     const trRows=card.querySelector('#tr_artrows');
-    if(trRows) trRows.innerHTML=artRowHTML("",1,false);
+    if(trRows) trRows.innerHTML=trCardHTML({}, false, currentHorse());
     refreshMilestoneStatus();
   };
 
