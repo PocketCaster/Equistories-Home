@@ -255,6 +255,11 @@ window.EquiDB = {
     if(!db) return null;
     const { addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
     const ref = await this._ownerRetry(()=> addDoc(collection(db, parentCol, String(parentId), subCol), data));
+    // A subcollection write (e.g. a new forum reply) changes what derived views
+    // of the PARENT show — reply counts, last-post, thread ordering. Drop the
+    // parent's cached listAll so the next board render re-reads fresh instead of
+    // serving a stale copy for up to LIST_TTL_MS.
+    __cacheClear(parentCol);
     return ref.id;
   },
 
@@ -262,12 +267,14 @@ window.EquiDB = {
   async updateSub(parentCol, parentId, subCol, docId, fields){
     if(!db) return false;
     await this._ownerRetry(()=> setDoc(doc(db, parentCol, String(parentId), subCol, String(docId)), fields, { merge: true }));
+    __cacheClear(parentCol);
     return true;
   },
 
   async deleteSub(parentCol, parentId, subCol, docId){
     if(!db) return false;
     await this._ownerRetry(()=> deleteDoc(doc(db, parentCol, String(parentId), subCol, String(docId))));
+    __cacheClear(parentCol);
     return true;
   },
 

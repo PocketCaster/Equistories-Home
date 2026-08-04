@@ -1357,7 +1357,7 @@ async function renderMemberProfile(v, uid){
           <h3 style="margin-top:0;">Shops &amp; Breeds</h3>
           ${myShops.length ? `<div style="margin-bottom:${myBreeds.length?'10px':'0'};">
             <div class="small muted" style="margin-bottom:4px;">Shops</div>
-            ${myShops.map(s=>`<a class="tag" href="${APPS.shops||'shops.html'}?shop=${encodeURIComponent(s.id)}" style="margin:2px;text-decoration:none;">🛍️ ${__esc(s.name||'Unnamed Shop')}</a>`).join(' ')}
+            ${myShops.map(s=>`<a class="tag" href="?shop=${encodeURIComponent(s.id)}" style="margin:2px;text-decoration:none;">🛍️ ${__esc(s.name||'Unnamed Shop')}</a>`).join(' ')}
           </div>` : ''}
           ${myBreeds.length ? `<div>
             <div class="small muted" style="margin-bottom:4px;">Breeds</div>
@@ -1856,17 +1856,33 @@ async function renderForum(v){
 }
 
 // ---- board list ----
-// Fill each thread's replyCount from the ACTUAL replies subcollection (a cheap
-// server-side count) instead of the stored counter — which only the thread
-// owner can write, so it goes stale when other members reply. This keeps forum
-// counts accurate for everyone without needing a Firestore rules change.
+// Fill each thread's replyCount AND last-post info from the ACTUAL replies
+// subcollection instead of the stored fields on the thread doc. Those stored
+// fields (replyCount / lastReplyAt / lastReplyBy) can only be written by the
+// thread OWNER — the meta-bump after a reply is owner-gated — so when any other
+// member replies they go stale: the board keeps showing "No replies yet" and
+// the thread never floats up. Reading the replies directly makes the board
+// reflect real activity for everyone, no Firestore rules change needed.
+// One listSub per thread — same one-read-per-thread shape the old countSub had,
+// and only ever run inside a single board (small thread count), not the busy
+// overview.
 async function enrichReplyCounts(DB, threads){
-  if(!DB || !DB.countSub || !threads || !threads.length) return threads;
+  if(!DB || !DB.listSub || !threads || !threads.length) return threads;
   try{
-    const counts = await Promise.all(threads.map(t =>
-      DB.countSub('forumThreads', t.id, 'replies').catch(()=> Number(t.replyCount)||0)
+    const all = await Promise.all(threads.map(t =>
+      DB.listSub('forumThreads', t.id, 'replies').catch(()=> null)
     ));
-    threads.forEach((t,i)=>{ t.replyCount = counts[i]; });
+    threads.forEach((t,i)=>{
+      const rs = all[i];
+      if(!rs){ t.replyCount = Number(t.replyCount)||0; return; } // read failed — keep stored
+      t.replyCount = rs.length;
+      if(rs.length){
+        let last = rs[0];
+        for(const r of rs){ if(String(r.createdAt||'') > String(last.createdAt||'')) last = r; }
+        t.lastReplyAt = last.createdAt || t.lastReplyAt;
+        t.lastReplyBy = last.owner || t.lastReplyBy;
+      }
+    });
   }catch(e){}
   return threads;
 }
@@ -1947,9 +1963,13 @@ async function renderForumBoard(v, DB, who, boards){
   const board = boards.find(b=>b.id===__forumView.boardId) || boards[0];
   let threads=[]; try{ threads = (await DB.listAll('forumThreads')).filter(t=>t&&t.boardId===board.id); }catch(e){}
   await enrichReplyCounts(DB, threads);
+  // Order by most recent ACTIVITY — a new reply (lastReplyAt, now filled in live
+  // by enrichReplyCounts) should float a thread up even when the replier isn't
+  // the owner and so couldn't bump the thread's own updatedAt.
+  const __activity = t => String(t.lastReplyAt||t.updatedAt||t.createdAt||"");
   threads.sort((a,b)=>{
     if((b.pinned?1:0)!==(a.pinned?1:0)) return (b.pinned?1:0)-(a.pinned?1:0);
-    return String(b.updatedAt||b.createdAt||"").localeCompare(String(a.updatedAt||a.createdAt||""));
+    return __activity(b).localeCompare(__activity(a));
   });
   const admin = who && isAdminMember(who.userId);
 
@@ -3267,6 +3287,11 @@ function render(){
     try{
       var __pp = new URLSearchParams(location.search).get('player');
       if(__pp){ __memberView.uid = __pp; tab = "Members"; }
+      // A ?shop= link (e.g. from a profile's shop tags) opens that storefront.
+      // Shops live in THIS page under the Shops tab, not a separate shops.html,
+      // so we route the param to __shopView instead of navigating away.
+      var __ps = new URLSearchParams(location.search).get('shop');
+      if(__ps){ __shopView = { mode:"store", shopId:__ps }; tab = "Shops"; }
     }catch(e){}
   }
   renderNav();
