@@ -5010,13 +5010,20 @@ function showMarkingsModal(horseId){
   overlay.querySelector('#mk_cancel').onclick=()=>overlay.remove();
   overlay.querySelector('#mk_save').onclick=()=>{
     h.genoModifiers=[...others, ...marks];
-    // Keep any genotype tags a marking contributes (e.g. Gulastra Plume -> Sbsb)
-    // in step with the markings that are actually still on the horse.
+    // Keep the genotype string's marking tags (e.g. Gulastra Plume -> Sbsb) in
+    // step with the markings actually on the horse. Rebuild from genoObj when we
+    // have it; otherwise reconstruct the base from whatever genetics the horse
+    // does have (horses imported before structured genetics existed), so the
+    // change still shows on the profile and the tags are never left stale.
+    const tags=marks.filter(m=>m.genoTag).map(m=>m.genoTag);
     if(h.genoObj){
       const r=computeGenoResult(h.genoObj, breedKey);
-      const tags=marks.filter(m=>m.genoTag).map(m=>m.genoTag);
       h.genotype=tags.length?`${r.genotype} ${tags.join(" ")}`:r.genotype;
       h.phenotype=r.phenotype;
+    } else {
+      const base=String(h.genotype||'').split(/\s+/).filter(Boolean)
+        .filter(tok=>!marks.some(m=>m.genoTag===tok) && !others.some(o=>o.genoTag===tok));
+      h.genotype=[...base, ...tags].join(" ");
     }
     addLog(`Updated ${h.name}'s markings — ${marks.length?marks.map(m=>m.label).join(", "):"none"}.`);
     saveHorse(h); save(); overlay.remove(); render();
@@ -8653,28 +8660,48 @@ function parseGenotypeString(genoStr, loci){
   return out;
 }
 
-// A horse's per-locus genotype. Priority:
-//   1. structured genoObj (newer horses)
-//   2. parsed from the horse's own genotype string (what's on the roster card)
-//   3. the locus's no-gene homozygote — only for loci the horse never recorded
+// A horse's per-locus genotype. Priority per locus:
+//   1. an EXPLICIT (non-default) structured genoObj value — the genetics editor
+//   2. a marking / custom-breed trait's genoTag (e.g. Gulastra Plume -> Sbsb),
+//      which is stored only on genoModifiers and would otherwise never reach
+//      breeding — this is why a trait added after creation "didn't populate"
+//   3. the code parsed from the horse's own genotype string
+//   4. the locus's no-gene default
 function horseGenoByLocus(horse, loci){
   const out={};
   const parsed = parseGenotypeString(horse && horse.genotype, loci);
+  // Map each marking's genoTag to the locus whose options list that code.
+  const tagByLocus={};
+  ((horse && horse.genoModifiers) || []).forEach(m=>{
+    const tag = m && m.genoTag ? normGeno(m.genoTag) : null;
+    if(!tag) return;
+    const l = loci.find(x => (x.options||[]).some(o => normGeno(o.code) === tag));
+    if(l) tagByLocus[l.key] = tag;
+  });
   loci.forEach(l=>{
     const fromObj = horse && horse.genoObj && normGeno(horse.genoObj[l.key]);
-    out[l.key] = fromObj || parsed[l.key] || defaultCodeForLocus(l);
+    const def = defaultCodeForLocus(l);
+    if(fromObj && fromObj !== def)      out[l.key] = fromObj;        // explicit genetics win
+    else if(tagByLocus[l.key])          out[l.key] = tagByLocus[l.key]; // marking-guaranteed allele
+    else                                out[l.key] = fromObj || parsed[l.key] || def;
   });
   return out;
 }
 
-// The "doesn't have this gene" genotype is the all-lowercase option (ee, aa,
-// splspl, sbsb, lplp, ff ...). The old /^n/ rule grabbed the first n-prefixed
-// code instead, which for splash/sabino/flaxen/leopard is the CARRIER — that
-// turned every horse into a phantom carrier of four genes.
+// The "doesn't have this gene" genotype. For a DOMINANT gene that's the
+// all-lowercase homozygote (ee, splspl, sbsb, ff …); for a RECESSIVE gene it's
+// the all-UPPERCASE homozygote (RgRg) — the lowercase rgrg is the EXPRESSED
+// form, so picking "all-lowercase" would make a data-less horse phantom-express
+// the trait. The reliable signal across both is the option priced at 0 (every
+// locus lists its "No X" state at price 0), so prefer that; fall back to the
+// old all-lowercase rule, then the first option.
 function defaultCodeForLocus(locus){
-  const opts=(locus.options||[]).map(o=>o.code).filter(Boolean);
-  const lower=opts.find(c=>c===c.toLowerCase());
-  return lower || opts[0] || "";
+  const opts=(locus.options||[]);
+  const zero=opts.find(o=>Number(o.price)===0 && o.code);
+  if(zero) return zero.code;
+  const codes=opts.map(o=>o.code).filter(Boolean);
+  const lower=codes.find(c=>c===c.toLowerCase());
+  return lower || codes[0] || "";
 }
 
 function findBreedByName(name){
