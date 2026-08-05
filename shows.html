@@ -2856,8 +2856,10 @@ async function loadMyHorses(){
     if(note) note.textContent="Use the shareable-link option below instead.";
     return;
   }
-  // Only adults can compete, mirroring the stable manager's own rule.
-  const eligible = evMyHorses.filter(h=> !h.stage || h.stage==="adult");
+  // Only adults can compete (mirroring the stable manager), and NPC / group
+  // breeding stock is never a competitor — it's managed in Breed Admin, not a
+  // member's show roster, so keep it out here the same way the stable does.
+  const eligible = evMyHorses.filter(h=> (!h.stage || h.stage==="adult") && !h.groupBreeding);
   if(!eligible.length){
     sel.innerHTML=`<option value="">No eligible horses found</option>`;
     if(note) note.textContent = evMyHorses.length

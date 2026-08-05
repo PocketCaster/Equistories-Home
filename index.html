@@ -575,12 +575,17 @@ function showRow(rec){
   const s=rec.show||{};
   const entries=(rec.entries||[]).length;
   const closed=s.status==='closed';
+  // A show can run several classes, each its own discipline. If more than one
+  // distinct discipline is present, label the tile "Multi-discipline" rather
+  // than picking just one; otherwise show the single discipline.
+  const discs = Array.isArray(s.classes) ? [...new Set(s.classes.map(c=>c&&c.discipline).filter(Boolean))] : [];
+  const discLabel = discs.length>1 ? 'Multi-discipline' : (discs[0] || s.discipline || '');
   return `<div style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--deep);">
     <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;">
       <b style="color:var(--accent);">${__esc(s.title||'Untitled show')}</b>
       <span class="tag">${closed?'Closed':'Open'}</span>
     </div>
-    <div class="small">${__esc(s.discipline||'')} · closes ${__esc(s.closesAt||'—')} · ${entries} ${entries===1?'entry':'entries'}${s.hostId?` · hosted by ${__esc(s.hostId)}`:''}</div>
+    <div class="small">${__esc(discLabel)} · closes ${__esc(s.closesAt||'—')} · ${entries} ${entries===1?'entry':'entries'}${s.hostId?` · hosted by ${__esc(s.hostId)}`:''}</div>
     <div style="margin-top:6px;"><a href="${__APPS.shows}?show=${encodeURIComponent(rec.__id||s.id||'')}">Open show →</a></div>
   </div>`;
 }
@@ -2894,7 +2899,11 @@ function renderMessages(v){
     renderNav();
     const notifCard = `
       <div class="card">
-        <b style="color:var(--accent);">Notifications${notifTotal?` (${notifTotal})`:''}</b>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <b style="color:var(--accent);">Notifications${notifTotal?` (${notifTotal})`:''}</b>
+          <span style="flex:1;"></span>
+          ${socialNotifs.some(n=>!n.read)?`<button class="ghost" id="nf_markall" style="padding:2px 10px;font-size:.85em;">Mark all read</button>`:''}
+        </div>
         <div style="margin-top:10px;">
           ${friendReqs.map(r=>`
             <div class="bk-notif unread" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -2907,8 +2916,8 @@ function renderMessages(v){
               <div style="flex:1;min-width:150px;"><b>📢 New newsletter</b><div>${esc(m.subject||'(no subject)')}</div></div>
               <button class="ghost" data-nf-news="1" style="padding:4px 11px;font-size:.85em;">Read</button>
             </div>`).join('')}
-          ${socialNotifs.slice(0,40).map(n=>`
-            <div class="bk-notif ${n.read?'':'unread'}">
+          ${socialNotifs.filter(n=>!n.read).slice(0,40).map(n=>`
+            <div class="bk-notif unread">
               <div><b>${esc(String(n.type||'').replace(/_/g,' '))}</b></div>
               <div>${esc(n.message||'')}</div>
             </div>`).join('')}
@@ -2949,9 +2958,12 @@ function renderMessages(v){
           <span style="flex:1"></span>
           <button class="ghost" data-mtab="compose" style="${mode==='compose'?'font-weight:bold;':''}">Write a message</button>
         </div>
-        ${mode==='inbox' ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+        ${mode==='inbox' ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center;">
           <button class="ghost" data-ifilter="all" style="padding:3px 11px;font-size:.85em;${__inboxFilter==='all'?'background:var(--accent,#c9a84c);color:#241403;font-weight:bold;border-radius:6px;':''}">All</button>
           <button class="ghost" data-ifilter="newsletters" style="padding:3px 11px;font-size:.85em;${__inboxFilter==='newsletters'?'background:var(--accent,#c9a84c);color:#241403;font-weight:bold;border-radius:6px;':''}">📢 Newsletters</button>
+          <span style="flex:1;"></span>
+          ${(__msgCache.inbox||[]).some(m=>!m.read)?`<button class="ghost" id="m_markall" style="padding:3px 11px;font-size:.85em;">Mark all read</button>`:''}
+          ${(__msgCache.inbox||[]).some(m=>m.read)?`<button class="ghost" id="m_delread" style="padding:3px 11px;font-size:.85em;">Delete read</button>`:''}
         </div>` : ''}
         ${__msgCache.error?`<div class="small" style="color:var(--equi-rust);margin-top:8px;">${__msgCache.error}</div>`:''}
       </div>
@@ -3007,6 +3019,12 @@ function renderMessages(v){
       try{ await DB.remove('friendRequests', friendPairId(who.userId, b.dataset.nfDec)); renderMessages(v); }
       catch(e){ alert('Decline failed — '+(e&&(e.code||e.message)||e)); b.disabled=false; }
     });
+    const nfMarkAll=v.querySelector('#nf_markall');
+    if(nfMarkAll) nfMarkAll.onclick=async()=>{
+      nfMarkAll.disabled=true; nfMarkAll.textContent='…';
+      try{ const tk=await idToken(); await railwayCall('/markNotificationsRead', { idToken: tk, body:{} }); }catch(e){}
+      __socialCache.loadedAt=0; renderMessages(v); renderNav();
+    };
     v.querySelectorAll('[data-mtab]').forEach(b=>b.onclick=()=>{
       const newMode=b.dataset.mtab;
       if(newMode==='compose'){ __msgView={mode:'compose',to:'',replyTo:null,replySubject:'',replyBody:''}; }
@@ -3025,6 +3043,22 @@ function renderMessages(v){
     });
     v.querySelectorAll('[data-nf-news]').forEach(b=>b.onclick=()=>{ __inboxFilter='newsletters'; __msgView.mode='inbox'; renderMessages(v); });
     v.querySelectorAll('[data-ifilter]').forEach(b=>b.onclick=()=>{ __inboxFilter=b.dataset.ifilter; renderMessages(v); });
+    const mMarkAll=v.querySelector('#m_markall');
+    if(mMarkAll) mMarkAll.onclick=async()=>{
+      mMarkAll.disabled=true; mMarkAll.textContent='…';
+      const unread=(__msgCache.inbox||[]).filter(m=>!m.read);
+      for(const m of unread){ await markMessageRead(m); }
+      __msgCache.loadedAt=0; renderMessages(v); renderNav();
+    };
+    const mDelRead=v.querySelector('#m_delread');
+    if(mDelRead) mDelRead.onclick=async()=>{
+      const read=(__msgCache.inbox||[]).filter(m=>m.read);
+      if(!read.length) return;
+      if(!confirm(`Delete ${read.length} read message${read.length===1?'':'s'}? Unread ones are kept.`)) return;
+      mDelRead.disabled=true; mDelRead.textContent='…';
+      for(const m of read){ await deleteMessage(m); }
+      __msgCache.loadedAt=0; renderMessages(v); renderNav();
+    };
     v.querySelectorAll('[data-mdel]').forEach(b=>b.onclick=async()=>{
       const m=viewList[Number(b.dataset.mdel)];
       if(!confirm('Delete this message?')) return;
