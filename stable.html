@@ -632,13 +632,40 @@ const MILESTONES = {
   },
 };
 
+// Every milestone option across all young stages, in one flat list. Used to
+// credit a completed milestone no matter what stage the horse is now in — a
+// grown horse logging old foal art still gets that milestone marked done.
+const ALL_MILESTONE_OPTIONS = [
+  ...MILESTONES.foal.options,
+  ...MILESTONES.yearling.options,
+  ...MILESTONES["two-year-old"].options,
+];
+
+// Display-only copies of the young milestones, name-prefixed with their stage,
+// for the adult "log old art" case. Same id + stats as the originals, so
+// crediting and stat maths keep working; only the label changes so the
+// dropdown reads e.g. "Foal · Weaning / Separated from Mother".
+function retroMilestoneOptions(){
+  const tag = (label, arr) => arr.map(o => ({ ...o, name: `${label} · ${o.name}` }));
+  return [
+    ...tag("Foal", MILESTONES.foal.options),
+    ...tag("Yearling", MILESTONES.yearling.options),
+    ...tag("Two-Year-Old", MILESTONES["two-year-old"].options),
+  ];
+}
+
 function trainingOptionsFor(h){
   const m = MILESTONES[h.stage];
   if(m){
     const equibreak = TRAININGS.find(t=>t.id==="equibreak");
     return [...m.options, equibreak];
   }
-  return TRAININGS.filter(t=>!t.youngOnly);
+  // Adults have no age-up milestones of their own, but people often join with a
+  // grown horse and want to log the foal / yearling / two-year-old art they made
+  // before the site existed. Offer those milestones here as retroactive log
+  // options. They grant the milestone's (small) stat bump once and record the
+  // art — they do NOT age the horse (it's already grown).
+  return [...TRAININGS.filter(t=>!t.youngOnly), ...retroMilestoneOptions()];
 }
 
 const GENERIC_DIFFICULTIES = ["Schooling","Local","Regional","National","Championship"];
@@ -3577,7 +3604,7 @@ function renderRoster(){
       <div class="collapse-body">
     <div class="row">
       <div><label>Name</label><input id="nh_name" placeholder="e.g. Banshee" /></div>
-      <div><label>Age</label><input id="nh_age" type="number" min="0" value="3" style="max-width:80px;" /></div>
+      <div><label>Age</label><input id="nh_age" type="number" min="0" step="0.5" value="3" style="max-width:80px;" /><div class="small" style="opacity:.7;margin-top:2px;max-width:150px;">Enter under 3 to start young — 0.5 = foal, 1 = yearling, 2 = two-year-old — and unlock that stage's milestones.</div></div>
       <div><label>Height <span style="opacity:.6;font-weight:normal;">(optional)</span></label><input id="nh_height" placeholder="e.g. 16.2 hh" style="max-width:120px;" /></div>
       <div style="flex:1;min-width:200px;"><label>Import sheet link <span style="opacity:.6;font-weight:normal;">(optional)</span></label><input id="nh_import" placeholder="https://… reference/import sheet" /></div>
       <div><label>Breed</label>
@@ -5180,7 +5207,20 @@ function renderTraining(){
     const h=currentHorse();
     const m=MILESTONES[h.stage];
     const box=card.querySelector('#tr_milestone_status');
-    if(!m){ box.innerHTML=''; return; }
+    if(!m){
+      // No age-up milestones at this stage (adult). Show how many young-stage
+      // milestones have been logged retroactively, so the "log old art" flow
+      // gives visible feedback instead of an empty box.
+      const done=new Set(h.completedMilestones||[]);
+      const total=ALL_MILESTONE_OPTIONS.length;
+      const logged=ALL_MILESTONE_OPTIONS.filter(o=>done.has(o.id)).length;
+      box.innerHTML=`<div class="prompt-box">
+        <b>${h.name}</b> is an adult — no age-up milestones. You can still log
+        earlier <b>Foal / Yearling / Two-Year-Old</b> milestones from the training
+        list below to record old art. ${logged>0?`<span class="small" style="opacity:.8;">(${logged}/${total} youth milestones logged)</span>`:''}
+      </div>`;
+      return;
+    }
     const done=new Set(h.completedMilestones||[]);
     // Equibreak fulfils the breaking requirement for foals and yearlings only
     // (per the training guide) — two-year-olds need all 3 of their specific
@@ -5452,18 +5492,19 @@ function renderTraining(){
     const riderNote=applyRiderTrainingBonus(h, allStats, featuredRiderId);
     Object.entries(allStats).forEach(([s,v])=>h.stats[s]=(h.stats[s]||0)+v);
 
-    const m=MILESTONES[h.stage];
     const milestoneIds=[];
-    if(m){
-      if(!Array.isArray(h.completedMilestones)) h.completedMilestones=[];
-      // Every distinct training type on the sheet that's a milestone option counts.
-      typeIds.forEach(id=>{
-        if(m.options.some(o=>o.id===id)){
-          milestoneIds.push(id);
-          if(!h.completedMilestones.includes(id)) h.completedMilestones.push(id);
-        }
-      });
-    }
+    if(!Array.isArray(h.completedMilestones)) h.completedMilestones=[];
+    // Every distinct training type on the sheet that's a milestone option counts —
+    // checked against ALL stages' milestones, not just the current one, so a
+    // grown horse logging old foal / yearling art gets it recorded too. For a
+    // young horse the dropdown only offers its own stage, so this is unchanged
+    // in practice; for an adult it also matches the retroactive options.
+    typeIds.forEach(id=>{
+      if(ALL_MILESTONE_OPTIONS.some(o=>o.id===id)){
+        milestoneIds.push(id);
+        if(!h.completedMilestones.includes(id)) h.completedMilestones.push(id);
+      }
+    });
 
     let expGain=artRowsExp(artRows);            // art kinds + each image's own bonuses
     const sources=artRowsSources(artRows);       // breakdown incl. per-image bonuses
