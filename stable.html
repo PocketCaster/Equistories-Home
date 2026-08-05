@@ -8010,6 +8010,24 @@ function fullPhenotype(h){
   return [base, ...marks].filter(Boolean).join(", ");
 }
 
+// DISPLAY ONLY. Condense a full genotype string down to the genes the horse
+// actually carries something at — any token with an uppercase letter (a
+// dominant / marking allele) — while always keeping the first two tokens
+// (Extension and Agouti), which define the base coat even when recessive.
+// All-lowercase tokens (dd, splspl, stysty, nn …) mean "doesn't have this
+// gene" and are hidden. This does NOT alter the stored genotype: breeding and
+// net-worth still read h.genotype / h.genoObj in full — this only changes what
+// the profile prints. Separator is a space to match the rest of the UI; swap
+// SEP to " / " if you prefer slashes.
+//   "Ee Aa Stysty dd Toto splspl nn" -> "Ee Aa Stysty Toto"
+function activeGenotype(genoStr){
+  const SEP = " ";
+  if(!genoStr) return "";
+  const tokens = String(genoStr).trim().split(/\s+/).filter(Boolean);
+  if(tokens.length <= 2) return tokens.join(SEP);
+  return tokens.filter((tok, i) => i < 2 || /[A-Z]/.test(tok)).join(SEP);
+}
+
 function alleleRank(x, order){
   // "n" (no-allele) conventionally leads pairs like nCr, nLp, nSpl…
   if(x==="n") return -1;
@@ -9523,7 +9541,7 @@ function renderHorseProfilePage(app, h){
           ${(h.badges||[]).length?`<div style="margin-bottom:6px;">${h.badges.map(b=>`<span class="tag" style="background:#3a2a10;color:var(--equi-brass-light);border-color:var(--equi-accent);">${b}</span>`).join(" ")}</div>`:""}
           <div class="small" style="font-size:1.1em;">${h.breed}${h.gender?` · ${h.gender}`:""} · Age ${h.age} (${h.stage})</div>
           ${fullPhenotype(h)?`<div class="small">Phenotype: ${fullPhenotype(h)}</div>`:""}
-          ${h.genotype?`<div class="small">Genotype: ${h.genotype}</div>`:""}
+          ${h.genotype?`<div class="small" title="Full genotype: ${escAttr(h.genotype)}">Genotype: ${escAttr(activeGenotype(h.genotype))}</div>`:""}
           <div style="margin-top:8px;"><span class="tag" style="font-size:1.02em;">Level ${h.level}</span> <span class="tag" style="font-size:1.02em;">${h.exp} EXP</span></div>
           <div class="expbar-bg" style="margin-top:6px;max-width:260px;"><div class="expbar-fill" style="width:${pct}%"></div></div>
           <div style="margin-top:12px;">
