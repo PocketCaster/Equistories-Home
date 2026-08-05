@@ -198,6 +198,25 @@ function artRowHTML(selected, n, removable, bonuses, creatureN, extraHTML){
   </div>`;
 }
 
+// A competition image card: art kind + count + its own bonuses (via artRowHTML),
+// PLUS its own Discipline and Placement so each image logs as its own show
+// result. Both default to "— same as show —" (falls back to the form's top-level
+// Discipline/Placement), so a simple single-result show needs no per-card fuss.
+function csCardHTML(row, removable){
+  row = row||{};
+  const discOpts = Object.keys(DISCIPLINES).map(d=>`<option value="${d}"${row.discipline===d?' selected':''}>${d}</option>`).join("");
+  const places = ["1st","2nd","3rd","4th","5th","6th"];
+  const placeOpts = places.map((lbl,i)=>`<option value="${i+1}"${row.placement===i+1?' selected':''}>${lbl} Place</option>`).join("")
+    + `<option value="0"${row.placement===0?' selected':''}>Participant / No placement</option>`;
+  const extra = `<div class="row" style="margin-top:6px;gap:6px;">
+    <div style="flex:1;"><label class="small">Discipline (this image)</label>
+      <select data-card-disc style="width:100%;"><option value="">— same as show —</option>${discOpts}</select></div>
+    <div style="flex:1;"><label class="small">Placement (this image)</label>
+      <select data-card-place style="width:100%;"><option value="">— same as show —</option>${placeOpts}</select></div>
+  </div>`;
+  return artRowHTML(row.art||"", row.n||1, removable, row.bonuses, row.creatureN, extra);
+}
+
 const ART_EXP = {
   "Uncolored Headshot":1, "Colored Headshot":2,
   "Uncolored Halfbody":2, "Colored Halfbody":3,
@@ -5588,14 +5607,14 @@ function buildShowLogForm(){
       <div><label>Horse</label>
         <select id="cs_horse">${eligible.map(h=>`<option value="${h.id}">${h.name}</option>`).join("")}</select>
       </div>
-      <div><label>Discipline</label><select id="cs_disc">${discOpts}</select></div>
+      <div><label>Discipline <span class="small">(default for the show)</span></label><select id="cs_disc">${discOpts}</select></div>
     </div>
     <div class="row" style="margin-top:8px;">
       <div><label>Show / Venue Name</label><input id="cs_venue" placeholder="e.g. Spring Classic 2025" /></div>
       <div><label>Date <span class="small">(optional)</span></label><input id="cs_date" placeholder="e.g. April 2025" /></div>
     </div>
     <div class="row" style="margin-top:8px;">
-      <div><label>Placement</label>
+      <div><label>Placement <span class="small">(default for the show)</span></label>
         <select id="cs_place">
           <option value="">— select —</option>
           <option value="1">1st Place</option>
@@ -5626,9 +5645,9 @@ function buildShowLogForm(){
     ${Object.keys(ART_EXP).length ? `
     <div class="row" style="margin-top:8px;">
       <div><label>What's on this sheet? <span class="small">(for EXP — optional)</span></label>
-        <div id="cs_artrows">${artRowHTML("",1,false)}</div>
-        <button type="button" id="cs_add_art" class="secondary" style="margin-top:6px;padding:4px 10px;">+ Add another image type</button>
-        <p class="small" style="margin:4px 0 0;opacity:.75;">Leave the first card blank for "no art". One card per image — set each image's kind, count, and its own bonus elements right on the card.</p>
+        <div id="cs_artrows">${csCardHTML({}, false)}</div>
+        <button type="button" id="cs_add_art" class="secondary" style="margin-top:6px;padding:4px 10px;">+ Add another image</button>
+        <p class="small" style="margin:4px 0 0;opacity:.75;">Leave the first card blank for "no art". Each image logs as its own show result — set its kind, count, bonuses, and (if different from the show default) its own discipline and placement.</p>
       </div>
       <div><label>Literature Word Count <span class="small">(optional)</span></label>
         <input type="number" id="cs_lit" min="0" placeholder="min 200 for EXP" />
@@ -5749,14 +5768,18 @@ function buildShowLogForm(){
     const box=card.querySelector('#cs_total'); if(!box) return;
     try{
       const artRows=readArtRows(card);
-      const placement=Number(card.querySelector('#cs_place').value)||null;
+      const sheetPlace=Number(card.querySelector('#cs_place').value)||null;
       let exp=0;
       if(artRows.length){
-        exp+=artRowsExp(artRows);   // art kinds + each image's own bonuses
+        // Each image is its own show result: its art + bonuses + a show entry,
+        // plus a placement bonus for that image's own placement (or the show's).
+        artRows.forEach(r=>{
+          exp += (ART_EXP[r.art]||0)*r.n + artRowBonusExp(r) + 1;   // +1 show entry
+          const place = (r.placement!=null) ? r.placement : sheetPlace;
+          if(place) exp += ({1:4,2:3,3:2}[place]||1);
+        });
         const litEl=card.querySelector('#cs_lit');
         exp+=calcLitExp(parseInt(litEl && litEl.value)||0);
-        exp+=1; // show entry
-        if(placement) exp+=({1:4,2:3,3:2}[placement]||1);
       }
       // A host-awarded bonus stands on its own — it applies even when no art is
       // attached, so EXP for a past show can be logged after the fact.
@@ -5767,6 +5790,7 @@ function buildShowLogForm(){
       if(exp>0 || pp>0){
         box.innerHTML=`<b style="color:var(--accent,#d29a3e);">This record will grant:</b> `
           +(exp>0?`<b>+${exp} EXP</b>`:`<span class="small">no show art = no EXP</span>`)
+          +(artRows.length>1?` <span class="small" style="opacity:.7;">(${artRows.length} show results)</span>`:'')
           +(pp>0?` &nbsp;·&nbsp; Rider <b>+${pp} PP</b>`:'')
           +` <span class="small" style="opacity:.7;">(shows add EXP only — no stats)</span>`;
       } else {
@@ -5802,8 +5826,13 @@ function buildShowLogForm(){
       if(!legacyPerRow && (e.bonuses||[]).length && rows.length){
         rows = rows.map((r,i)=> i===0 ? {...r, bonuses:[...e.bonuses]} : r);
       }
-      rowsHost.innerHTML = rows.length ? rows.map((r,i)=>artRowHTML(r.art, r.n, i>0, r.bonuses, r.creatureN)).join("")
-                                       : artRowHTML("",1,false);
+      // This edit is ONE show result. Put its discipline/placement on the card so
+      // re-saving reproduces it (older entries carry them at entry level).
+      const rDisc = e.discipline || rec.discipline || '';
+      const rPlace = (e.placement!=null ? e.placement : (rec.placement!=null ? rec.placement : undefined));
+      rows = rows.map((r,i)=> i===0 ? {...r, discipline:r.discipline||rDisc, placement:(r.placement!=null?r.placement:rPlace)} : r);
+      rowsHost.innerHTML = rows.length ? rows.map((r,i)=>csCardHTML(r, i>0)).join("")
+                                       : csCardHTML({discipline:rDisc, placement:rPlace}, false);
     }
     const rsel=card.querySelector('.rpp_rider');
     if(rsel && e.featuredRiderId) rsel.value = e.featuredRiderId;
@@ -5822,7 +5851,7 @@ function buildShowLogForm(){
 
   const csAddArt=card.querySelector('#cs_add_art');
   if(csAddArt) csAddArt.onclick=()=>{
-    card.querySelector('#cs_artrows').insertAdjacentHTML('beforeend', artRowHTML("",1,true));
+    card.querySelector('#cs_artrows').insertAdjacentHTML('beforeend', csCardHTML({}, true));
     recalcCsTotal();
   };
   card.addEventListener('click', ev=>{
@@ -5851,72 +5880,97 @@ function buildShowLogForm(){
     const litWords=parseInt(card.querySelector('#cs_lit')?.value)||0;
     const link=card.querySelector('#cs_link')?.value.trim()||"";
     const res=card.querySelector('#cs_result');
+    // Read the show-art field directly: an edit fills it via set(el.value=…),
+    // which doesn't fire the oninput that keeps `artImage` in sync — so without
+    // this, re-saving an edited show would silently drop its artwork.
+    artImage = card.querySelector('#cs_art_url').value.trim() || artImage || null;
     res.innerHTML=`<div class="result">⏳ Saving…</div>`;
 
+    // Each image is its own show result. Validate the host bonus (which can
+    // stand alone for a no-art show) and that every image has a discipline.
+    const cbL=(card.querySelector('#cs_cb_label').value||'').trim();
+    const cbE=parseInt(card.querySelector('#cs_cb_exp').value)||0;
+    if(cbL && !cbE){ res.innerHTML=`<div class="result fail">Give the EXP bonus an amount, or clear the label.</div>`; return; }
+    if(!cbL && cbE>0){ res.innerHTML=`<div class="result fail">Say what the EXP bonus is for.</div>`; return; }
+    if(artRows.length && artRows.some(r=>!(r.discipline||disc))){
+      res.innerHTML=`<div class="result fail">Pick a discipline for each image, or set the show's default discipline.</div>`; return;
+    }
+
     let expGain=0;
-    let nonPlacementExp=0;
     const sources=[];
-    const discStats={};
-    if(artRows.length){
-      expGain+=artRowsExp(artRows); artRowsSources(artRows).forEach(x=>sources.push(x));  // incl. per-image bonuses
-      const litExp=calcLitExp(litWords);
-      if(litExp>0){expGain+=litExp; sources.push(`Lit ${litWords}w (+${litExp})`);}
-      expGain+=1; sources.push(`Show Entry (+1)`);
-      nonPlacementExp=expGain;
-      const placeExp={1:4,2:3,3:2}[placement]||1;
-      if(placement){expGain+=placeExp; sources.push(`Placement (+${placeExp})`);}
-    }
-    // Host-awarded bonus. Deliberately OUTSIDE the art block so EXP for an old
-    // show can be recorded with no artwork attached.
-    {
-      const cbL=(card.querySelector('#cs_cb_label').value||'').trim();
-      const cbE=parseInt(card.querySelector('#cs_cb_exp').value)||0;
-      if(cbL && cbE>0){
-        expGain+=cbE; nonPlacementExp+=cbE;
-        sources.push(`${cbL} (+${cbE})`);
-      } else if(cbL && !cbE){
-        res.innerHTML=`<div class="result fail">Give the EXP bonus an amount, or clear the label.</div>`; return;
-      } else if(!cbL && cbE>0){
-        res.innerHTML=`<div class="result fail">Say what the EXP bonus is for.</div>`; return;
-      }
-      h.exp+=expGain;
-      checkLevelUp(h);
-      // Shows award EXP only — they do NOT add stats and do NOT count as training.
-      // discStats stays empty so this record contributes zero stats on recompute.
-    }
-
-    let artLogId=null;
-    let artSavePromise=Promise.resolve(true);
-    if(artImage && artRows.length){
-      artLogId=uid2();
-      const artEntry={id:artLogId,day:state.log.length+1,type:"competition",label:`${disc}${venue?" — "+venue:""}`,
-        placement,art:artRowsLabel(artRows),artMix:artRows,lit:litWords?`${litWords} words`:null,
-        bonuses:artRowsBonusUnion(artRows),exp:expGain,link:link||null,image:artImage,
-        statsDelta:discStats,nonPlacementExp,discipline:disc};
-      h.artLog.unshift(artEntry);
-      artSavePromise = saveArtEntry(h, artEntry); // don't await yet — runs alongside saveHorse below
-    }
-
+    const discStats={};          // shows grant no stats
+    const litExp=calcLitExp(litWords);
+    const placeLbl=p=>p?(["1st","2nd","3rd","4th","5th","6th"][p-1]||p+"th"):"Participant";
+    const artSaves=[];
     if(!h.compHistory) h.compHistory=[];
-    const rec={
-      id:uid2(), discipline:disc, difficulty:className, venue, date,
-      placement, note, image:artImage||null, link:link||null,
-      prizes:[...prizeImages], artLogId,
-    };
-    h.compHistory.unshift(rec);
+    let firstRec=null;
 
-    // Rider Prestige exactly as ticked in the form's Rider Prestige block.
+    if(artRows.length){
+      // EACH IMAGE = its own show result: its art + bonuses + a show entry (+1),
+      // plus a placement bonus for that image's own placement (or the show default).
+      // Sheet-level extras (lit, host bonus) ride on the FIRST result only.
+      artRows.forEach((r,i)=>{
+        const rDisc = r.discipline || disc;
+        const rPlace = (r.placement!=null) ? r.placement : placement;
+        let rExp = (ART_EXP[r.art]||0)*r.n + artRowBonusExp(r) + 1;   // art+bonuses + show entry
+        const rSources=[...artRowsSources([r]), `Show Entry (+1)`];
+        const placeExp = rPlace ? ({1:4,2:3,3:2}[rPlace]||1) : 0;
+        if(rPlace){ rExp+=placeExp; rSources.push(`Placement (+${placeExp})`); }
+        let nonPlacementExp = rExp - placeExp;
+        if(i===0){
+          if(litExp>0){ rExp+=litExp; nonPlacementExp+=litExp; rSources.push(`Lit ${litWords}w (+${litExp})`); }
+          if(cbL && cbE>0){ rExp+=cbE; nonPlacementExp+=cbE; rSources.push(`${cbL} (+${cbE})`); }
+        }
+        expGain+=rExp; rSources.forEach(x=>sources.push(x));
+
+        let artLogId=null;
+        if(artImage){
+          artLogId=uid2();
+          const artEntry={id:artLogId,day:state.log.length+1,type:"competition",
+            label:`${rDisc}${venue?" — "+venue:""}`,placement:(rPlace!=null?rPlace:null),
+            art:artRowsLabel([r]),artMix:[r],lit:(i===0&&litWords)?`${litWords} words`:null,
+            bonuses:artRowsBonusUnion([r]),exp:rExp,link:link||null,image:artImage,
+            statsDelta:discStats,nonPlacementExp,discipline:rDisc};
+          h.artLog.unshift(artEntry);
+          artSaves.push(saveArtEntry(h, artEntry));
+        }
+        const rec={ id:uid2(), discipline:rDisc, difficulty:className, venue, date,
+          placement:(rPlace!=null?rPlace:null), note, image:artImage||null, link:link||null,
+          prizes:(i===0?[...prizeImages]:[]), artLogId };
+        h.compHistory.unshift(rec);
+        if(i===0) firstRec=rec;
+      });
+    } else {
+      // No art attached: a single EXP-only / placement record (host bonus, or an
+      // old show logged after the fact). Uses the show's default disc/placement.
+      if(cbL && cbE>0){ expGain+=cbE; sources.push(`${cbL} (+${cbE})`); }
+      const rec={ id:uid2(), discipline:disc, difficulty:className, venue, date,
+        placement, note, image:null, link:link||null, prizes:[...prizeImages], artLogId:null };
+      h.compHistory.unshift(rec);
+      firstRec=rec;
+    }
+
+    h.exp+=expGain;
+    checkLevelUp(h);
+
+    // Rider Prestige — once per submission, stamped on the first result.
     const csPick = csRPP.collect();
-    if(csPick){
+    if(csPick && firstRec){
       const rider=state.riders.find(r=>r.id===csPick.riderId);
       if(rider){
-        rec.featuredRiderId=rider.id;
-        await grantRiderPPForEntry(rider, 'competition', rec, h, { pp:csPick.pp, sources:csPick.sources });
+        firstRec.featuredRiderId=rider.id;
+        await grantRiderPPForEntry(rider, 'competition', firstRec, h, { pp:csPick.pp, sources:csPick.sources });
       }
     }
 
-    const placeLabel=placement?["1st","2nd","3rd","4th","5th","6th"][placement-1]||placement+"th":"Participant";
-    addLog(`${h.name} — ${disc}${venue?" at "+venue:""} · ${placeLabel}${expGain?` · +${expGain} EXP`:""}`);
+    const artSavePromise = Promise.all(artSaves).then(rs=>rs.every(Boolean));
+
+    if(artRows.length){
+      const summary = artRows.map(r=>`${(r.discipline||disc)} ${placeLbl((r.placement!=null)?r.placement:placement)}`).join(", ");
+      addLog(`${h.name}${venue?" — "+venue:""}: ${summary}${expGain?` · +${expGain} EXP`:""}`);
+    } else {
+      addLog(`${h.name} — ${disc}${venue?" at "+venue:""} · ${placeLbl(placement)}${expGain?` · +${expGain} EXP`:""}`);
+    }
 
     // FIX: previously fired without awaiting/checking, so a failed save
     // (oversized payload, network hiccup) never surfaced to the user —
@@ -5936,7 +5990,7 @@ function buildShowLogForm(){
     card.querySelector('#cs_art_url').value='';
     ['#cs_venue','#cs_date','#cs_note','#cs_class','#cs_link'].forEach(s=>{ const el=card.querySelector(s); if(el)el.value=''; });
     card.querySelector('#cs_place').value='';
-    if(card.querySelector('#cs_artrows')) card.querySelector('#cs_artrows').innerHTML=artRowHTML("",1,false);
+    if(card.querySelector('#cs_artrows')) card.querySelector('#cs_artrows').innerHTML=csCardHTML({}, false);
     if(card.querySelector('#cs_cb_label')) card.querySelector('#cs_cb_label').value='';
     if(card.querySelector('#cs_cb_exp')) card.querySelector('#cs_cb_exp').value='';
     if(card.querySelector('#cs_lit')){ card.querySelector('#cs_lit').value=''; card.querySelector('#cs_lit_preview').textContent=''; }
