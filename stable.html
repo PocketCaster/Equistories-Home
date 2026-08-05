@@ -3790,7 +3790,7 @@ function renderRoster(){
       ? `<div class="small" style="opacity:.8;margin-top:4px;">🐴 Bay and chestnut ("Fire Friesian") only make up about 20% of real Friesians — rare, but far from impossible. Have fun with it!</div>`
       : "";
     form.querySelector('#nh_geno_preview').innerHTML=
-      `<b>Phenotype:</b> ${result.phenotype}<br><b>Genotype:</b> ${genotypeStr}<br>`+
+      `<b>Phenotype:</b> ${result.phenotype}<br><b>Genotype:</b> <span title="Full genotype: ${escAttr(genotypeStr)}">${escAttr(activeGenotype(genotypeStr))}</span><br>`+
       (extras.length?`<span class="small">+ ${extras.map(m=>m.label).join(", ")}</span><br>`:"")+
       `<span class="small">Genetics value: ฿${grandTotal.toLocaleString()}</span>${friesianNote}`;
   }
@@ -4900,7 +4900,7 @@ function showGeneticsModal(horseId){
     const marks=rareMarkingLabels(h);
     overlay.querySelector('#sg_preview').innerHTML=
       `<b>Phenotype:</b> ${r.phenotype}${marks.length?`, ${marks.join(", ")}`:""}<br>`+
-      `<b>Genotype:</b> ${r.genotype}<br>`+
+      `<b>Genotype:</b> <span title="Full genotype: ${escAttr(r.genotype)}">${escAttr(activeGenotype(r.genotype))}</span><br>`+
       `<span style="opacity:.8;">Genetics value: ฿${r.totalPrice.toLocaleString()}</span>`;
   }
   draw();
