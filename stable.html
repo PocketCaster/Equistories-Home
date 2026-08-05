@@ -1106,6 +1106,10 @@ async function loadConsumables(userId, invDoc){
       if(!e) continue;
       let eff = e.effect, tag = e.effectTag||null;
       if(!eff){ const inf = inferBreedingEffect(e.name); if(inf){ eff = inf.effect; if(inf.tag && !tag) tag = inf.tag; } }
+      // A trait token may carry an `effect` but no `effectTag` (common for
+      // admin/event-granted "non-purchasable" tokens, and older shop items).
+      // Recover the specific trait from the item NAME so its guarantee works.
+      if(eff==='breeding_trait' && !tag){ const inf=inferBreedingEffect(e.name); if(inf && inf.tag) tag=inf.tag; }
       if(!eff) continue;                 // still nothing usable — skip
       const left = (Number(e.usesLeft)>0) ? Number(e.usesLeft)
                   : (e.singleUse ? (Number(e.qty)||1) : (Number(e.qty)||0));
@@ -8126,6 +8130,7 @@ function defaultBreedingModifiers(){
            reroll:false, prepotency:false,
            gender:null,          // "Colt" | "Filly" when a gender token is spent
            colourSwaps:{},       // { locusKey: newCode } from a colour token
+           traitGuarantee:[],    // trait names a specific-trait token must force to 100%
            tokensUsed:[] };
 }
 // Accepts ["twin","trait"] or [{key:"gender",gender:"Filly"}, {key:"trait"}].
@@ -8138,6 +8143,10 @@ function modifiersFromTokens(tokens){
     if(typeof m[t.key]==="boolean") m[t.key]=true;
     if(t.key==="gender") m.gender=t.gender;
     if(t.key==="colour" && t.locusKey) m.colourSwaps[t.locusKey]=t.code||null;
+    // A trait token that names a specific trait (Brindle, Chimera, Silken,
+    // Indigo Eyes, Dom White, …) guarantees that trait rather than just
+    // nudging its odds. The generic (untagged) Trait Token keeps multiplying.
+    if(t.key==="trait" && t.tag) m.traitGuarantee.push(String(t.tag).toLowerCase());
     m.tokensUsed.push(t.key);
   });
   return Object.assign({ok:true}, m);
@@ -8155,6 +8164,30 @@ function applyTraitToken(rows, on, mult){
     const chance=Math.min(1, r.chance*k);
     const out=Object.assign({}, r, {chance, traitBoosted:true});
     if(r.healthName) out.healthOverall = chance * r.healthChance;
+    return out;
+  });
+}
+
+// A specific-trait token (Brindle/Chimera/Silken/Indigo Eyes/Dom White token,
+// etc.) GUARANTEES its trait: force that trait's row to 100%. Like the boost
+// token, it can only act on a row that already exists — i.e. a trait at least
+// one parent carries — so it still can't invent a trait from nothing. Names are
+// matched loosely (Dominant White ⇒ Dom White, Somatic Mutation ⇒ Somatic, …).
+const TRAIT_GUARANTEE_ALIAS = {
+  "dominant white":"dom white", "dom white":"dom white",
+  "birdcatcher":"birdcatcher spots", "gulastra":"gulastra plume",
+  "circe":"circe ears", "mismarked":"mismarked appy", "glossy":"glossy coat",
+  "somatic mutation":"somatic", "reverse brindle":"reverse brindle",
+  "unrealted bleu":"unrelated bleu", "unrelated blue":"unrelated bleu",
+};
+function canonTraitName(s){ const n=String(s||'').trim().toLowerCase(); return TRAIT_GUARANTEE_ALIAS[n]||n; }
+function applyTraitGuarantee(rows, guarantees){
+  if(!guarantees || !guarantees.length) return rows;
+  const wants=new Set(guarantees.map(canonTraitName));
+  return (rows||[]).map(r=>{
+    if(!wants.has(canonTraitName(r.name))) return r;
+    const out=Object.assign({}, r, {chance:1, traitGuaranteed:true, traitBoosted:true});
+    if(r.healthName) out.healthOverall = 1 * r.healthChance;   // trait certain; its linked condition still rolls
     return out;
   });
 }
@@ -8807,7 +8840,7 @@ function availableBreedingTokens(){
              ct===te || ct===tk ||
              cn===tl || cn===te || cn===('breeding'+tk) || cn===(tk+'token');
     });
-    if(def && def.key!=='ticket' && def.effect!=='breeding_ticket' && !out.some(o=>o.invId===c.invId)) out.push({key:def.key, label:def.label, desc:def.desc, invId:c.invId, left:c.left});
+    if(def && def.key!=='ticket' && def.effect!=='breeding_ticket' && !out.some(o=>o.invId===c.invId)) out.push({key:def.key, label:def.label, desc:def.desc, invId:c.invId, left:c.left, tag:(c.effectTag||null)});
   });
   return out;
 }
@@ -8858,6 +8891,7 @@ function rollBreeding(sire, dam, mods){
     loci.forEach(l=>{ settled[l.key]=[{code:foal.selections[l.key],p:1}]; });
     let rows=resolveRareTraits(rareCfg,sireTraits,damTraits,settled,riskMult);
     rows=applyTraitToken(rows, m.trait);
+    rows=applyTraitGuarantee(rows, m.traitGuarantee);   // specific-trait tokens → 100%
     rows=applyHealthToken(rows, m.health);
     const traits=[];
     rows.forEach(t=>{
@@ -8938,9 +8972,9 @@ function showBreedingConfirm(sire, dam, onConfirm){
     ${tokens.length ? `<div id="bcf_tokens" style="margin-top:4px;">
         <p class="small" style="color:var(--equi-faint);margin:0 0 6px;">Optional &mdash; up to ${MAX_TOKENS_PER_BREEDING}, one of each type.</p>
         ${tokens.map(t=>`<label style="display:block;margin:4px 0;cursor:pointer;">
-          <input type="checkbox" data-token="${escAttr(t.key)}" data-inv="${escAttr(t.invId)}" />
-          <b>${escAttr(t.label)}</b> <span class="small" style="opacity:.75;">&times;${t.left}</span>
-          <div class="small" style="opacity:.7;margin-left:20px;">${escAttr(t.desc)}</div>
+          <input type="checkbox" data-token="${escAttr(t.key)}" data-inv="${escAttr(t.invId)}" data-tag="${escAttr(t.tag||'')}" />
+          <b>${escAttr(t.label)}${t.tag?` — guarantees ${escAttr(t.tag)}`:''}</b> <span class="small" style="opacity:.75;">&times;${t.left}</span>
+          <div class="small" style="opacity:.7;margin-left:20px;">${t.tag?`Guarantees a <b>${escAttr(t.tag)}</b> foal when a parent carries it (Irish Lightblood & any breed that rolls it).`:escAttr(t.desc)}</div>
         </label>`).join("")}
         <div id="bcf_gender_pick" style="display:none;margin:6px 0 0 20px;">
           <select id="bcf_gender" style="padding:6px;background:var(--equi-ink);border:1px solid var(--equi-line);color:var(--equi-text);border-radius:5px;">
@@ -8957,6 +8991,7 @@ function showBreedingConfirm(sire, dam, onConfirm){
 
   const chosen=()=>[...overlay.querySelectorAll('[data-token]:checked')].map(cb=>{
     const t={key:cb.dataset.token, invId:cb.dataset.inv};
+    if(cb.dataset.tag) t.tag=cb.dataset.tag;
     if(t.key==="gender") t.gender=overlay.querySelector('#bcf_gender').value;
     return t;
   });
