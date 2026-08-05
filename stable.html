@@ -1158,7 +1158,7 @@ async function mergeShopInventory(userId, invDoc){
 
     const catIn=(c,list)=>list.map(x=>x.toLowerCase()).includes(String(c||'').toLowerCase());
     const isConsumable=e=>Number(e.usesLeft)>0 || e.singleUse===true || Number(e.discountValue)>0;
-    let added=0;
+    let added=0, updated=0;
     for(const e of items){
       if(isConsumable(e)) continue;                       // tokens/tickets stay in the saddlebag
       const hasStats = e.stats && Object.keys(e.stats).length>0;
@@ -1175,11 +1175,28 @@ async function mergeShopInventory(userId, invDoc){
       if(!isTack && !isApparel) continue;                  // not wearable
       const stableId = 'shop_' + (e.id || (e.source+'_'+e.itemId));
       const target   = isApparel ? state.attireInventory : state.tackInventory;
-      if(target.some(t=>t.id===stableId)) continue;        // already merged
       let cat = e.category || 'Other';
       const validList = isApparel ? SHOP_ATTIRE_CATS : SHOP_TACK_CATS;
       if(!catIn(cat, validList)) cat='Other';
       else cat=validList.find(x=>x.toLowerCase()===String(cat).toLowerCase());
+      const existing = target.find(t=>t.id===stableId);
+      if(existing){
+        // Already merged — refresh it from the saddlebag copy so an admin fix to
+        // this item (name / image / stats) shows up on the equipped gear too,
+        // instead of staying stale forever. Only rewrite when something changed.
+        const newImg = e.image||null;
+        const newName = e.name||existing.name;
+        const newStats = isApparel ? (existing.stats||{}) : (hasStats?e.stats:{});
+        const changed = existing.name!==newName || existing.image!==newImg || existing.category!==cat
+          || (isApparel ? (Number(existing.pp)||0)!==(Number(e.pp)||0)
+                        : ((Number(existing.exp)||0)!==(Number(e.exp)||0) || JSON.stringify(existing.stats||{})!==JSON.stringify(newStats)));
+        if(changed){
+          existing.name=newName; existing.image=newImg; existing.category=cat; existing.setId=e.setId||undefined;
+          if(isApparel){ existing.pp=Number(e.pp)||0; } else { existing.stats=newStats; existing.exp=Number(e.exp)||0; }
+          updated++;
+        }
+        continue;
+      }
       if(isApparel){
         target.push({ id:stableId, name:e.name||'Shop item', category:cat, image:e.image||null,
           stats:{}, pp:Number(e.pp)||0, fromShop:e.shopName||'a shop', setId:e.setId||undefined });
@@ -1189,7 +1206,7 @@ async function mergeShopInventory(userId, invDoc){
       }
       added++;
     }
-    if(added){ addLog(`Added ${added} shop-bought item${added===1?'':'s'} to your inventory.`); await save(); }
+    if(added || updated){ if(added) addLog(`Added ${added} shop-bought item${added===1?'':'s'} to your inventory.`); await save(); }
   }catch(err){ console.warn('[Stable] shop inventory merge skipped:', err && err.message || err); }
 }
 

@@ -295,6 +295,15 @@ async function boot(){
       <div id="a_itemResults" style="margin-top:10px;max-height:280px;overflow:auto;"></div>
       <div id="a_itemEditor" style="margin-top:14px;"></div>
     </div>
+
+    <div class="card">
+      <h3>Fix Items in Inventories <span class="small muted">(rewrite a broken item in EVERY player's saddlebag — global)</span></h3>
+      <p class="small muted" style="margin-top:0;">Fixing the shop/catalog above only changes <i>future</i> grants. Use this to correct copies players <b>already own</b> — typos, missing PNGs, wrong stats. Search the item's <b>current</b> name, set the corrected values, tick which fields to overwrite, then apply to everyone who holds it. Only items whose name matches are touched; nothing else in anyone's bag changes.</p>
+      <input id="a_inv_search" placeholder="Current item name to find in inventories…" style="max-width:360px;" />
+      <button id="a_inv_find" style="margin-left:6px;">Find in all inventories</button>
+      <div id="a_inv_status" class="small" style="margin-top:8px;min-height:1.2em;"></div>
+      <div id="a_inv_editor" style="margin-top:12px;"></div>
+    </div>
   `;
 
   // ---- Site Admins: dynamic list, load + add/remove ----
@@ -631,6 +640,108 @@ async function boot(){
       }
     };
   }
+
+  // ===== Fix Items in Inventories (global) =====
+  // Corrects an item that's already sitting in players' saddlebags: reads every
+  // inventory doc, matches items by their CURRENT name, overwrites the ticked
+  // fields with the corrected values, and writes each affected bag back. The
+  // inventory rule's admin branch permits this (and forces owner == the player's
+  // id, so an admin can fix a bag but never take it over).
+  (function initInvFixer(){
+    const searchEl = $("a_inv_search");
+    const findBtn  = $("a_inv_find");
+    const statusEl = $("a_inv_status");
+    const editorEl = $("a_inv_editor");
+    if(!findBtn) return;
+
+    let matches = [];   // [{docId, invDoc, item}] — every matching copy across all bags
+
+    findBtn.onclick = async ()=>{
+      const term = (searchEl.value||"").trim().toLowerCase();
+      editorEl.innerHTML = "";
+      matches = [];
+      if(!term){ statusEl.textContent = "Type the item's current name first."; return; }
+      statusEl.textContent = "Scanning every inventory…";
+      let docs = [];
+      try{ docs = await EquiDB.listAll('inventory'); }
+      catch(e){ statusEl.textContent = "Couldn't read inventories: " + (e && (e.message||e.code) || e); return; }
+      const players = new Set();
+      docs.forEach(inv=>{
+        const docId = inv.__id || inv.id;
+        if(!docId) return;
+        (Array.isArray(inv.items)?inv.items:[]).forEach(it=>{
+          if(it && String(it.name||"").trim().toLowerCase() === term){
+            matches.push({ docId, invDoc: inv, item: it });
+            players.add(docId);
+          }
+        });
+      });
+      if(!matches.length){ statusEl.textContent = `No saddlebag holds an item named "${searchEl.value.trim()}". Match is exact (case-insensitive) — check the spelling of the current name.`; return; }
+      statusEl.textContent = `Found ${matches.length} cop${matches.length===1?'y':'ies'} across ${players.size} player${players.size===1?'':'s'}.`;
+      renderInvEditor(term, matches.length, players.size);
+    };
+
+    function renderInvEditor(term, copyCount, playerCount){
+      // Prefill from the matching shop/catalog master (already fixed above) if
+      // there is one, else from the first matched copy.
+      const src = (allItems||[]).find(i=>String(i.name||'').trim().toLowerCase()===term) || matches[0].item;
+      const stats = src.stats || {};
+      editorEl.innerHTML = `
+        <div style="border:1px solid var(--equi-line,#333);border-radius:8px;padding:12px;">
+          <p class="small" style="margin-top:0;">This will overwrite <b>${copyCount}</b> cop${copyCount===1?'y':'ies'} in <b>${playerCount}</b> saddlebag${playerCount===1?'':'s'}. Tick only the fields you want changed — anything unticked is left exactly as each player has it.</p>
+          <label class="small" style="display:block;"><input type="checkbox" id="fi_do_name" /> Rename (fix typo)</label>
+          <input id="fi_name" value="${esc(src.name||matches[0].item.name||'')}" />
+          <label class="small" style="margin-top:8px;display:block;"><input type="checkbox" id="fi_do_image" checked /> Image URL (PNG)</label>
+          <input id="fi_image" value="${esc(src.image||src.imageUrl||'')}" placeholder="https://…" />
+          <label class="small" style="margin-top:8px;display:block;"><input type="checkbox" id="fi_do_stats" /> Stats (tack)</label>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${STATS.map(s=>`<div style="min-width:78px;"><label class="small">${STAT_LABELS[s]}</label><input type="number" id="fi_stat_${s}" value="${Number(stats[s])||0}" style="width:100%;padding:4px 6px;" /></div>`).join("")}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+            <div><label class="small"><input type="checkbox" id="fi_do_exp" /> EXP bonus</label><input id="fi_exp" type="number" value="${Number(src.exp)||0}" /></div>
+            <div><label class="small"><input type="checkbox" id="fi_do_pp" /> PP bonus</label><input id="fi_pp" type="number" value="${Number(src.pp)||0}" /></div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button id="fi_apply">Apply to all ${copyCount} cop${copyCount===1?'y':'ies'}</button>
+            <span id="fi_apply_status" class="small"></span>
+          </div>
+        </div>`;
+
+      $("fi_apply").onclick = async ()=>{
+        const doName=$("fi_do_name").checked, doImage=$("fi_do_image").checked,
+              doStats=$("fi_do_stats").checked, doExp=$("fi_do_exp").checked, doPp=$("fi_do_pp").checked;
+        if(!doName && !doImage && !doStats && !doExp && !doPp){ $("fi_apply_status").textContent = "Tick at least one field to change."; return; }
+        const nameVal=$("fi_name").value.trim(), imageVal=$("fi_image").value.trim();
+        const statsVal={}; STATS.forEach(s=>{ const v=Number($("fi_stat_"+s).value)||0; if(v) statsVal[s]=v; });
+        const expVal=Number($("fi_exp").value)||0, ppVal=Number($("fi_pp").value)||0;
+        // one write per bag, even if a bag holds several matching copies
+        const byDoc=new Map();
+        matches.forEach(m=>{ if(!byDoc.has(m.docId)) byDoc.set(m.docId, m.invDoc); });
+        let okDocs=0, failDocs=0, fixedItems=0;
+        $("fi_apply_status").textContent = "Applying…";
+        for(const [docId, invDoc] of byDoc){
+          const items=Array.isArray(invDoc.items)?invDoc.items:[];
+          items.forEach(it=>{
+            if(!it || String(it.name||"").trim().toLowerCase() !== term) return;
+            if(doImage){ it.image=imageVal; it.imageUrl=imageVal; }
+            if(doStats){ it.stats={...statsVal}; }
+            if(doExp){ it.exp=expVal; }
+            if(doPp){ it.pp=ppVal; }
+            if(doName){ it.name=nameVal; }   // rename LAST so the match above still works
+            fixedItems++;
+          });
+          try{
+            // owner MUST stay the player's id (== doc id); the rule enforces it too.
+            const ok = await EquiDB.put('inventory', docId, docId, { id:docId, items });
+            ok ? okDocs++ : failDocs++;
+          }catch(e){ failDocs++; console.error('[Admin] inventory fix failed for', docId, e); }
+        }
+        $("fi_apply_status").textContent = `Fixed ${fixedItems} item${fixedItems===1?'':'s'} in ${okDocs} bag${okDocs===1?'':'s'}`
+          + (failDocs?`, ${failDocs} failed — see console.`:`. Players see it next time they load.`);
+        matches = [];   // force a fresh scan before another apply
+      };
+    }
+  })();
 }
 
 boot();
