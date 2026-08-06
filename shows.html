@@ -272,6 +272,7 @@
   <button class="small" id="publishShow" type="button" title="Put this show on the public board (or update it there)">Publish / update</button>
   <button class="ghost small" id="unpublishShow" type="button" title="Remove this show from the public board">Unpublish</button>
   <span class="small muted" id="saveStatus" style="width:100%;text-align:right"></span>
+  <div class="small" id="showDiscLine" style="width:100%;opacity:.85"></div>
 </div>
 <!-- 01 -->
 <section class="step">
@@ -1402,17 +1403,25 @@ function renderShowBar(saved){
   const sel=$("showPicker"); if(!sel) return;
   const store=loadStore();
   const ids=Object.keys(store.shows).sort((a,b)=>(store.shows[b].savedAt||0)-(store.shows[a].savedAt||0));
-  const pickLabel = s=>{
-    const title = esc(s.title||"Untitled");
-    // A multi-class show has more than one class — don't pin a single discipline
-    // to it; say "multi-class". A single-discipline show keeps its discipline.
-    if(Array.isArray(s.classes) && s.classes.length > 1) return `${title} · multi-class`;
-    const disc = s.discipline || (Array.isArray(s.classes) && s.classes[0] && s.classes[0].discipline);
-    return disc ? `${title} · ${esc(disc)}` : title;
+  const pickLabel = meta=>{
+    // The store keeps the full show nested under .show; the top level only has
+    // title/discipline, so multi-class detection has to look inside .show.
+    const s = (meta && meta.show) || meta || {};
+    const title = esc((meta && meta.title) || s.title || "Untitled");
+    const discs = [...new Set(showClasses(s).map(c=>c.discipline).filter(Boolean))];
+    if(discs.length > 1) return `${title} · multi-class`;
+    return discs[0] ? `${title} · ${esc(discs[0])}` : title;
   };
   sel.innerHTML = ids.length
     ? ids.map(id=>`<option value="${id}" ${id===show.id?"selected":""}>${pickLabel(store.shows[id])}</option>`).join("")
     : `<option>(this show)</option>`;
+  // Under the picker, spell out every discipline in a multi-class show so the
+  // "· multi-class" label above isn't the only clue to what's inside.
+  const discLine = $("showDiscLine");
+  if(discLine){
+    const discs = [...new Set(showClasses(show).map(c=>c.discipline).filter(Boolean))];
+    discLine.innerHTML = discs.length > 1 ? `<b>Classes:</b> ${discs.map(esc).join(" · ")}` : "";
+  }
   const st=$("saveStatus");
   if(st) st.textContent = saved===false ? "Couldn't save — private window?" : "Saved in this browser";
 }
