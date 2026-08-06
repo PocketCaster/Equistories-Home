@@ -1583,17 +1583,37 @@ async function renderMembers(v){
   const drawList = ()=>{
     if(__membersBrowse === 'horses'){
       const sorted = horses.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
-      $("mList").innerHTML = `<h3 style="margin-top:0;">All Horses (${horses.length})</h3>` + (sorted.length ? sorted.map(h=>
-        `<a class="linkbox" href="${__APPS.stable}?horse=${encodeURIComponent(h.id)}" target="_blank" style="display:block;"><b>${__esc(h.name||'Unnamed')}</b>
-         <span class="small muted">${__esc(h.breed||'—')}${h.__owner?` · ${__esc(h.__owner)}`:''}${h.level?` · Lv ${h.level}`:''}</span></a>`).join("")
+      const tile = h=>{
+        const photo = imgOk(h.profileImage) ? h.profileImage : (imgOk(h.image) ? h.image : '');
+        return `<a class="linkbox" href="${__APPS.stable}?horse=${encodeURIComponent(h.id)}" target="_blank" style="display:block;padding:0;overflow:hidden;">
+          ${photo
+            ? `<div style="aspect-ratio:1;overflow:hidden;"><img src="${__esc(photo)}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;" /></div>`
+            : `<div style="aspect-ratio:1;background:var(--deep,#2a2015);display:flex;align-items:center;justify-content:center;font-size:2.4em;color:var(--dim,#6a5a44);">&#128052;</div>`}
+          <div style="padding:9px 11px;">
+            <div style="font-weight:bold;color:var(--text,#f0d9a0);">${__esc(h.name||'Unnamed')}</div>
+            <div class="small muted">${__esc(h.breed||'—')}${h.level?` &middot; Lv ${h.level}`:''}${h.__owner?`<br>${__esc(h.__owner)}`:''}</div>
+          </div></a>`;
+      };
+      $("mList").innerHTML = `<h3 style="margin-top:0;">All Horses (${horses.length})</h3>` + (sorted.length
+        ? `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;">${sorted.map(tile).join("")}</div>`
         : `<span class="muted">No horses yet.</span>`);
       return;
     }
     if(__membersBrowse === 'riders'){
       const sorted = riders.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
-      $("mList").innerHTML = `<h3 style="margin-top:0;">All Riders (${riders.length})</h3>` + (sorted.length ? sorted.map(r=>
-        `<a class="linkbox" href="${__APPS.stable}?rider=${encodeURIComponent(r.id)}" target="_blank" style="display:block;"><b>${__esc(r.name||'Unnamed')}</b>
-         <span class="small muted">${r.__owner?`${__esc(r.__owner)}`:''}</span></a>`).join("")
+      const tile = r=>{
+        const photo = imgOk(r.profileImage) ? r.profileImage : (imgOk(r.image) ? r.image : '');
+        return `<a class="linkbox" href="${__APPS.stable}?rider=${encodeURIComponent(r.id)}" target="_blank" style="display:block;padding:0;overflow:hidden;">
+          ${photo
+            ? `<div style="aspect-ratio:1;overflow:hidden;"><img src="${__esc(photo)}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;" /></div>`
+            : `<div style="aspect-ratio:1;background:var(--deep,#2a2015);display:flex;align-items:center;justify-content:center;font-size:2.4em;color:var(--dim,#6a5a44);">&#128100;</div>`}
+          <div style="padding:9px 11px;">
+            <div style="font-weight:bold;color:var(--text,#f0d9a0);">${__esc(r.name||'Unnamed')}</div>
+            <div class="small muted">${r.__owner?`${__esc(r.__owner)}`:'—'}</div>
+          </div></a>`;
+      };
+      $("mList").innerHTML = `<h3 style="margin-top:0;">All Riders (${riders.length})</h3>` + (sorted.length
+        ? `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;">${sorted.map(tile).join("")}</div>`
         : `<span class="muted">No riders yet.</span>`);
       return;
     }
