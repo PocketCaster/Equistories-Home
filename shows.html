@@ -299,7 +299,10 @@
           <option value="base">Base — training only</option>
           <option value="effective">Effective — tack counts</option>
         </select></div>
-      <div><label for="f_ceil">Peak stat — competition level</label>
+      <div id="bracketWrap"><label for="f_bracket">Class level — stat bracket</label>
+        <select id="f_bracket"></select>
+        <div class="small muted" id="f_bracketNote" style="margin-top:4px"></div></div>
+      <div><label for="f_ceil">Peak stat <span class="small muted">(timed races only)</span></label>
         <input id="f_ceil" type="number" value="20" min="10" />
         <div id="f_levels" class="row" style="gap:4px;margin-top:5px;flex-wrap:wrap"></div></div>
       <div id="raceWrap" class="hide"><label for="f_race">Distance</label><select id="f_race"></select></div>
@@ -691,8 +694,68 @@ function rubricBreakdownHtml(criteria, presetName){
 }
 
 const statsFor = (e,show)=> show.statSource==="effective" ? e.effectiveStats : e.baseStats;
+
+// ─── TWO-AXIS STAT COMPETITION (bracket + training-done) ──────────────────
+//  DIVISION  = a horse's CURRENT discipline-stat average → a 10-wide bracket.
+//              This is where BREEDING pays: a high-born horse starts higher and
+//              reaches each bracket on less art.
+//  PLACEMENT = TRAINING DONE (current − birth base) averaged over the
+//              discipline's stats. This is where ART wins ribbons: a green,
+//              well-bred foal has done no training, so it scores ~0 and loses to
+//              horses that actually logged the work.
+//  A class carries `bracket` = its floor (10…150; 150 = Olympian, open-topped).
+//  A finite bracket switches the class into this model; older invites without
+//  one keep the legacy peak-scaled ladder (statTierPoints) untouched.
+const BASE_STAT      = 10;    // every horse starts here; foals inherit parent averages
+const STAT_BRACKET_W = 10;
+const OLYMPIAN_MIN   = 150;
+// Non-overlapping NAME labels laid over groups of brackets — flavour for tiles.
+const STAT_TIER_NAMES = [
+  {min:10,  name:"Entry"},    {min:40,  name:"Medial"},   {min:70,  name:"Abante"},
+  {min:100, name:"Masters"},  {min:130, name:"Suzerain"}, {min:150, name:"Olympian"},
+];
+function bracketMinOf(avg){ return avg>=OLYMPIAN_MIN ? OLYMPIAN_MIN : Math.max(BASE_STAT, Math.floor(avg/STAT_BRACKET_W)*STAT_BRACKET_W); }
+function tierNameOf(min){ let n="Entry"; for(const t of STAT_TIER_NAMES){ if(min>=t.min) n=t.name; } return n; }
+function bracketRange(min){ return min>=OLYMPIAN_MIN ? "150+" : `${min}–${min+STAT_BRACKET_W}`; }
+function bracketLabel(min){ return `${tierNameOf(min)} · ${bracketRange(min)}`; }
+function allBrackets(){ const out=[]; for(let m=BASE_STAT;m<OLYMPIAN_MIN;m+=STAT_BRACKET_W) out.push(m); out.push(OLYMPIAN_MIN); return out; }
+function usesBracket(show){ return !!(show && Number.isFinite(Number(show.bracket))); }
+// Birth base a horse started from (before any art); falls back to BASE_STAT for
+// horses from before birth stats were tracked.
+function birthBase(entry, s){
+  return (entry.birthStats && Number.isFinite(Number(entry.birthStats[s]))) ? Number(entry.birthStats[s]) : BASE_STAT;
+}
+function trainingDoneStat(entry, s, show){ return Math.max(0, (statsFor(entry,show)[s]||0) - birthBase(entry,s)); }
+function disciplineCurrentAvg(entry, show){
+  const st=DISCIPLINES[show.discipline].stats, src=statsFor(entry,show);
+  return st.length ? st.reduce((n,s)=>n+(src[s]||0),0)/st.length : 0;
+}
+function disciplineTrainingAvg(entry, show){
+  const st=DISCIPLINES[show.discipline].stats;
+  return st.length ? st.reduce((n,s)=>n+trainingDoneStat(entry,s,show),0)/st.length : 0;
+}
+// SUM of training done — used as the actual placement score. For a stats-only
+// show this ranks identically to the average, but on a combined art+stats show
+// it sits on the same scale as the art points (a sum), so neither side swamps
+// the other — mirroring the legacy stat-sum it replaces.
+function disciplineTrainingSum(entry, show){
+  const st=DISCIPLINES[show.discipline].stats;
+  return st.reduce((n,s)=>n+trainingDoneStat(entry,s,show),0);
+}
+// The bracket a horse belongs in for this show's discipline (by CURRENT avg).
+function entryBracket(entry, show){ return bracketMinOf(disciplineCurrentAvg(entry, show)); }
+// Is this horse eligible for a class of the given bracket floor?
+function bracketEligible(entry, show, bracketFloor){
+  if(!Number.isFinite(Number(bracketFloor))) return true;
+  return entryBracket(entry, show) === Number(bracketFloor);
+}
+
 function statTierPoints(v, tiers=DEFAULT_TIERS){ for(const t of tiers){ if(v>=t.min) return t.pts; } return 0; }
 function statScore(entry, show){
+  // New model: placement is TRAINING DONE (breeding sets the division, art wins).
+  // Summed so it scales like the art points on a combined art+stats show.
+  if(usesBracket(show)) return +disciplineTrainingSum(entry, show).toFixed(2);
+  // Legacy peak-scaled ladder for older invites that never carried a bracket.
   const src = statsFor(entry, show);
   return DISCIPLINES[show.discipline].stats.reduce((n,s)=> n + statTierPoints(src[s]||0, showTiers(show)), 0);
 }
@@ -715,6 +778,11 @@ function judgeCoverage(entry, judges){
   const scored = eligible.filter(j=> entry.scores?.[j.id] && Object.keys(entry.scores[j.id]).length);
   return {eligible:eligible.length, scored:scored.length};
 }
+// Combined bracket shows: ART is only ever a BONUS on top of TRAINING DONE,
+// capped here so effort always outweighs artistic skill. A horse whose owner
+// simply trained it more beats a lesser-trained horse drawn by a better artist —
+// the even playing field the game is built on. Tune this one number to taste.
+const ART_BONUS_MAX = 10;
 function judgedScore(entry, show){
   const judges = show.judges?.length ? show.judges : [{id:"host",name:"Host",owns:[]}];
   return (show.criteria||[]).reduce((n,c)=> n + criterionScore(entry,c,judges), 0);
@@ -724,8 +792,14 @@ function scoreEntry(entry, show){
   // Only the parts this show is actually judged on contribute.
   const ss = r.stats ? statScore(entry, show) : 0;
   const judged = r.judged ? judgedScore(entry, show) : 0;
+  // Bracket + stats: training done is the score; art (if judged) is a capped bonus.
+  if(usesBracket(show) && r.stats){
+    const artMax = (show.criteria||[]).reduce((n,c)=> n+Number(c.max||0),0);
+    const artBonus = (r.judged && artMax>0) ? +((judged/artMax)*ART_BONUS_MAX).toFixed(2) : 0;
+    return {statScore:ss, judged:+judged.toFixed(2), artBonus, total:+(ss+artBonus).toFixed(2)};
+  }
   const earned = ss + judged;
-  if(show.ranking === "percent"){
+  if(show.ranking === "percent" && !usesBracket(show)){
     const possible = (r.stats ? DISCIPLINES[show.discipline].stats.length*10 : 0)
                    + (r.judged ? (show.criteria||[]).reduce((n,c)=> n+Number(c.max||0),0) : 0);
     return {statScore:ss, judged:+judged.toFixed(2), total:+((earned/(possible||1))*100).toFixed(3)};
@@ -777,8 +851,9 @@ function runShow(show, entries){
     for(const cls of classes){
       const view = classView(cls, show);
       const sub  = entries.filter(e=> (e.classId||classes[0].id)===cls.id);
+      const bl = usesBracket(view) ? " · "+bracketLabel(view.bracket) : "";
       rankScored(view, sub).forEach(r=> results.push(
-        {...r, classId:cls.id, className:cls.discipline, classRanking:view.ranking}));
+        {...r, classId:cls.id, className:cls.discipline+bl, classRanking:view.ranking}));
     }
     return {mode:"scored", multi:true, results};
   }
@@ -824,7 +899,7 @@ function b64decode(str){
 function encodeShow(show){
   return b64encode({
     v:1, i:show.id, t:show.title, d:show.discipline, c:show.closesAt,
-    s:show.statSource, l:show.statCeil, r:show.raceType, b:show.blind ? 1 : 0,
+    s:show.statSource, l:show.statCeil, bk:show.bracket, r:show.raceType, b:show.blind ? 1 : 0,
     p:show.preset, m:(show.mailbox && show.mailbox !== DEFAULT_MAILBOX) ? show.mailbox : undefined,
     z: (show.prize && prizeCommitted(show)>0) ? { s:show.prize.splits } : undefined,
     rb: (show.ribbons && (show.ribbons.tiers||[]).length)
@@ -832,7 +907,7 @@ function encodeShow(show){
     aw: (show.awards||[]).length
         ? show.awards.map(a=>({id:a.id, t:a.title, i:a.image||""})) : undefined,
     cls: multiClass(show)
-        ? showClasses(show).map(c=>({id:c.id, d:c.discipline})) : undefined,
+        ? showClasses(show).map(c=>({id:c.id, d:c.discipline, bk:c.bracket})) : undefined,
     st: show.status==="closed" ? 1 : undefined,
     x: RUBRIC_PRESETS[show.preset] === show.criteria ? undefined : show.criteria,
   });
@@ -843,7 +918,7 @@ function decodeShow(code){
   const preset = d.p in RUBRIC_PRESETS ? d.p : Object.keys(RUBRIC_PRESETS)[0];
   const show = {
     id:d.i, title:d.t, discipline:d.d, closesAt:d.c,
-    statSource:d.s, statCeil:d.l, raceType:d.r, blind:!!d.b,
+    statSource:d.s, statCeil:d.l, bracket:d.bk, raceType:d.r, blind:!!d.b,
     preset, criteria: d.x || RUBRIC_PRESETS[preset],
     mailbox: d.m || DEFAULT_MAILBOX,
     prize: d.z ? { splits:d.z.s||[] }
@@ -851,7 +926,7 @@ function decodeShow(code){
     ribbons: d.rb ? { tiers:d.rb.t||[] } : { tiers:[] },
     awards: (d.aw||[]).map(a=>({ id:a.id||("aw_"+Math.random().toString(36).slice(2,8)),
                                  title:a.t||"Award", image:a.i||"" })),
-    classes: d.cls ? d.cls.map(c=>({id:c.id, discipline:c.d})) : undefined,
+    classes: d.cls ? d.cls.map(c=>({id:c.id, discipline:c.d, bracket:c.bk})) : undefined,
     status: d.st===1 ? "closed" : "open",
     judges:[{id:"j_host", name:"Host", owns:[]}],
   };
@@ -1117,7 +1192,7 @@ function trainingEvidence(horse, stats){
 function showClasses(s){
   s = s || show;
   return (Array.isArray(s.classes) && s.classes.length)
-    ? s.classes : [{id:"c_main", discipline:s.discipline}];
+    ? s.classes : [{id:"c_main", discipline:s.discipline, bracket:s.bracket}];
 }
 function multiClass(s){ return showClasses(s).length > 1; }
 function classOf(entry, s){
@@ -1127,8 +1202,9 @@ function classOf(entry, s){
 // A view of the show as one class sees it — safe to hand to any scorer.
 function classView(cls, s){
   s = s || show;
-  if(cls.discipline===s.discipline) return s;
-  return {...s, discipline:cls.discipline, ranking:DISCIPLINES[cls.discipline].ranking||"sum"};
+  const bracket = Number.isFinite(Number(cls.bracket)) ? Number(cls.bracket) : s.bracket;
+  return { ...s, discipline:cls.discipline, bracket,
+           ranking: cls.discipline===s.discipline ? s.ranking : (DISCIPLINES[cls.discipline].ranking||"sum") };
 }
 function entryView(entry, s){ return classView(classOf(entry, s), s); }
 
@@ -1159,7 +1235,7 @@ function freshShow(){
     hostId:"",                 // bank userId of the host (stamped on first save)
     title:"", discipline:"Fox Hunting", closesAt:"2026-03-31",
     judging:"art_stats",
-    statSource:"base", statCeil:20, raceType:"1 Mile",
+    statSource:"base", statCeil:20, bracket:10, raceType:"1 Mile",
     blind:true, preset:"Brief-weighted (recommended)",
     mailbox:DEFAULT_MAILBOX,
     prize:{ splits:[{place:1,amount:0},{place:2,amount:0},{place:3,amount:0}] },
@@ -1468,6 +1544,9 @@ function snapshot(h){
   for(const k in bonus) effective[k]=(effective[k]||0)+bonus[k];
   return {id:h.id, name:h.name||"Unnamed", breed:h.breed||"", level:h.level||1,
     baseStats:base, tackBonus:bonus, effectiveStats:effective,
+    // The horse's BIRTH base (parent-average for foals, 10 for wild-bred). Training
+    // done = current − this, so a class can place on art logged, not pedigree.
+    birthStats: {...(h.baseStats||{})},
     equipment:equippedItems,   // frozen list of what was worn at entry time
     // Owner's bank userId, if the stable exposes it — this is who prize buxx goes to.
     ownerBankId: h.ownerId || h.userId || h.owner || "",
@@ -1494,6 +1573,13 @@ function renderSetup(){
   $("f_closes").value = show.closesAt;
   $("f_ceil").value = show.statCeil;
   $("f_src").value = show.statSource;
+  // Class-level bracket picker — the stat DIVISION (10–20 … 150+).
+  const brSel=$("f_bracket");
+  if(brSel){
+    if(!Number.isFinite(Number(show.bracket))) show.bracket=10;
+    brSel.innerHTML = allBrackets().map(m=>`<option value="${m}"${Number(show.bracket)===m?" selected":""}>${esc(bracketLabel(m))}</option>`).join("");
+    brSel.value = String(show.bracket);
+  }
 
   // Fields follow the JUDGING BASIS now, not the discipline. A stats-only or
   // pure-luck show has no rubric, no judging panel and no artwork to collect;
@@ -1513,8 +1599,10 @@ function renderSetup(){
   $("judgeStep").classList.toggle("hide", !rules.judged);
   const srcWrap=document.getElementById("srcWrap");
   if(srcWrap) srcWrap.classList.toggle("hide", !rules.stats);
+  const brWrap=document.getElementById("bracketWrap");
+  if(brWrap) brWrap.classList.toggle("hide", !(rules.stats && !timed));
   const ceilWrap=$("f_ceil") && $("f_ceil").closest("div");
-  if(ceilWrap) ceilWrap.classList.toggle("hide", !rules.stats);
+  if(ceilWrap) ceilWrap.classList.toggle("hide", !timed);   // peak stat is now only the race-bonus cap
   // Quick competition-level presets — each just sets the peak (statCeil), which
   // rescales the whole stat ladder.
   const lvHost=$("f_levels");
@@ -1544,9 +1632,10 @@ function renderSetup(){
     : `Scored on ${multiClass()
         ? showClasses().map(c=>`<b>${esc(c.discipline)}</b>: <span class="mono">${DISCIPLINES[c.discipline].stats.join(" · ")}</span>`).join(" — ")
         : `<span class="mono">${stats.join(" · ")}</span>`} from <b>base stats only</b>. Tack is shown, never counted.`;
-  if(rules.stats){
-    const lad=showTiers(show).filter(t=>t.pts>0).map(t=>`${t.min}+&rarr;${t.pts}`).join(" · ");
-    $("statNote").innerHTML += `<div class="small" style="margin-top:6px">Peak <b>${show.statCeil}</b> earns full marks per stat. Ladder: <span class="mono">${lad}</span>. Raise the peak for higher-tier shows so strong horses spread out instead of all tying at the top.</div>`;
+  if(rules.stats && !timed){
+    const bn=$("f_bracketNote");
+    if(bn) bn.innerHTML = `Only horses whose <b>current ${DISCIPLINES[show.discipline].stats.length>1?'average ':''}stat</b> in this discipline sits in <b>${bracketRange(show.bracket)}</b> may enter. Placement is by <b>training done</b> — how far each horse trained above its birth stats — so a green, well-bred horse scores low and can't out-place one that logged the art.`;
+    $("statNote").innerHTML += `<div class="small" style="margin-top:6px">This is a <b>${bracketLabel(show.bracket)}</b> class. Breeding sets which bracket a horse lands in; <b>art wins the ribbon</b> inside it. Over-train past the bracket and the horse must enter a higher one.</div>`;
   }
 
   $("blindNote").className = "note" + (show.blind ? " good" : " warn");
@@ -1559,8 +1648,15 @@ function renderSetup(){
 function critMax(){ return show.criteria.reduce((n,c)=>n+c.max,0); }
 
 function statLine(e, disc){
-  return DISCIPLINES[disc||show.discipline].stats.map(s=>{
+  disc = disc||show.discipline;
+  const bk = usesBracket(show);
+  return DISCIPLINES[disc].stats.map(s=>{
     const b=e.baseStats[s]||0, t=e.tackBonus[s]||0;
+    if(bk){
+      const birth=(e.birthStats && Number.isFinite(Number(e.birthStats[s]))) ? Number(e.birthStats[s]) : BASE_STAT;
+      const done=Math.max(0, b-birth);
+      return `${s} <span class="v">${b}</span><span class="bonus" title="birth ${birth} → trained +${done}">(+${done} trained)</span>`;
+    }
     return `${s} <span class="v">${b}</span>${t?`<span class="bonus">(+${t})</span>`:""}`;
   }).join("  ");
 }
@@ -1591,7 +1687,7 @@ function renderEntries(){
           ${(e.equipment&&e.equipment.length)?`<div class="small" style="color:var(--amber);margin-top:4px">🎽 Equipment at entry: ${e.equipment.map(x=>esc(x.name)).join(", ")}</div>`:""}
           ${e.tampered?`<div class="small" style="color:var(--amber);margin-top:6px">⚠ Stats changed after this entry was submitted.</div>`:""}
         </div>
-        <div class="pts"><b>${statScore(e,view)}</b><div class="small muted">of ${stats.length*10} stat pts</div>
+        <div class="pts"><b>${statScore(e,view)}</b><div class="small muted">${usesBracket(view)?`training done · ${bracketLabel(view.bracket)}`:`of ${stats.length*10} stat pts`}</div>
           <button class="ghost danger small" data-rm="${esc(e.id)}" type="button" style="margin-top:8px">Withdraw</button></div>
       </div>
       <div class="grid" style="margin-top:10px">
@@ -1723,29 +1819,42 @@ function renderResults(){
     const win = e.placement===1;
     const right = mode==="timed"
       ? `<div class="clock">${clock(e.finalSec)}</div><div class="delta">${win?"—":"+"+(e.finalSec-best.finalSec).toFixed(3)}</div>`
-      : `<div class="clock">${rank==="percent"?e.total.toFixed(3)+"%":e.total}</div><div class="delta">${e.statScore} stat · ${e.judged} art</div>`;
+      : `<div class="clock">${rank==="percent"?e.total.toFixed(3)+"%":e.total}</div><div class="delta">${usesBracket(show)?`${e.statScore} trained${usesJudges(show)?` + ${e.artBonus||0} art bonus`:""}`:`${e.statScore} stat${usesJudges(show)?` · ${e.judged} art`:""}`}</div>`;
 
     let sub = "";
     if(mode==="scored"){
-      const rowView = {...show, discipline: e.className || show.discipline};
+      const rowCls  = showClasses(show).find(c=>c.id===e.classId) || showClasses(show)[0];
+      const rowView = classView(rowCls, show);
       const bits = [];
-      // Stat side: show each discipline stat, its value, and the tier points it
-      // earned — the stat "rubric" and how it was met. Only when stats are scored.
+      // Stat side: only when stats are scored.
       if(usesStats(show)){
-        const src   = statsFor(e, rowView);
-        const tiers = showTiers(rowView);
         const stats = DISCIPLINES[rowView.discipline].stats;
-        const parts = stats.map(s=>{
-          const v = src[s]||0;
-          return `${s.toLowerCase()} ${v} → <b>${statTierPoints(v,tiers)}</b>`;
-        }).join(" · ");
-        bits.push(`<div class="breakdown"><b>stats</b> · ${parts} &nbsp;—&nbsp; ${e.statScore} of ${stats.length*10} pts</div>`);
+        if(usesBracket(rowView)){
+          // Training-done breakdown: birth base → current per stat, and the
+          // training-done average the placing was actually decided on.
+          const parts = stats.map(s=>{
+            const cur = statsFor(e, rowView)[s]||0;
+            const birth = (e.birthStats && Number.isFinite(Number(e.birthStats[s]))) ? Number(e.birthStats[s]) : BASE_STAT;
+            return `${s.toLowerCase()} ${birth}→${cur} <b>(+${Math.max(0,cur-birth)})</b>`;
+          }).join(" · ");
+          const cur = disciplineCurrentAvg(e, rowView), trained = disciplineTrainingSum(e, rowView);
+          bits.push(`<div class="breakdown"><b>${esc(bracketLabel(rowView.bracket))}</b> · current avg ${cur.toFixed(1)} — placed on <b>${trained.toFixed(1)} training done</b><br><span class="small muted">birth→now: ${parts}</span></div>`);
+        } else {
+          const src   = statsFor(e, rowView);
+          const tiers = showTiers(rowView);
+          const parts = stats.map(s=>{
+            const v = src[s]||0;
+            return `${s.toLowerCase()} ${v} → <b>${statTierPoints(v,tiers)}</b>`;
+          }).join(" · ");
+          bits.push(`<div class="breakdown"><b>stats</b> · ${parts} &nbsp;—&nbsp; ${e.statScore} of ${stats.length*10} pts</div>`);
+        }
       }
       // Art side: the judged criteria, medianed across the panel. Only when judged.
       if(usesJudges(show)){
         const cov   = judgeCoverage(e, show.judges);
         const parts = show.criteria.map(c=>`${c.label.split(" ")[0].toLowerCase()} <b>${criterionScore(e,c,show.judges)}</b>`).join(" · ");
-        bits.push(`<div class="breakdown"><b>art</b> · ${parts} &nbsp;—&nbsp; median of ${cov.scored} judge${cov.scored===1?"":"s"}${cov.eligible<show.judges.length?" (conflict excluded)":""}</div>`);
+        const bonusNote = usesBracket(rowView) ? ` &nbsp;→&nbsp; <b>+${e.artBonus||0}</b> bonus (art caps at +${ART_BONUS_MAX}, never outweighs training)` : "";
+        bits.push(`<div class="breakdown"><b>art</b> · ${parts} &nbsp;—&nbsp; median of ${cov.scored} judge${cov.scored===1?"":"s"}${cov.eligible<show.judges.length?" (conflict excluded)":""}${bonusNote}</div>`);
       }
       sub = bits.join("");
     }
@@ -1767,24 +1876,29 @@ function renderResults(){
         Fixed the moment entries closed. Re-run it as often as you like — it lands the same way.
       </div>`
     : (()=>{
-        const usesS=usesStats(show), usesJ=usesJudges(show);
+        const usesS=usesStats(show), usesJ=usesJudges(show), bk=usesBracket(show);
         const tiers=showTiers(show);
         const tierLegend=tiers.filter(t=>t.pts>0).map(t=>`${t.min}+ → ${t.pts}`).join(" · ");
         const totalDesc = mode==="random" ? "a random draw"
+                        : bk && usesS && usesJ ? "training done + a capped art bonus"
+                        : bk && usesS ? "training done"
                         : usesS && usesJ ? "stat points + art points"
                         : usesS ? "stat points"
                         : "art points";
         const closing = mode==="random"
               ? "Placings were drawn at random — stats and art were ignored."
+              : bk && usesS
+              ? `Horses competed in their stat bracket (set by current stats), but placings went to TRAINING DONE — how far each horse trained above its birth stats.${usesJ?` Art was only a small bonus on top (capped at +${ART_BONUS_MAX}), so a horse that trained more always beats a lesser-trained one drawn by a better artist.`:""} Breeding sets the class; effort wins the ribbon.`
               : usesS && usesJ
               ? "Stats came from each horse's training log; judges scored only the art."
               : usesS
               ? "Placings are the horses' stats in this discipline — no artwork, no judging panel."
               : "Placings are the judges' scores of the artwork.";
         return `<div class="verify">
-        ${published.multi?`<b>classes</b> ${showClasses().map(c=>esc(c.discipline)).join(" · ")} — each class is ranked on its own; placements, ribbons and prizes are per class<br>`:""}
-        <b>total</b> ${totalDesc}${(mode!=="random" && !published.multi && show.ranking==="percent")?", as a percentage of everything available":""}<br>
-        ${usesS?`<b>stats</b> each discipline stat scored on tiers ${tierLegend} — up to 10 per stat<br>`:""}
+        ${published.multi?`<b>classes</b> ${showClasses().map(c=>esc(c.discipline)+(usesBracket(classView(c,show))?` (${bracketLabel(classView(c,show).bracket)})`:"")).join(" · ")} — each class is ranked on its own; placements, ribbons and prizes are per class<br>`:""}
+        <b>total</b> ${totalDesc}${(mode!=="random" && !published.multi && show.ranking==="percent" && !bk)?", as a percentage of everything available":""}<br>
+        ${usesS && bk?`<b>division</b> a horse enters the 10-wide bracket its current discipline-stat average lands in — over-train past it and it moves up<br><b>placing</b> training done (current − birth base) averaged across the discipline's stats — a green well-bred horse scores ~0<br>`
+          :usesS?`<b>stats</b> each discipline stat scored on tiers ${tierLegend} — up to 10 per stat<br>`:""}
         ${usesJ?`<b>art</b> ${critMax()} available · craft worth ${show.criteria.find(c=>c.key==="craft")?.max ?? 0}<br>`:""}
         ${usesJ?`<b>panel</b> ${show.judges.map(j=>esc(j.name)).join(", ")} · each criterion is the median, not the mean<br>`:""}
         ${usesJ?`<b>judged</b> ${show.blind?"blind — names revealed only now":"names were visible to judges"}<br>`:""}
@@ -1983,6 +2097,7 @@ const invalidate = ()=>{ published=null; persistSoon(); };
 $("f_title").oninput  = e => { show.title=e.target.value; persistSoon(); renderInvite(); };
 $("f_closes").onchange= e => { show.closesAt=e.target.value; invalidate(); renderResults(); };
 $("f_ceil").onchange  = e => { show.statCeil=Math.max(10,Number(e.target.value)||20); invalidate(); renderAll(); };
+$("f_bracket").onchange = e => { show.bracket=Number(e.target.value)||10; invalidate(); renderAll(); };
 $("f_src").onchange   = e => { show.statSource=e.target.value; invalidate(); renderAll(); };
 $("f_race").onchange  = e => { show.raceType=e.target.value; invalidate(); renderAll(); };
 $("f_blind").onchange = e => { show.blind=e.target.checked; invalidate(); renderAll(); };
@@ -2554,12 +2669,14 @@ function renderClasses(){
   const scored = Object.keys(DISCIPLINES).filter(d=>DISCIPLINES[d].mode!=="timed");
   list.innerHTML = cls.slice(1).map((c,i)=>`
     <div class="row" style="margin-top:8px;align-items:flex-end">
-      <div style="flex:1;min-width:200px"><label class="small">Class ${i+2} discipline</label>
+      <div style="flex:1;min-width:170px"><label class="small">Class ${i+2} discipline</label>
         <select data-cls="${i+1}">${scored.map(d=>`<option ${d===c.discipline?"selected":""}>${esc(d)}</option>`).join("")}</select></div>
+      <div style="flex:1;min-width:150px"><label class="small">Level (bracket)</label>
+        <select data-clsbk="${i+1}">${allBrackets().map(m=>`<option value="${m}" ${Number(c.bracket ?? show.bracket)===m?"selected":""}>${esc(bracketLabel(m))}</option>`).join("")}</select></div>
       <button class="ghost danger small" data-clsdel="${i+1}" type="button">Remove</button>
     </div>`).join("")
     + `<div class="note" style="margin-top:10px">Multi-class show: entrants pick a class when they enter (one entry per class, separate art).
-       The dropdown above is <b>Class 1</b>. Placements, ribbons and prize splits apply <b>per class</b>.</div>`;
+       <b>Class 1</b> is the discipline + level set above. Give each class its own <b>level</b> to run a multi-level show — e.g. an Entry class and an Abante class side by side. Placements, ribbons and prize splits apply <b>per class</b>.</div>`;
 }
 function bindClasses(){
   const add=$("cls_add"); if(!add) return;
@@ -2570,14 +2687,13 @@ function bindClasses(){
     const scored=Object.keys(DISCIPLINES).filter(d=>DISCIPLINES[d].mode!=="timed");
     const used=show.classes.map(c=>c.discipline);
     const next=scored.find(d=>!used.includes(d))||scored[0];
-    show.classes.push({id:"c_"+Math.random().toString(36).slice(2,8), discipline:next});
+    show.classes.push({id:"c_"+Math.random().toString(36).slice(2,8), discipline:next, bracket: Number.isFinite(Number(show.bracket))?show.bracket:10});
     invalidate(); renderAll();
   };
   const list=$("classList"); if(!list) return;
   list.addEventListener("change", e=>{
-    const i=e.target.dataset.cls; if(i===undefined) return;
-    show.classes[Number(i)].discipline=e.target.value;
-    invalidate(); renderAll();
+    if(e.target.dataset.cls!==undefined){ show.classes[Number(e.target.dataset.cls)].discipline=e.target.value; invalidate(); renderAll(); return; }
+    if(e.target.dataset.clsbk!==undefined){ show.classes[Number(e.target.dataset.clsbk)].bracket=Number(e.target.value)||10; invalidate(); renderAll(); return; }
   });
   list.addEventListener("click", e=>{
     const i=e.target.dataset.clsdel; if(i===undefined) return;
@@ -2810,16 +2926,28 @@ function entrantScreen(){
 function renderEvHorse(){
   const box=$("ev_horse");
   if(!evHorse){ box.innerHTML=""; return; }
-  const stats=DISCIPLINES[show.discipline].stats;
-  const pts=statScore(evHorse, show);
+  const classes=showClasses(show);
+  const chosenCls=classes.find(c=>c.id===window.__evClassId) || classes[0];
+  const view=classView(chosenCls, show);
+  const stats=DISCIPLINES[view.discipline].stats;
   const ev=trainingEvidence(evHorse, stats);
+  const useBk=usesBracket(view);
+  let eligLine="";
+  if(useBk){
+    const hb=entryBracket(evHorse, view), cb=Number(view.bracket);
+    const cur=disciplineCurrentAvg(evHorse, view).toFixed(1), trained=disciplineTrainingSum(evHorse, view).toFixed(1);
+    if(hb===cb) eligLine=`<div class="note good" style="margin-top:8px">Eligible — sits in the <b>${bracketLabel(cb)}</b> bracket (current avg ${cur}). Places on <b>${trained}</b> training done.</div>`;
+    else eligLine=`<div class="note warn" style="margin-top:8px"><b>${hb>cb?"Over-trained for this class":"Below this class"}.</b> Current avg ${cur} puts this horse in <b>${bracketLabel(hb)}</b>, not the ${bracketLabel(cb)} class — enter it in the ${bracketRange(hb)} bracket instead.</div>`;
+  }
+  const pts=statScore(evHorse, view);
   box.innerHTML=`<div class="entry" style="margin-top:12px">
     <div class="row" style="align-items:flex-start">
       <div style="flex:1"><div class="name">${esc(evHorse.name)}</div>
         <div class="meta">${esc(evHorse.breed)}${evHorse.breed?" · ":""}Level ${evHorse.level}</div>
         <div class="statline">${statLine(evHorse)}</div></div>
-      <div class="pts"><b>${pts}</b><div class="small muted">of ${stats.length*10} stat pts</div></div>
+      <div class="pts"><b>${pts}</b><div class="small muted">${useBk?"training done":`of ${stats.length*10} stat pts`}</div></div>
     </div>
+    ${eligLine}
     <details><summary>${ev.length?ev.length+" training entries back these stats":"No training log found"}</summary>
       ${ev.length?`<ul>${ev.map(x=>`<li>${esc(x.label)} — ${esc(x.raised.join(", "))}</li>`).join("")}</ul>`:""}
     </details>
