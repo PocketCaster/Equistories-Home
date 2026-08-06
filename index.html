@@ -1147,7 +1147,7 @@ async function renderMemberProfile(v, uid){
     DB.listAll('shops').catch(()=>[]),
     DB.listAll('breeds').catch(()=>[]),
   ]);
-  const mine   = horses.filter(h=>h.__owner===uid);
+  const mine   = horses.filter(h=>h.__owner===uid && !h.groupBreeding);   // group/NPC breeding stock is breed-managed, not a member's personal horse
   const theirs = riders.filter(r=>r.__owner===uid);
   const myShops  = shops.filter(s=>(s.__owner||s.owner)===uid);
   const myBreeds = breeds.filter(b=>b.owner===uid || (Array.isArray(b.staff) && b.staff.includes(uid)));
@@ -1582,7 +1582,10 @@ async function renderMembers(v){
 
   const drawList = ()=>{
     if(__membersBrowse === 'horses'){
-      const sorted = horses.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+      // Group/NPC breeding stock is breed-managed, not a member-owned horse —
+      // keep it out of the public directory (it's handled in Breed Admin).
+      const visible = horses.filter(h=>!h.groupBreeding);
+      const sorted = visible.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
       const tile = h=>{
         const photo = imgOk(h.profileImage) ? h.profileImage : (imgOk(h.image) ? h.image : '');
         return `<a class="linkbox" href="${__APPS.stable}?horse=${encodeURIComponent(h.id)}" target="_blank" style="display:block;padding:0;overflow:hidden;">
@@ -1594,7 +1597,7 @@ async function renderMembers(v){
             <div class="small muted">${__esc(h.breed||'—')}${h.level?` &middot; Lv ${h.level}`:''}${h.__owner?`<br>${__esc(h.__owner)}`:''}</div>
           </div></a>`;
       };
-      $("mList").innerHTML = `<h3 style="margin-top:0;">All Horses (${horses.length})</h3>` + (sorted.length
+      $("mList").innerHTML = `<h3 style="margin-top:0;">All Horses (${visible.length})</h3>` + (sorted.length
         ? `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;">${sorted.map(tile).join("")}</div>`
         : `<span class="muted">No horses yet.</span>`);
       return;
