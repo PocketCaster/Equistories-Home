@@ -9840,6 +9840,7 @@ function showProfileModal(horseId){
       statusEl.textContent = "Still working — slow connections or a busy sheet can take a bit longer. Don't close this window.";
     }, 6000);
     try{
+      const oldName = h.name;
       h.name  = wrap.querySelector('#pm_name').value.trim() || h.name;
       h.breed = wrap.querySelector('#pm_breed').value.trim() || h.breed;
       h.frame = frameAllowed(wrap.querySelector('#pm_frame').value, h.owner||h.ownerName||bankAccount.userId)
@@ -9859,11 +9860,29 @@ function showProfileModal(horseId){
       h.horseHistory = wrap.querySelector('#pm_history').value.trim();
       const cssField = wrap.querySelector('#pm_css');
       if(cssField) h.customCss = cssField.value;
+      // If the foal was renamed, keep the parents' breeding logs in step. Each
+      // parent stores a snapshot of the foal's name next to its foalId, which
+      // otherwise stays frozen at the birth name. Update every local parent that
+      // references this foal, and save those parents too — save() on its own
+      // only writes the horses whose ids you pass it. Parents owned by other
+      // members can't be touched from here; theirs refresh when they next open.
+      const renamedParents = [];
+      if(h.name !== oldName){
+        (state.horses||[]).forEach(p=>{
+          if(p.id === h.id) return;
+          let touched = false;
+          (p.breedingRecords||[]).forEach(rec=>{
+            if(rec.foalId === h.id && rec.foalName !== h.name){ rec.foalName = h.name; touched = true; }
+          });
+          if(touched) renamedParents.push(p);
+        });
+      }
       // Save the horse record and the shared stable state in parallel —
       // they're independent writes, so there's no need to wait on one
       // before starting the other. Roughly halves the worst-case wait
       // compared to running them one after another.
-      const [ok] = await Promise.all([ saveHorse(h), save() ]);
+      const results = await Promise.all([ saveHorse(h), save(), ...renamedParents.map(p=>saveHorse(p)) ]);
+      const ok = results[0];
       clearTimeout(slowNotice);
       renderHorseProfilePage(app, h);
       if(!ok) alert(`Profile was updated here, but saving it to the database failed. Try again — if it keeps happening, sign out and sign back in (top of the page).`);
