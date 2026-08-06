@@ -3839,7 +3839,7 @@ function renderRoster(){
     const statBars = STATS.map(s=>{
       const base=h.stats[s]||0, bonus=getEquippedStatBonus(h,s), eff=base+bonus;
       const key = dStats.includes(s);
-      return `<div style="flex:1 1 150px;display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:3px 8px;border-radius:5px;white-space:nowrap;${key?'background:#2a1f12;border:1px solid #4a3a1a;':'border:1px solid transparent;'}" ${key?`title="Key stat for ${h.discipline}"`:''}>
+      return `<div style="flex:0 1 auto;display:flex;align-items:baseline;gap:5px;padding:3px 7px;border-radius:5px;white-space:nowrap;${key?'background:#2a1f12;border:1px solid #4a3a1a;':'border:1px solid transparent;'}" ${key?`title="Key stat for ${h.discipline}"`:''}>
         <span style="font-size:.92em;color:${key?'var(--equi-brass-light)':'var(--dim)'};font-weight:${key?'bold':'normal'};">${key?'★ ':''}${STAT_LABELS[s]}</span>
         <span style="font-size:.92em;font-weight:bold;color:var(--accent);" title="${bonus?`Base ${base} + ${bonus} from tack = ${eff}`:`Base ${base}`}">${base}${bonus?` <span style="color:var(--good);font-weight:normal;">(+${bonus})</span>`:""}</span>
       </div>`;
@@ -3917,7 +3917,7 @@ function renderRoster(){
           </div>
           <div class="small">EXP: ${h.exp} / ${h.level<10?LEVEL_TABLE[h.level+1].exp:"MAX"}</div>
           <div class="expbar-bg"><div class="expbar-fill" style="width:${pct}%"></div></div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:6px;">${statBars}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;">${statBars}</div>
         </div>
       </div>
 
@@ -9451,7 +9451,7 @@ function renderHorseProfilePage(app, h){
   const statBars = STATS.map(s=>{
     const base=h.stats[s]||0, bonus=getEquippedStatBonus(h,s), eff=base+bonus;
     const key = dStatsP.includes(s);
-    return `<div style="flex:1 1 170px;display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:5px 10px;border-radius:5px;white-space:nowrap;${key?'background:#2a1f12;border:1px solid #4a3a1a;':'border:1px solid transparent;'}" ${key?`title="Key stat for ${h.discipline}"`:''}>
+    return `<div style="flex:0 1 auto;display:flex;align-items:baseline;gap:6px;padding:4px 9px;border-radius:5px;white-space:nowrap;${key?'background:#2a1f12;border:1px solid #4a3a1a;':'border:1px solid transparent;'}" ${key?`title="Key stat for ${h.discipline}"`:''}>
       <span style="font-size:1em;color:${key?'var(--equi-brass-light)':'var(--equi-dim)'};font-weight:${key?'bold':'normal'};">${key?'★ ':''}${STAT_LABELS[s]}</span>
       <span style="font-size:1em;font-weight:bold;color:var(--equi-accent);" title="${bonus?`Base ${base} + ${bonus} from tack = ${eff}`:`Base ${base}`}">${base}${bonus?` <span style="color:var(--equi-good);font-weight:normal;">(+${bonus})</span>`:""}</span>
     </div>`;
@@ -9600,7 +9600,7 @@ function renderHorseProfilePage(app, h){
           <div class="expbar-bg" style="margin-top:6px;max-width:260px;"><div class="expbar-fill" style="width:${pct}%"></div></div>
           <div style="margin-top:12px;">
             <h3 style="margin-bottom:8px;">Stats</h3>
-            <div style="display:flex;flex-wrap:wrap;gap:8px 14px;">${statBars}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px 10px;">${statBars}</div>
           </div>
           <div style="margin-top:16px;font-size:.98em;color:var(--equi-dim);">Net Worth: <b style="color:var(--equi-accent);">฿${netWorth.toLocaleString()}</b> &nbsp;|&nbsp; Breeding Slot: <b style="color:var(--equi-accent);">฿${slotPrice.toLocaleString()}</b></div>
           <details style="margin-top:4px;">
