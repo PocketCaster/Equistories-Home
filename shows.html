@@ -289,11 +289,11 @@
       </div>
       <div class="note hide" id="classNote"></div>
     </div>
-    <div class="grid" style="margin-top:14px">
-      <div style="grid-column:1/-1"><label for="f_judging">How is this show judged?</label>
-        <select id="f_judging"></select>
-        <div class="small muted" id="judgingBlurb" style="margin-top:6px"></div>
-      </div>
+    <div style="margin-top:14px"><label for="f_judging">How is this show judged?</label>
+      <select id="f_judging"></select>
+      <div class="small muted" id="judgingBlurb" style="margin-top:6px"></div>
+    </div>
+    <div class="grid" style="margin-top:14px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))">
       <div id="srcWrap"><label for="f_src">Stats counted</label>
         <select id="f_src">
           <option value="base">Base — training only</option>
@@ -1402,8 +1402,16 @@ function renderShowBar(saved){
   const sel=$("showPicker"); if(!sel) return;
   const store=loadStore();
   const ids=Object.keys(store.shows).sort((a,b)=>(store.shows[b].savedAt||0)-(store.shows[a].savedAt||0));
+  const pickLabel = s=>{
+    const title = esc(s.title||"Untitled");
+    // A multi-class show has more than one class — don't pin a single discipline
+    // to it; say "multi-class". A single-discipline show keeps its discipline.
+    if(Array.isArray(s.classes) && s.classes.length > 1) return `${title} · multi-class`;
+    const disc = s.discipline || (Array.isArray(s.classes) && s.classes[0] && s.classes[0].discipline);
+    return disc ? `${title} · ${esc(disc)}` : title;
+  };
   sel.innerHTML = ids.length
-    ? ids.map(id=>`<option value="${id}" ${id===show.id?"selected":""}>${esc(store.shows[id].title||"Untitled")}${store.shows[id].discipline?" · "+esc(store.shows[id].discipline):""}</option>`).join("")
+    ? ids.map(id=>`<option value="${id}" ${id===show.id?"selected":""}>${pickLabel(store.shows[id])}</option>`).join("")
     : `<option>(this show)</option>`;
   const st=$("saveStatus");
   if(st) st.textContent = saved===false ? "Couldn't save — private window?" : "Saved in this browser";
