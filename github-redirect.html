@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>EquiStories has moved</title>
+<script>
+(function(){
+  // The new home on Cloudflare:
+  var NEW_BASE = "https://equistories-rpg.equistoriesadmin.workers.dev";
+  // Which page was the old link for? Read it from the filename so this ONE file
+  // works as index.html, shows.html, stable.html, associations.html, admin.html,
+  // or a 404 catch-all — it maps ".../shows.html" -> "/shows".
+  var last = (location.pathname.split("/").pop() || "").toLowerCase();
+  var page = last.replace(/\.html$/, "");
+  if (page === "index" || page === "") page = "";        // home
+  // Keep BOTH the query (?show=ID) and the hash (#s=... legacy invites) intact —
+  // that's the part that identifies the specific show.
+  var dest = NEW_BASE + (page ? "/" + page : "/") + location.search + location.hash;
+  location.replace(dest);
+})();
+</script>
+<meta http-equiv="refresh" content="3;url=https://equistories-rpg.equistoriesadmin.workers.dev/">
+<style>body{font-family:Georgia,serif;background:#150f0a;color:#f2e7d6;text-align:center;padding:16vh 20px;}a{color:#ca9b3b;}h1{color:#ca9b3b;}</style>
+</head>
+<body>
+  <h1>EquiStories has moved</h1>
+  <p>Taking you to the new site&hellip; If nothing happens,
+     <a href="https://equistories-rpg.equistoriesadmin.workers.dev/">click here to continue</a>.</p>
+</body>
+</html>
